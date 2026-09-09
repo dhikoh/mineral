@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#064e3b" />
+      <stop offset="50%" stop-color="#047857" />
+      <stop offset="100%" stop-color="#0f172a" />
+    </linearGradient>
+    <linearGradient id="facetTop" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#34d399" />
+      <stop offset="100%" stop-color="#10b981" />
+    </linearGradient>
+    <linearGradient id="facetLeft" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10b981" />
+      <stop offset="100%" stop-color="#047857" />
+    </linearGradient>
+    <linearGradient id="facetRight" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6ee7b7" />
+      <stop offset="100%" stop-color="#059669" />
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="16" flood-color="#000000" flood-opacity="0.4" />
+    </filter>
+  </defs>
+
+  <!-- Background rounded rect -->
+  <rect width="512" height="512" rx="128" fill="url(#bgGrad)" />
+
+  <!-- Crystal Gem / Mineral Icon Group -->
+  <g filter="url(#shadow)" transform="translate(0, 0)">
+    <!-- Top Crown Facets -->
+    <polygon points="256,96 352,176 160,176" fill="url(#facetTop)" />
+    <polygon points="160,176 256,96 112,176" fill="#059669" opacity="0.9" />
+    <polygon points="352,176 256,96 400,176" fill="#34d399" opacity="0.8" />
+
+    <!-- Center Belt & Lower Pavilion Facets -->
+    <polygon points="112,176 160,176 184,336 80,240" fill="#047857" />
+    <polygon points="160,176 256,176 256,384 184,336" fill="url(#facetLeft)" />
+    <polygon points="256,176 352,176 328,336 256,384" fill="url(#facetRight)" />
+    <polygon points="352,176 400,176 432,240 328,336" fill="#10b981" opacity="0.85" />
+    <polygon points="184,336 256,384 328,336 256,416" fill="#34d399" />
+  </g>
+
+  <!-- Specular Sparkle -->
+  <circle cx="360" cy="140" r="10" fill="#ffffff" opacity="0.9" />
+  <circle cx="380" cy="120" r="4" fill="#ffffff" opacity="0.8" />
+  <circle cx="150" cy="200" r="6" fill="#ffffff" opacity="0.7" />
+</svg>

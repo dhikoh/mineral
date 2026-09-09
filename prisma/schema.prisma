@@ -1,0 +1,199 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  SUPERADMIN
+  ADMIN
+}
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  PENDING_VERIFICATION
+  PAID
+  PROCESSING
+  SHIPPED
+  COMPLETED
+  REJECTED
+  CANCELLED
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String   // bcrypt hash
+  role      Role     @default(SUPERADMIN)
+  createdAt DateTime @default(now())
+}
+
+model SiteSetting {
+  id                 String   @id @default(cuid())
+  siteName           String
+  tagline            String?
+  logoUrl            String?
+  faviconUrl         String?
+  primaryColor       String?  @default("#059669")
+  csWhatsapp         String?
+  csEmail            String?
+  csOperationalHours String?
+  address            String?
+  bankAccounts       Json     // [{ bank: "BCA", noRekening: "1234567890", atasNama: "PT Mineral Alam Indonesia" }]
+  footerText         String?
+  metaTitle          String?
+  metaDesc           String?
+  updatedAt          DateTime @updatedAt
+}
+
+model ContentBlock {
+  id        String   @id @default(cuid())
+  key       String   @unique // "homepage_hero", "about_us", "why_us", "shipping_info", "terms", "privacy_policy"
+  title     String?
+  content   String   @db.Text
+  updatedAt DateTime @updatedAt
+}
+
+model FAQ {
+  id       String  @id @default(cuid())
+  question String
+  answer   String  @db.Text
+  order    Int     @default(0)
+  isActive Boolean @default(true)
+}
+
+model Category {
+  id       String    @id @default(cuid())
+  name     String
+  slug     String    @unique
+  image    String?
+  products Product[]
+}
+
+model Usage {
+  id       String         @id @default(cuid())
+  name     String         // "Pertanian & Pupuk", "Pengolahan Air", dsb.
+  slug     String         @unique
+  products ProductUsage[]
+}
+
+model Product {
+  id          String         @id @default(cuid())
+  name        String
+  slug        String         @unique
+  description String         @db.Text
+  price       Int
+  stock       Int            @default(0)
+  images      Json           // array string URL: ["/uploads/..."]
+  tags        Json           // array string hashtag: ["zeolite","pupuk-organik"]
+  categoryId  String
+  category    Category       @relation(fields: [categoryId], references: [id])
+  usages      ProductUsage[]
+  isActive    Boolean        @default(true)
+  createdAt   DateTime       @default(now())
+}
+
+model ProductUsage {
+  productId String
+  usageId   String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  usage     Usage   @relation(fields: [usageId], references: [id], onDelete: Cascade)
+
+  @@id([productId, usageId])
+}
+
+model Order {
+  id             String        @id @default(cuid())
+  orderCode      String        @unique // ORD-YYYYMMDD-XXXX
+  buyerName      String
+  buyerPhone     String
+  buyerEmail     String?
+  buyerAddress   String        @db.Text
+  notes          String?       @db.Text
+  trackingNumber String?
+  status         OrderStatus   @default(PENDING_PAYMENT)
+  total          Int
+  items          OrderItem[]
+  proof          PaymentProof?
+  createdAt      DateTime      @default(now())
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId String
+  qty       Int
+  price     Int     // harga saat transaksi
+}
+
+model PaymentProof {
+  id              String    @id @default(cuid())
+  orderId         String    @unique
+  order           Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  fileUrl         String
+  senderBank      String?
+  senderName      String?
+  amount          Int?
+  note            String?
+  status          String    @default("PENDING") // PENDING, APPROVED, REJECTED
+  rejectionReason String?
+  uploadedAt      DateTime  @default(now())
+  verifiedBy      String?
+  verifiedAt      DateTime?
+}
+
+model Article {
+  id          String    @id @default(cuid())
+  title       String
+  slug        String    @unique
+  htmlContent String    @db.Text
+  thumbnail   String?
+  metaDesc    String?
+  isPublished Boolean   @default(false)
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+}
+
+enum CustomerType {
+  PROSPECT
+  CUSTOMER
+}
+
+enum LeadStatus {
+  BARU
+  DIHUBUNGI
+  SAMPEL_DIKIRIM
+  NEGOSIASI
+  DEAL
+  BATAL
+}
+
+model Customer {
+  id                 String        @id @default(cuid())
+  name               String
+  company            String?
+  phone              String        @unique
+  email              String?
+  address            String?
+  type               CustomerType  @default(PROSPECT)
+  status             LeadStatus    @default(BARU)
+  source             String        @default("WEBSITE_RFQ") // WEBSITE_RFQ, CHECKOUT, MANUAL_ADMIN, OFFLINE_EXPO
+  preferredCommodity String?
+  estimatedVolume    String?
+  notes              String?
+  totalOrders        Int           @default(0)
+  totalSpent         Int           @default(0)
+  lastContactAt      DateTime?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  @@index([phone])
+  @@index([type])
+  @@index([status])
+}
+
