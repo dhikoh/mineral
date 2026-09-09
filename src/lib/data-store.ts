@@ -526,6 +526,30 @@ export const DEFAULT_FAQS: FAQItem[] = [
   },
 ];
 
+export function handleDbFallback(fnName: string, err: any): boolean {
+  const isProduction = process.env.NODE_ENV === 'production';
+  const allowFallback = process.env.ALLOW_LOCAL_FALLBACK === 'true' || !isProduction;
+
+  console.warn(
+    JSON.stringify({
+      level: 'WARN',
+      event: 'DB_FALLBACK_TRIGGERED',
+      function: fnName,
+      isProduction,
+      allowFallback,
+      error: err?.message || String(err),
+      timestamp: new Date().toISOString(),
+    })
+  );
+
+  if (!allowFallback) {
+    throw new Error(
+      `[CRITICAL DATABASE ERROR] Failed executing ${fnName} against database: ${err?.message || err}. Local store fallback is disabled in production.`
+    );
+  }
+  return true;
+}
+
 function readLocalStore(): LocalStoreData {
   try {
     if (fs.existsSync(STORE_FILE)) {
@@ -565,6 +589,15 @@ function readLocalStore(): LocalStoreData {
 }
 
 function writeLocalStore(data: LocalStoreData) {
+  const isProduction = process.env.NODE_ENV === 'production';
+  const allowFallback = process.env.ALLOW_LOCAL_FALLBACK === 'true' || !isProduction;
+
+  if (!allowFallback) {
+    throw new Error(
+      '[CRITICAL PERSISTENCE ERROR] Attempted writing mutation data to local .local-store.json in production. Local store fallback is disabled.'
+    );
+  }
+
   try {
     fs.writeFileSync(STORE_FILE, JSON.stringify(data, null, 2), 'utf-8');
   } catch (e) {
@@ -1175,48 +1208,59 @@ export async function createOrder(data: {
   const total = resolvedItems.reduce((acc, curr) => acc + curr.price * curr.qty, 0);
 
   try {
-    const order = await prisma.order.create({
-      data: {
-        orderCode,
-        buyerName: data.buyerName,
-        buyerPhone: data.buyerPhone,
-        buyerEmail: data.buyerEmail || null,
-        buyerAddress: data.buyerAddress,
-        notes: data.notes || null,
-        total,
-        status: 'PENDING_PAYMENT',
-        items: {
-          create: resolvedItems.map((item) => ({
-            productId: item.productId,
-            qty: item.qty,
-            price: item.price,
-          })),
+    const order = await prisma.$transaction(async (tx) => {
+      // 1. Potong stok secara atomik & kondisional untuk cegah race condition / overselling (R-6)
+      for (const item of resolvedItems) {
+        const updateRes = await tx.product.updateMany({
+          where: {
+            id: item.productId,
+            stock: { gte: item.qty },
+          },
+          data: {
+            stock: { decrement: item.qty },
+          },
+        });
+
+        if (updateRes.count === 0) {
+          throw new Error(
+            `Stok komoditas "${item.product.name}" tidak mencukupi untuk jumlah pesanan ${item.qty}.`
+          );
+        }
+      }
+
+      // 2. Buat record Order beserta OrderItem dalam transaksi yang sama
+      return await tx.order.create({
+        data: {
+          orderCode,
+          buyerName: data.buyerName,
+          buyerPhone: data.buyerPhone,
+          buyerEmail: data.buyerEmail || null,
+          buyerAddress: data.buyerAddress,
+          notes: data.notes || null,
+          total,
+          status: 'PENDING_PAYMENT',
+          items: {
+            create: resolvedItems.map((item) => ({
+              productId: item.productId,
+              qty: item.qty,
+              price: item.price,
+            })),
+          },
         },
-      },
-      include: {
-        items: true,
-        proof: true,
-      },
+        include: {
+          items: true,
+          proof: true,
+        },
+      });
     });
 
-    // Deduct stock
-    for (const item of resolvedItems) {
-      await prisma.product
-        .update({
-          where: { id: item.productId },
-          data: { stock: { decrement: item.qty } },
-        })
-        .catch(() => {});
-    }
-
-    // Sync customer record
-    await syncCustomerFromOrder({
+    // 3. Catat calon pembeli sebagai prospek (R-7: belum DEAL, LTV/totalOrders belum bertambah)
+    await recordLeadFromCheckout({
       buyerName: data.buyerName,
       buyerPhone: data.buyerPhone,
       buyerEmail: data.buyerEmail,
       buyerAddress: data.buyerAddress,
-      total,
-    }).catch((err) => console.error('Error auto-syncing customer:', err));
+    }).catch((err) => console.error('Error auto-syncing lead from checkout:', err));
 
     return {
       ...order,
@@ -1228,9 +1272,32 @@ export async function createOrder(data: {
         };
       }),
     };
-  } catch {
+  } catch (err: any) {
+    // Jika kegagalan disebabkan stok habis saat transaksi atomik, lempar langsung ke pengguna!
+    if (err?.message?.includes('Stok komoditas') && err?.message?.includes('tidak mencukupi')) {
+      throw err;
+    }
+
+    handleDbFallback('createOrder', err);
+
     const store = readLocalStore();
     if (!store.orders) store.orders = [];
+
+    // Validasi stok di local store
+    for (const item of resolvedItems) {
+      const p = store.products.find((prod) => prod.id === item.productId);
+      if (!p || (p.stock !== null && p.stock !== undefined && p.stock < item.qty)) {
+        throw new Error(`Stok komoditas "${item.product.name}" tidak mencukupi.`);
+      }
+    }
+
+    // Deduct stock in local store
+    for (const item of resolvedItems) {
+      const pIdx = store.products.findIndex((p) => p.id === item.productId);
+      if (pIdx !== -1) {
+        store.products[pIdx].stock = Math.max(0, store.products[pIdx].stock - item.qty);
+      }
+    }
 
     const newOrder: OrderData = {
       id: `ord-${Date.now()}`,
@@ -1255,25 +1322,16 @@ export async function createOrder(data: {
       createdAt: new Date().toISOString(),
     };
 
-    // Deduct stock in local store
-    for (const item of resolvedItems) {
-      const pIdx = store.products.findIndex((p) => p.id === item.productId);
-      if (pIdx !== -1) {
-        store.products[pIdx].stock = Math.max(0, store.products[pIdx].stock - item.qty);
-      }
-    }
-
     store.orders.unshift(newOrder);
     writeLocalStore(store);
 
-    // Sync customer record in local fallback
-    await syncCustomerFromOrder({
+    // Sync lead prospek in local fallback (R-7)
+    await recordLeadFromCheckout({
       buyerName: data.buyerName,
       buyerPhone: data.buyerPhone,
       buyerEmail: data.buyerEmail,
       buyerAddress: data.buyerAddress,
-      total,
-    }).catch((err) => console.error('Error auto-syncing customer:', err));
+    }).catch((e) => console.error('Error syncing lead in local fallback:', e));
 
     return newOrder;
   }
@@ -1497,12 +1555,23 @@ export async function verifyPaymentProof(
       },
     });
 
-    return await prisma.order.update({
+    const updated = await prisma.order.update({
       where: { id: orderId },
       data: { status: orderStatus as any },
       include: { proof: true, items: true },
     });
-  } catch {
+
+    // R-7: Jika pembayaran disetujui (PAID), catat status DEAL & akumulasi LTV di database CRM
+    if (isApproved) {
+      await recordCustomerDealFromPaidOrder(orderId).catch((err) =>
+        console.error('Error recording CRM deal after payment verification:', err)
+      );
+    }
+
+    return updated;
+  } catch (err: any) {
+    handleDbFallback('verifyPaymentProof', err);
+
     const store = readLocalStore();
     const oIdx = (store.orders || []).findIndex((o) => o.id === orderId || o.orderCode === orderId);
     if (oIdx === -1) throw new Error('Pesanan tidak ditemukan');
@@ -1516,6 +1585,14 @@ export async function verifyPaymentProof(
 
     store.orders[oIdx].status = orderStatus as any;
     writeLocalStore(store);
+
+    // R-7: Catat deal CRM pada fallback lokal
+    if (isApproved) {
+      await recordCustomerDealFromPaidOrder(orderId).catch((e) =>
+        console.error('Error recording CRM deal in local fallback:', e)
+      );
+    }
+
     return store.orders[oIdx];
   }
 }
@@ -1526,20 +1603,86 @@ export async function updateOrderStatus(
   notes?: string,
   trackingNumber?: string
 ) {
-  try {
-    const updateData: any = { status };
-    if (notes !== undefined) updateData.notes = notes;
-    if (trackingNumber !== undefined) updateData.trackingNumber = trackingNumber;
+  const currentOrder = await getOrderById(orderId);
+  if (!currentOrder) throw new Error('Pesanan tidak ditemukan');
 
-    return await prisma.order.update({
-      where: { id: orderId },
-      data: updateData,
-      include: { proof: true, items: true },
+  const prevStatus = currentOrder.status;
+  const isCancelling =
+    (status === 'CANCELLED' || status === 'REJECTED') &&
+    prevStatus !== 'CANCELLED' &&
+    prevStatus !== 'REJECTED';
+  const wasPaid = ['PAID', 'PROCESSING', 'SHIPPED', 'COMPLETED'].includes(prevStatus);
+
+  try {
+    return await prisma.$transaction(async (tx) => {
+      // R-5: Kembalikan stok jika pesanan dibatalkan atau ditolak permanen
+      if (isCancelling && currentOrder.items && currentOrder.items.length > 0) {
+        for (const item of currentOrder.items) {
+          await tx.product.update({
+            where: { id: item.productId },
+            data: { stock: { increment: item.qty } },
+          }).catch((e) => console.warn(`Restock warning for product ${item.productId}:`, e?.message));
+        }
+      }
+
+      // R-7: Kompensasi LTV dan jumlah pesanan jika transaksi yang sudah sempat lunas dibatalkan
+      if (isCancelling && wasPaid) {
+        const normalizedPhone = normalizePhone(currentOrder.buyerPhone);
+        if (normalizedPhone) {
+          const cust = await tx.customer.findUnique({ where: { phone: normalizedPhone } });
+          if (cust) {
+            await tx.customer.update({
+              where: { id: cust.id },
+              data: {
+                totalOrders: Math.max(0, cust.totalOrders - 1),
+                totalSpent: Math.max(0, cust.totalSpent - Math.round(currentOrder.total)),
+                notes: cust.notes
+                  ? `${cust.notes}\n[${new Date().toLocaleDateString('id-ID')}] Pesanan ${currentOrder.orderCode} dibatalkan (Koreksi LTV -Rp ${currentOrder.total.toLocaleString('id-ID')}).`
+                  : `Pesanan ${currentOrder.orderCode} dibatalkan.`,
+              },
+            });
+          }
+        }
+      }
+
+      const updateData: any = { status };
+      if (notes !== undefined) updateData.notes = notes;
+      if (trackingNumber !== undefined) updateData.trackingNumber = trackingNumber;
+
+      return await tx.order.update({
+        where: { id: currentOrder.id },
+        data: updateData,
+        include: { proof: true, items: true },
+      });
     });
-  } catch {
+  } catch (err: any) {
+    handleDbFallback('updateOrderStatus', err);
+
     const store = readLocalStore();
     const oIdx = (store.orders || []).findIndex((o) => o.id === orderId || o.orderCode === orderId);
     if (oIdx === -1) throw new Error('Pesanan tidak ditemukan');
+
+    // R-5: Restock pada local fallback
+    if (isCancelling && currentOrder.items && currentOrder.items.length > 0) {
+      for (const item of currentOrder.items) {
+        const pIdx = store.products.findIndex((p) => p.id === item.productId);
+        if (pIdx !== -1) {
+          store.products[pIdx].stock = (store.products[pIdx].stock || 0) + item.qty;
+        }
+      }
+    }
+
+    // R-7: Kompensasi metrik customer pada local fallback
+    if (isCancelling && wasPaid) {
+      const normalizedPhone = normalizePhone(currentOrder.buyerPhone);
+      if (normalizedPhone && store.customers) {
+        const cIdx = store.customers.findIndex((c) => normalizePhone(c.phone) === normalizedPhone);
+        if (cIdx !== -1) {
+          store.customers[cIdx].totalOrders = Math.max(0, (store.customers[cIdx].totalOrders || 0) - 1);
+          store.customers[cIdx].totalSpent = Math.max(0, (store.customers[cIdx].totalSpent || 0) - Math.round(currentOrder.total));
+        }
+      }
+    }
 
     store.orders[oIdx].status = status;
     if (notes !== undefined) store.orders[oIdx].notes = notes;
@@ -2320,12 +2463,12 @@ export async function deleteCustomer(id: string): Promise<{ success: boolean }> 
   }
 }
 
-export async function syncCustomerFromOrder(order: {
+// R-7: Siklus Pelanggan CRM Tahap 1 - Pencatatan Prospek dari Checkout (Belum Lunas / Pending)
+export async function recordLeadFromCheckout(order: {
   buyerName: string;
   buyerPhone: string;
   buyerEmail?: string | null;
   buyerAddress?: string | null;
-  total: number;
 }): Promise<CustomerItem | null> {
   const normalizedPhone = normalizePhone(order.buyerPhone);
   if (!normalizedPhone) return null;
@@ -2342,11 +2485,111 @@ export async function syncCustomerFromOrder(order: {
           name: existing.name || order.buyerName,
           email: existing.email || order.buyerEmail || null,
           address: order.buyerAddress || existing.address || null,
+          lastContactAt: new Date(),
+        },
+      });
+      return {
+        ...updated,
+        lastContactAt: updated.lastContactAt ? updated.lastContactAt.toISOString() : null,
+        createdAt: updated.createdAt.toISOString(),
+        updatedAt: updated.updatedAt.toISOString(),
+      } as CustomerItem;
+    } else {
+      const created = await prisma.customer.create({
+        data: {
+          name: order.buyerName,
+          phone: normalizedPhone,
+          email: order.buyerEmail || null,
+          address: order.buyerAddress || null,
+          type: 'PROSPECT',
+          status: 'BARU',
+          source: 'CHECKOUT',
+          notes: 'Tercatat otomatis dari formulir checkout (menunggu pembayaran).',
+          totalOrders: 0,
+          totalSpent: 0,
+          lastContactAt: new Date(),
+        },
+      });
+      return {
+        ...created,
+        lastContactAt: created.lastContactAt ? created.lastContactAt.toISOString() : null,
+        createdAt: created.createdAt.toISOString(),
+        updatedAt: created.updatedAt.toISOString(),
+      } as CustomerItem;
+    }
+  } catch (err: any) {
+    handleDbFallback('recordLeadFromCheckout', err);
+
+    const store = readLocalStore();
+    if (!store.customers) store.customers = [...DEFAULT_CUSTOMERS];
+
+    const idx = store.customers.findIndex((c) => normalizePhone(c.phone) === normalizedPhone);
+    const now = new Date().toISOString();
+
+    if (idx !== -1) {
+      const c = store.customers[idx];
+      store.customers[idx] = {
+        ...c,
+        name: c.name || order.buyerName,
+        email: c.email || order.buyerEmail || null,
+        address: order.buyerAddress || c.address || null,
+        lastContactAt: now,
+        updatedAt: now,
+      };
+      writeLocalStore(store);
+      return store.customers[idx];
+    } else {
+      const newCust: CustomerItem = {
+        id: `cust-${Date.now()}`,
+        name: order.buyerName,
+        company: null,
+        email: order.buyerEmail || null,
+        phone: normalizedPhone,
+        address: order.buyerAddress || null,
+        type: 'PROSPECT',
+        status: 'BARU',
+        source: 'CHECKOUT',
+        preferredCommodity: null,
+        estimatedVolume: null,
+        notes: 'Tercatat otomatis dari formulir checkout (menunggu pembayaran).',
+        totalOrders: 0,
+        totalSpent: 0,
+        lastContactAt: now,
+        createdAt: now,
+        updatedAt: now,
+      };
+      store.customers.unshift(newCust);
+      writeLocalStore(store);
+      return newCust;
+    }
+  }
+}
+
+// R-7: Siklus Pelanggan CRM Tahap 2 - Akumulasi LTV & Status DEAL saat Pembayaran Diverifikasi Lunas
+export async function recordCustomerDealFromPaidOrder(orderId: string): Promise<CustomerItem | null> {
+  const order = await getOrderById(orderId);
+  if (!order) return null;
+
+  const normalizedPhone = normalizePhone(order.buyerPhone);
+  if (!normalizedPhone) return null;
+
+  try {
+    const existing = await prisma.customer.findUnique({
+      where: { phone: normalizedPhone },
+    });
+
+    if (existing) {
+      const updated = await prisma.customer.update({
+        where: { id: existing.id },
+        data: {
           type: 'CUSTOMER',
           status: 'DEAL',
           totalOrders: { increment: 1 },
           totalSpent: { increment: Math.round(order.total) },
           lastContactAt: new Date(),
+          notes: existing.notes
+            ? `${existing.notes}\n[${new Date().toLocaleDateString('id-ID')}] Pembayaran pesanan ${order.orderCode} diverifikasi lunas (Rp ${order.total.toLocaleString('id-ID')}).`
+            : `Pembayaran pesanan ${order.orderCode} diverifikasi lunas (Rp ${order.total.toLocaleString('id-ID')}).`,
         },
       });
       return {
@@ -2365,9 +2608,9 @@ export async function syncCustomerFromOrder(order: {
           type: 'CUSTOMER',
           status: 'DEAL',
           source: 'CHECKOUT',
-          notes: 'Dibuat otomatis dari guest checkout pesanan.',
           totalOrders: 1,
           totalSpent: Math.round(order.total),
+          notes: `Pembayaran pesanan ${order.orderCode} diverifikasi lunas (Rp ${order.total.toLocaleString('id-ID')}).`,
           lastContactAt: new Date(),
         },
       });
@@ -2378,7 +2621,9 @@ export async function syncCustomerFromOrder(order: {
         updatedAt: created.updatedAt.toISOString(),
       } as CustomerItem;
     }
-  } catch {
+  } catch (err: any) {
+    handleDbFallback('recordCustomerDealFromPaidOrder', err);
+
     const store = readLocalStore();
     if (!store.customers) store.customers = [...DEFAULT_CUSTOMERS];
 
@@ -2398,6 +2643,9 @@ export async function syncCustomerFromOrder(order: {
         totalSpent: (c.totalSpent || 0) + Math.round(order.total),
         lastContactAt: now,
         updatedAt: now,
+        notes: c.notes
+          ? `${c.notes}\n[${new Date().toLocaleDateString('id-ID')}] Pembayaran pesanan ${order.orderCode} diverifikasi lunas.`
+          : `Pembayaran pesanan ${order.orderCode} diverifikasi lunas.`,
       };
       writeLocalStore(store);
       return store.customers[idx];
@@ -2414,7 +2662,7 @@ export async function syncCustomerFromOrder(order: {
         source: 'CHECKOUT',
         preferredCommodity: null,
         estimatedVolume: null,
-        notes: 'Dibuat otomatis dari checkout transaksi.',
+        notes: `Pembayaran pesanan ${order.orderCode} diverifikasi lunas.`,
         totalOrders: 1,
         totalSpent: Math.round(order.total),
         lastContactAt: now,
@@ -2426,6 +2674,128 @@ export async function syncCustomerFromOrder(order: {
       return newCust;
     }
   }
+}
+
+// Fungsi pembungkus terpadu untuk backward compatibility
+export async function syncCustomerFromOrder(order: {
+  buyerName: string;
+  buyerPhone: string;
+  buyerEmail?: string | null;
+  buyerAddress?: string | null;
+  total: number;
+  isPaid?: boolean;
+}): Promise<CustomerItem | null> {
+  if (order.isPaid) {
+    const normalizedPhone = normalizePhone(order.buyerPhone);
+    if (!normalizedPhone) return null;
+
+    try {
+      const existing = await prisma.customer.findUnique({
+        where: { phone: normalizedPhone },
+      });
+
+      if (existing) {
+        const updated = await prisma.customer.update({
+          where: { id: existing.id },
+          data: {
+            name: existing.name || order.buyerName,
+            email: existing.email || order.buyerEmail || null,
+            address: order.buyerAddress || existing.address || null,
+            type: 'CUSTOMER',
+            status: 'DEAL',
+            totalOrders: { increment: 1 },
+            totalSpent: { increment: Math.round(order.total) },
+            lastContactAt: new Date(),
+          },
+        });
+        return {
+          ...updated,
+          lastContactAt: updated.lastContactAt ? updated.lastContactAt.toISOString() : null,
+          createdAt: updated.createdAt.toISOString(),
+          updatedAt: updated.updatedAt.toISOString(),
+        } as CustomerItem;
+      } else {
+        const created = await prisma.customer.create({
+          data: {
+            name: order.buyerName,
+            phone: normalizedPhone,
+            email: order.buyerEmail || null,
+            address: order.buyerAddress || null,
+            type: 'CUSTOMER',
+            status: 'DEAL',
+            source: 'CHECKOUT',
+            notes: 'Dibuat otomatis dari transaksi lunas.',
+            totalOrders: 1,
+            totalSpent: Math.round(order.total),
+            lastContactAt: new Date(),
+          },
+        });
+        return {
+          ...created,
+          lastContactAt: created.lastContactAt ? created.lastContactAt.toISOString() : null,
+          createdAt: created.createdAt.toISOString(),
+          updatedAt: created.updatedAt.toISOString(),
+        } as CustomerItem;
+      }
+    } catch (err: any) {
+      handleDbFallback('syncCustomerFromOrder(paid)', err);
+
+      const store = readLocalStore();
+      if (!store.customers) store.customers = [...DEFAULT_CUSTOMERS];
+
+      const idx = store.customers.findIndex((c) => normalizePhone(c.phone) === normalizedPhone);
+      const now = new Date().toISOString();
+
+      if (idx !== -1) {
+        const c = store.customers[idx];
+        store.customers[idx] = {
+          ...c,
+          name: c.name || order.buyerName,
+          email: c.email || order.buyerEmail || null,
+          address: order.buyerAddress || c.address || null,
+          type: 'CUSTOMER',
+          status: 'DEAL',
+          totalOrders: (c.totalOrders || 0) + 1,
+          totalSpent: (c.totalSpent || 0) + Math.round(order.total),
+          lastContactAt: now,
+          updatedAt: now,
+        };
+        writeLocalStore(store);
+        return store.customers[idx];
+      } else {
+        const newCust: CustomerItem = {
+          id: `cust-${Date.now()}`,
+          name: order.buyerName,
+          company: null,
+          email: order.buyerEmail || null,
+          phone: normalizedPhone,
+          address: order.buyerAddress || null,
+          type: 'CUSTOMER',
+          status: 'DEAL',
+          source: 'CHECKOUT',
+          preferredCommodity: null,
+          estimatedVolume: null,
+          notes: 'Dibuat otomatis dari transaksi lunas.',
+          totalOrders: 1,
+          totalSpent: Math.round(order.total),
+          lastContactAt: now,
+          createdAt: now,
+          updatedAt: now,
+        };
+        store.customers.unshift(newCust);
+        writeLocalStore(store);
+        return newCust;
+      }
+    }
+  }
+
+  // Jika belum dibayar (default saat form checkout submit), catat sebagai prospek lead awal
+  return recordLeadFromCheckout({
+    buyerName: order.buyerName,
+    buyerPhone: order.buyerPhone,
+    buyerEmail: order.buyerEmail,
+    buyerAddress: order.buyerAddress,
+  });
 }
 
 export async function createOrUpdateLead(data: {

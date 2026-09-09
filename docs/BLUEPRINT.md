@@ -1,5 +1,5 @@
 # BLUEPRINT — Web Marketplace Single-Seller + CMS Artikel + Template Reusable
-Terakhir diupdate: 2026-09-08 (Sesi #7 — Fase 7: Final Polish (SEO, PWA, Mobile Bottom Nav, Error Boundaries & End-to-End Verification) — 100% SELESAI LENGKAP)
+Terakhir diupdate: 2026-09-09 (Sesi #10 — Remediasi Produksi-Grade, Hardening Keamanan P0, Logika Stok/CRM P1 & Sinkronisasi Total Blueprint)
 
 ---
 
@@ -8,6 +8,7 @@ Website marketplace **single-seller** yang dirancang untuk satu penjual/pemilik 
 - Katalog produk komoditas/barang dengan taksonomi multi-dimensi (Kategori utama, Peruntukan/Usage terkontrol, dan Hashtags/Tags bebas).
 - Guest checkout cepat tanpa wajib registrasi akun, pelacakan status pesanan real-time via `orderCode` unik + nomor HP/WA.
 - Pembayaran manual transfer bank dengan upload bukti transfer dan verifikasi manual oleh Superadmin.
+- Mini-CRM B2B terintegrasi: penangkapan leads RFQ publik, manajemen direktori prospek & pelanggan, riwayat nilai transaksi (LTV), dan ekspor CSV.
 - CMS Artikel berbasis HTML terintegrasi dengan sanitasi XSS yang ketat.
 - CMS Teks Web (`ContentBlock`) untuk mengelola headline hero, tentang kami, syarat & ketentuan, dsb.
 - Modul FAQ interaktif dengan kontrol urutan dan status aktif.
@@ -18,58 +19,192 @@ Website marketplace **single-seller** yang dirancang untuk satu penjual/pemilik 
 ---
 
 ## 2. Tech Stack
-- **Framework**: Next.js 14/15 (App Router) + TypeScript
+- **Framework**: Next.js 16 (App Router) + React 19 + TypeScript
 - **Styling**: Tailwind CSS + utilitas class (`clsx`, `tailwind-merge`)
 - **Icons**: Lucide React
 - **Database**: PostgreSQL (kompatibel cloud PostgreSQL seperti Neon, Supabase, Railway, atau instance mandiri)
-- **ORM**: Prisma Client & Prisma CLI
-- **Auth Admin**: Custom secure session (JWT / HTTP-only secure cookie) + `bcryptjs` untuk password hashing
-- **File Upload**: Endpoint terpusat `/api/upload` (penyimpanan lokal `/public/uploads` untuk MVP, arsitektur modular siap switch ke S3/Cloudflare R2/Supabase Storage)
+- **ORM**: Prisma Client & Prisma CLI (v6)
+- **Auth Admin**: Custom secure session (JWT / HTTP-only secure cookie via `jose`) + `bcryptjs` untuk password hashing
+- **File Upload**: Endpoint terpusat `/api/upload` dengan rate limiting per-IP dan validasi Magic Bytes berkas fisik (JPG, PNG, WEBP, PDF)
 - **Sanitasi HTML**: `sanitize-html` untuk artikel & ContentBlock
 - **Search & Filter**: Server-side query Prisma dengan URL query parameter state (`/produk?kategori=...&peruntukan=...&q=...`)
 
 ---
 
-## 3. Struktur Folder
+## 3. Struktur Folder Aktual
 ```text
 mineral/
 ├── docs/
-│   ├── BLUEPRINT.md          # Single Source of Truth proyek
-│   └── NOTEPATCH.md          # Changelog kronologis kerja multi-sesi
+│   ├── BLUEPRINT.md          # Single Source of Truth proyek (sinkron 100%)
+│   └── NOTEPATCH.md          # Log perubahan historis per sesi
 ├── prisma/
-│   ├── schema.prisma         # Definisi 12 model database
-│   └── seed.ts               # Data awal: superadmin, mineral, settings, FAQ
+│   ├── schema.prisma         # Definisi 13 model database & enum
+│   └── seed.ts               # Data awal: superadmin, kategori, komoditas, settings, FAQ
 ├── public/
-│   ├── uploads/              # Direktori penyimpanan media lokal (MVP)
-│   └── favicon.ico
+│   ├── icons/                # Aset PWA Icons & Favicon
+│   │   ├── apple-touch-icon.png
+│   │   ├── icon-192.png
+│   │   ├── icon-512.png
+│   │   └── icon.svg
+│   ├── uploads/              # Media upload lokal
+│   │   └── .gitkeep
+│   ├── apple-touch-icon.png
+│   ├── favicon.svg
+│   ├── manifest.json
+│   ├── offline.html
+│   └── sw.js
+├── scripts/
+│   ├── test-crm-http.ts      # Pengujian HTTP endpoint CRM & otorisasi admin (401 & 200)
+│   ├── test-crm-module.ts    # Pengujian modul CRM B2B & kalkulasi LTV
+│   └── test-phase7-e2e.ts    # Pengujian menyeluruh SEO, PWA, dan data store
 ├── src/
 │   ├── app/
-│   │   ├── (storefront)/     # Halaman publik: Beranda, Produk, Detail, Artikel, FAQ, dsb.
-│   │   ├── admin/            # Panel Superadmin (Login, Dashboard, Produk, Pesanan, dsb.)
-│   │   ├── api/              # API endpoints (auth, upload, checkout, tracking)
-│   │   ├── layout.tsx        # Root layout publik & wrapper tema
-│   │   └── globals.css       # Tailwind directives & custom styles
+│   │   ├── admin/
+│   │   │   ├── artikel/
+│   │   │   │   ├── [id]/page.tsx
+│   │   │   │   ├── baru/page.tsx
+│   │   │   │   └── page.tsx
+│   │   │   ├── dashboard/page.tsx
+│   │   │   ├── faq/page.tsx
+│   │   │   ├── kategori/page.tsx
+│   │   │   ├── konten/page.tsx
+│   │   │   ├── login/page.tsx
+│   │   │   ├── pelanggan/page.tsx
+│   │   │   ├── pengaturan/page.tsx
+│   │   │   ├── peruntukan/page.tsx
+│   │   │   ├── pesanan/
+│   │   │   │   ├── [id]/
+│   │   │   │   │   ├── AdminOrderDetailClient.tsx
+│   │   │   │   │   └── page.tsx
+│   │   │   │   └── page.tsx
+│   │   │   └── produk/
+│   │   │       ├── [id]/page.tsx
+│   │   │       ├── baru/page.tsx
+│   │   │       └── page.tsx
+│   │   ├── api/
+│   │   │   ├── admin/
+│   │   │   │   ├── artikel/
+│   │   │   │   │   ├── [id]/route.ts
+│   │   │   │   │   └── route.ts
+│   │   │   │   ├── auth/
+│   │   │   │   │   ├── login/route.ts
+│   │   │   │   │   ├── logout/route.ts
+│   │   │   │   │   └── me/route.ts
+│   │   │   │   ├── dashboard/stats/route.ts
+│   │   │   │   ├── faq/
+│   │   │   │   │   ├── [id]/route.ts
+│   │   │   │   │   └── route.ts
+│   │   │   │   ├── kategori/
+│   │   │   │   │   ├── [id]/route.ts
+│   │   │   │   │   └── route.ts
+│   │   │   │   ├── konten/route.ts
+│   │   │   │   ├── pelanggan/
+│   │   │   │   │   ├── [id]/route.ts
+│   │   │   │   │   ├── export/route.ts
+│   │   │   │   │   └── route.ts
+│   │   │   │   ├── pengaturan/route.ts
+│   │   │   │   ├── peruntukan/
+│   │   │   │   │   ├── [id]/route.ts
+│   │   │   │   │   └── route.ts
+│   │   │   │   ├── pesanan/
+│   │   │   │   │   ├── [id]/
+│   │   │   │   │   │   ├── verifikasi/route.ts
+│   │   │   │   │   │   └── route.ts
+│   │   │   │   │   └── route.ts
+│   │   │   │   └── produk/
+│   │   │   │       ├── [id]/route.ts
+│   │   │   │       └── route.ts
+│   │   │   ├── checkout/route.ts
+│   │   │   ├── lacak-pesanan/route.ts
+│   │   │   ├── leads/route.ts
+│   │   │   ├── pesanan/
+│   │   │   │   └── [orderCode]/
+│   │   │   │       ├── bukti/route.ts
+│   │   │   │       └── route.ts
+│   │   │   └── upload/route.ts
+│   │   ├── artikel/
+│   │   │   ├── [slug]/page.tsx
+│   │   │   └── page.tsx
+│   │   ├── checkout/
+│   │   │   ├── layout.tsx
+│   │   │   └── page.tsx
+│   │   ├── faq/
+│   │   │   ├── FAQClient.tsx
+│   │   │   └── page.tsx
+│   │   ├── kategori/[slug]/page.tsx
+│   │   ├── keranjang/
+│   │   │   ├── layout.tsx
+│   │   │   └── page.tsx
+│   │   ├── kontak/page.tsx
+│   │   ├── lacak-pesanan/
+│   │   │   ├── OrderTrackingClient.tsx
+│   │   │   └── page.tsx
+│   │   ├── pesanan/[orderCode]/
+│   │   │   ├── layout.tsx
+│   │   │   ├── OrderDetailClient.tsx
+│   │   │   └── page.tsx
+│   │   ├── produk/
+│   │   │   ├── [slug]/page.tsx
+│   │   │   └── page.tsx
+│   │   ├── syarat-ketentuan/page.tsx
+│   │   ├── tentang-kami/page.tsx
+│   │   ├── error.tsx
+│   │   ├── globals.css
+│   │   ├── layout.tsx
+│   │   ├── loading.tsx
+│   │   ├── manifest.ts
+│   │   ├── not-found.tsx
+│   │   ├── page.tsx
+│   │   ├── robots.ts
+│   │   └── sitemap.ts
 │   ├── components/
-│   │   ├── layout/           # Navbar, BottomNav (mobile PWA), Footer, FloatingCS
-│   │   ├── ui/               # Reusable atomic UI (Button, Badge, Card, Modal, Input)
-│   │   ├── storefront/       # ProductCard, CategoryChips, FilterSidebar, HeroSection
-│   │   └── admin/            # AdminSidebar, AdminHeader, StatusBadge, ImageUploader
+│   │   ├── admin/ArticleForm.tsx
+│   │   ├── common/
+│   │   │   ├── PwaPrompt.tsx
+│   │   │   └── WhatsAppButton.tsx
+│   │   ├── layout/
+│   │   │   ├── BottomNav.tsx
+│   │   │   ├── Footer.tsx
+│   │   │   └── Navbar.tsx
+│   │   ├── storefront/
+│   │   │   ├── ActiveFilterChips.tsx
+│   │   │   ├── FilterSidebar.tsx
+│   │   │   ├── MobileFilterDrawerTrigger.tsx
+│   │   │   ├── ProductCard.tsx
+│   │   │   ├── ProductDetailClient.tsx
+│   │   │   ├── RfqModal.tsx
+│   │   │   ├── SortSelect.tsx
+│   │   │   └── WholesaleRfqTrigger.tsx
+│   │   └── ui/
+│   │       ├── ImageUploader.tsx
+│   │       └── TagInput.tsx
 │   ├── lib/
-│   │   ├── db.ts             # Prisma client singleton
-│   │   ├── auth.ts           # Helper autentikasi & session JWT admin
-│   │   ├── sanitize.ts       # Konfigurasi whitelist sanitize-html
-│   │   └── utils.ts          # Helper formatting rupiah, slugify, cn
-│   └── middleware.ts         # Proteksi rute /admin/*
+│   │   ├── auth.ts           # Token verification, JWT fail-fast, session helpers
+│   │   ├── cart-context.tsx   # React context state keranjang
+│   │   ├── data-store.ts     # Data access layer (Prisma + local dev fallback)
+│   │   ├── db.ts             # Prisma Client instance
+│   │   ├── sanitize.ts       # HTML sanitizer
+│   │   └── utils.ts          # Format rupiah, slugify, generateOrderCode
+│   └── middleware.ts         # Defense-in-depth auth guard (/admin/* & /api/admin/*)
+├── .env
 ├── .env.example
+├── .gitignore
+├── .local-store.json
+├── AGENTS.md
+├── CLAUDE.md
+├── next-env.d.ts
+├── next.config.mjs
+├── package-lock.json
 ├── package.json
+├── postcss.config.mjs
+├── README.md
 ├── tailwind.config.ts
 └── tsconfig.json
 ```
 
 ---
 
-## 4. Database Schema
-Status: **Direncanakan & Diterapkan pada Fase 1**
+## 4. Database Schema (Identik dengan `prisma/schema.prisma`)
 
 ```prisma
 datasource db {
@@ -101,7 +236,7 @@ model User {
   id        String   @id @default(cuid())
   name      String
   email     String   @unique
-  password  String
+  password  String   // bcrypt hash
   role      Role     @default(SUPERADMIN)
   createdAt DateTime @default(now())
 }
@@ -112,12 +247,12 @@ model SiteSetting {
   tagline            String?
   logoUrl            String?
   faviconUrl         String?
-  primaryColor       String?
+  primaryColor       String?  @default("#059669")
   csWhatsapp         String?
   csEmail            String?
   csOperationalHours String?
   address            String?
-  bankAccounts       Json     // [{ bank: "BCA", noRekening: "1234567890", atasNama: "PT Mineral" }]
+  bankAccounts       Json     // [{ bank: "BCA", noRekening: "1234567890", atasNama: "PT Mineral Alam Indonesia" }]
   footerText         String?
   metaTitle          String?
   metaDesc           String?
@@ -126,7 +261,7 @@ model SiteSetting {
 
 model ContentBlock {
   id        String   @id @default(cuid())
-  key       String   @unique
+  key       String   @unique // "homepage_hero", "about_us", "why_us", "shipping_info", "terms", "privacy_policy"
   title     String?
   content   String   @db.Text
   updatedAt DateTime @updatedAt
@@ -150,7 +285,7 @@ model Category {
 
 model Usage {
   id       String         @id @default(cuid())
-  name     String
+  name     String         // "Pertanian & Pupuk", "Pengolahan Air", dsb.
   slug     String         @unique
   products ProductUsage[]
 }
@@ -162,7 +297,7 @@ model Product {
   description String         @db.Text
   price       Int
   stock       Int            @default(0)
-  images      Json           // array string URL
+  images      Json           // array string URL: ["/uploads/..."]
   tags        Json           // array string hashtag: ["zeolite","pupuk-organik"]
   categoryId  String
   category    Category       @relation(fields: [categoryId], references: [id])
@@ -181,16 +316,19 @@ model ProductUsage {
 }
 
 model Order {
-  id           String        @id @default(cuid())
-  orderCode    String        @unique // ORD-YYYYMMDD-XXXX
-  buyerName    String
-  buyerPhone   String
-  buyerAddress String        @db.Text
-  status       OrderStatus   @default(PENDING_PAYMENT)
-  total        Int
-  items        OrderItem[]
-  proof        PaymentProof?
-  createdAt    DateTime      @default(now())
+  id             String        @id @default(cuid())
+  orderCode      String        @unique // ORD-YYYYMMDD-XXXX
+  buyerName      String
+  buyerPhone     String
+  buyerEmail     String?
+  buyerAddress   String        @db.Text
+  notes          String?       @db.Text
+  trackingNumber String?
+  status         OrderStatus   @default(PENDING_PAYMENT)
+  total          Int
+  items          OrderItem[]
+  proof          PaymentProof?
+  createdAt      DateTime      @default(now())
 }
 
 model OrderItem {
@@ -199,18 +337,23 @@ model OrderItem {
   order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   productId String
   qty       Int
-  price     Int
+  price     Int     // harga saat transaksi
 }
 
 model PaymentProof {
-  id         String    @id @default(cuid())
-  orderId    String    @unique
-  order      Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  fileUrl    String
-  note       String?
-  uploadedAt DateTime  @default(now())
-  verifiedBy String?
-  verifiedAt DateTime?
+  id              String    @id @default(cuid())
+  orderId         String    @unique
+  order           Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  fileUrl         String
+  senderBank      String?
+  senderName      String?
+  amount          Int?
+  note            String?
+  status          String    @default("PENDING") // PENDING, APPROVED, REJECTED
+  rejectionReason String?
+  uploadedAt      DateTime  @default(now())
+  verifiedBy      String?
+  verifiedAt      DateTime?
 }
 
 model Article {
@@ -248,7 +391,7 @@ model Customer {
   address            String?
   type               CustomerType  @default(PROSPECT)
   status             LeadStatus    @default(BARU)
-  source             String        @default("WEBSITE_RFQ")
+  source             String        @default("WEBSITE_RFQ") // WEBSITE_RFQ, CHECKOUT, MANUAL_ADMIN, OFFLINE_EXPO
   preferredCommodity String?
   estimatedVolume    String?
   notes              String?
@@ -268,11 +411,11 @@ model Customer {
 
 ## 5. Role & Permission
 
-| Role | Hak Akses | Catatan |
+| Role | Hak Akses | Catatan Keamanan |
 |---|---|---|
-| **Superadmin** | Full akses: Pengaturan situs, kelola produk, kategori, peruntukan, verifikasi pesanan & pembayaran, CMS artikel, CMS teks & FAQ, serta CRM Database Pelanggan & Prospek Leads. | Akses via kredensial login `/admin/login`. Sesi aman via HTTP-only cookie. |
+| **Superadmin** | Full akses: Pengaturan situs, kelola produk, kategori, peruntukan, verifikasi pembayaran pesanan, CMS artikel, CMS teks & FAQ, serta CRM Database Pelanggan & Prospek Leads. | Seluruh endpoint admin diproteksi ganda via middleware dan `getAdminSession()`. Sesi via HTTP-only cookie. |
 | **Admin** | Operasional katalog, pesanan, dan follow-up prospek sales. | Disiapkan strukturnya pada role enum. |
-| **Buyer / Publik** | Browse katalog, pencarian & filter, guest checkout, request penawaran resmi (RFQ), upload bukti transfer, lacak pesanan via `orderCode` + HP, membaca artikel & FAQ, klik-chat CS WhatsApp. | Tanpa wajib login / registrasi akun. |
+| **Buyer / Publik** | Browse katalog, pencarian & filter, guest checkout, request penawaran resmi (RFQ), upload bukti transfer (JPG/PNG/WEBP/PDF max 5MB rate limited), lacak pesanan via `orderCode` + HP, membaca artikel & FAQ, klik-chat CS WhatsApp. | Tanpa wajib login / registrasi akun. |
 
 ---
 
@@ -281,88 +424,119 @@ model Customer {
 | Fitur | Status | Catatan |
 |---|---|---|
 | Inisialisasi Project (Next.js + Tailwind + TS) | Selesai | Fase 1: Next.js 16 (App Router) + TS + Tailwind v3 + Lucide Icons |
-| Setup Schema Prisma & Migrasi | Selesai | Fase 1: 12 model Prisma lengkap, validasi & Prisma Client generated |
+| Setup Schema Prisma & Migrasi | Selesai | Fase 1: 13 model Prisma lengkap, validasi & Prisma Client generated |
 | Seed Data Awal (Komoditas Mineral) | Selesai | Fase 1: Script seed (Zeolite, Bentonite, Timah, Gaharu, dsb.) |
-| Auth Superadmin (Login, Logout, Middleware) | Selesai | Fase 1: bcrypt hash, JWT session httpOnly cookie, proteksi /admin/* |
-| Upload Gambar (Komponen Bersama: File & URL) | Selesai | Fase 2: Endpoint /api/upload + komponen ImageUploader (file & link) |
-| CRUD Kategori & Peruntukan | Selesai | Fase 2: Endpoint & UI Admin /admin/kategori dan /admin/peruntukan |
-| CRUD Produk (Galeri, Tags, Peruntukan) | Selesai | Fase 2: Endpoint & UI Admin /admin/produk (tabel, baru, edit) |
+| Auth Superadmin (Login, Logout, Middleware) | Selesai (Hardened) | Sesi #10: Fail-fast JWT Secret (>= 32 chars), backdoor dihapus di produksi, middleware defense-in-depth |
+| Otorisasi Admin API 100% Terlindungi | Selesai (Hardened) | Sesi #10: Seluruh endpoint `/api/admin/**` menolak akses tanpa sesi dengan HTTP 401 |
+| Upload Berkas Terlindungi | Selesai (Hardened) | Sesi #10: Rate limiting per-IP, verifikasi Magic Bytes fisik, disallow format SVG |
+| CRUD Kategori & Peruntukan | Selesai (Terproteksi) | Sesi #10: Endpoint & UI Admin terlindungi otorisasi penuh |
+| CRUD Produk (Galeri, Tags, Peruntukan) | Selesai (Terproteksi) | Sesi #10: Endpoint & UI Admin terlindungi otorisasi penuh |
 | Storefront Publik & Keranjang Belanja | Selesai | Fase 2: /produk, /produk/[slug], /keranjang + CartContext localStorage |
-| Pencarian & Filter Multi-Dimensi (URL Query) | Selesai | Fase 3: FilterSidebar desktop sticky + mobile bottom drawer, SortSelect, ActiveFilterChips, data-store multi-select |
-| Checkout & Upload Bukti Pembayaran | Selesai | Fase 4: /checkout form guest, /pesanan/[orderCode] rekening resmi & upload bukti bayar, API checkout & bukti |
-| Verifikasi Pembayaran Superadmin | Selesai | Fase 4: /admin/pesanan tabel filter status, /admin/pesanan/[id] tinjau bukti, persetujuan/penolakan, kontrol resi |
-| Pelacakan Pesanan Publik | Selesai | Fase 4: /lacak-pesanan verifikasi orderCode + no WA pembeli, visual stepper progress 6-tahap |
-| CMS Artikel (HTML Sanitizer, Slug Generator) | Selesai | Fase 5: /admin/artikel CRUD, editor HTML live preview, sanitasi XSS, listing /artikel & detail /artikel/[slug] |
-| CMS Konten Teks Web (`ContentBlock`) | Selesai | Fase 6: Editor tabbed /admin/konten untuk 6 blok konten, sanitasi HTML, integrasi dinamis ke beranda, tentang-kami, syarat-ketentuan |
-| Modul FAQ Dinamis | Selesai | Fase 6: CRUD /admin/faq, urutan tampil, toggle status aktif, etalase publik /faq dengan live search filter & akordeon interaktif |
-| Site Settings & WhatsApp Click-to-Chat | Selesai | Fase 6: Form /admin/pengaturan 3 tab (identitas, kontak CS, rekening transfer), floating WhatsAppButton dengan animasi denyut |
-| Dashboard Ringkasan Superadmin | Selesai | Fase 6: /admin/dashboard metrik live omset terverifikasi, pending verifikasi, komoditas aktif, alert stok rendah, tabel recent orders |
-| Polish: SEO, PWA/Mobile Bottom Nav, End-to-End | Selesai | Fase 7: Manifest PWA, Service Worker offline caching, dynamic sitemap.xml, robots.txt, Schema.org JSON-LD (Organization, Product, NewsArticle, FAQPage, BreadcrumbList), safe-area BottomNav (xpdchub), custom 404/error/loading boundaries, E2E audit 39/39 passed, production build 100% sukses |
-| Database Pelanggan & CRM Prospek/Leads (B2B) | Selesai | Sesi #8/9: Model Customer & Enum (LeadStatus, CustomerType), Public RFQ Lead Capture modal di detail produk & homepage, full CRUD admin (/admin/pelanggan), auto-sync dari guest checkout, anti-duplikasi nomor WhatsApp cerdas, 1-Click WhatsApp Direct Chat, ekspor CSV UTF-8 BOM, integrasi kartu metrik dashboard admin. |
+| Pencarian & Filter Multi-Dimensi (URL Query) | Selesai | Fase 3: FilterSidebar desktop sticky + mobile bottom drawer, SortSelect, ActiveFilterChips |
+| Checkout & Transaksi Stok Atomik | Selesai (Anti-Overselling) | Sesi #10: `prisma.$transaction` dengan validasi kondisional `stock >= qty` |
+| Restock Pembatalan Pesanan | Selesai (Terverifikasi) | Sesi #10: Pengembalian stok otomatis saat status pesanan menjadi `CANCELLED`/`REJECTED` |
+| Verifikasi Pembayaran Superadmin | Selesai | Fase 4: Persetujuan/penolakan bukti transfer, kontrol nomor resi |
+| Pelacakan Pesanan Publik | Selesai | Fase 4: /lacak-pesanan verifikasi orderCode + no WA pembeli, visual stepper progress |
+| CMS Artikel (HTML Sanitizer, Slug Generator) | Selesai | Fase 5: Editor HTML live preview, sanitasi XSS, listing & detail artikel |
+| CMS Konten Teks Web (`ContentBlock`) | Selesai | Fase 6: Editor tabbed /admin/konten untuk 6 blok teks |
+| Modul FAQ Dinamis | Selesai | Fase 6: CRUD /admin/faq, urutan tampil, toggle status aktif |
+| Site Settings & WhatsApp Click-to-Chat | Selesai | Fase 6: Form /admin/pengaturan 3 tab, floating WhatsAppButton |
+| Dashboard Ringkasan Superadmin | Selesai | Fase 6: /admin/dashboard metrik live omset terverifikasi, pending verifikasi |
+| Polish: SEO, PWA/Mobile Bottom Nav, End-to-End | Selesai (Aset Valid) | Sesi #10: Seluruh aset ikon PWA (192px, 512px, svg, apple-touch) valid dan HTTP 200 |
+| Database Pelanggan & CRM Prospek/Leads (B2B) | Selesai (Siklus Benar) | Sesi #10: Checkout mencatat status PROSPECT (belum lunas), promosi DEAL & akumulasi LTV hanya saat pembayaran terverifikasi sah |
 
 ---
 
-## 7. API / Route List
+## 7. Matriks Endpoint API Lengkap (28 Route)
 
-### Publik:
-- `GET /` — Beranda (Hero, Highlight Kategori, Produk Unggulan, Wholesale RFQ Banner)
-- `GET /produk` — Listing produk dengan filter (kategori, peruntukan, harga, stok, sort)
-- `GET /produk/[slug]` — Detail produk + tombol Minta Penawaran Industri (RFQ)
-- `GET /kategori/[slug]` — Shortcut listing produk per kategori
-- `GET /keranjang` — Halaman keranjang belanja
-- `GET /checkout` — Formulir checkout pesanan guest
-- `GET /lacak-pesanan` — Halaman pelacakan pesanan (input `orderCode` + nomor HP)
-- `GET /artikel` — Listing artikel edukasi & komoditas
-- `GET /artikel/[slug]` — Detail artikel dengan konten HTML tersanitasi
-- `GET /faq` — Tanya jawab umum
-- `GET /tentang-kami` — Halaman profil usaha (dari ContentBlock)
-- `GET /kontak` — Info kontak & tombol WhatsApp CS
-- `POST /api/leads` — Endpoint publik penangkapan prospek RFQ penawaran harga
-
-### Superadmin (`/admin/*`):
-- `GET /admin/login` — Halaman login
-- `GET /admin/dashboard` — Dashboard metrik & status
-- `GET /admin/produk` — Manajemen produk
-- `GET /admin/kategori` — Manajemen kategori
-- `GET /admin/peruntukan` — Manajemen taksonomi peruntukan
-- `GET /admin/pesanan` — Daftar pesanan & verifikasi pembayaran
-- `GET /admin/pesanan/[id]` — Detail pesanan & persetujuan bukti transfer
-- `GET /admin/pelanggan` — Panel antarmuka CRM Database Pelanggan & Prospek
-- `GET /admin/artikel` — Manajemen CMS artikel
-- `GET /admin/konten` — CMS blok teks web
-- `GET /admin/faq` — Manajemen tanya jawab
-- `GET /admin/pengaturan` — Site settings, rekening bank, kontak CS
-- `GET, POST /api/admin/pelanggan` — API daftar & tambah kontak pelanggan
-- `GET, PUT, DELETE /api/admin/pelanggan/[id]` — API detail, ubah data/status/catatan, & hapus kontak
-- `GET /api/admin/pelanggan/export` — API unduh ekspor file CSV database kontak
+| Method | Endpoint | Tipe Akses | Deskripsi & Proteksi |
+|---|---|---|---|
+| `POST` | `/api/checkout` | Publik | Formulir guest checkout (transaksi atomik potong stok & catat lead) |
+| `GET` | `/api/pesanan/[orderCode]` | Publik | Detail pesanan untuk verifikasi nomor rekening & upload bukti |
+| `POST` | `/api/pesanan/[orderCode]/bukti` | Publik | Simpan informasi bukti transfer pembayaran |
+| `POST` | `/api/lacak-pesanan` | Publik | Pelacakan pesanan publik (verifikasi orderCode + 4 digit no WA) |
+| `POST` | `/api/leads` | Publik | Penangkapan lead prospek dari formulir RFQ storefront |
+| `POST` | `/api/upload` | Publik | Upload media (Rate limited 10x/5m, Magic Bytes valid, no SVG) |
+| `POST` | `/api/admin/auth/login` | Publik (Admin) | Login superadmin dengan rate limit brute-force & audit log |
+| `POST` | `/api/admin/auth/logout` | Publik / Admin | Menghapus session cookie admin (`mineral_admin_token`) |
+| `GET` | `/api/admin/auth/me` | Admin Wajib | Cek profil sesi superadmin yang sedang aktif |
+| `GET` | `/api/admin/dashboard/stats` | Admin Wajib | Statistik real-time omset, pesanan, dan ringkasan CRM |
+| `GET` | `/api/admin/kategori` | Admin Wajib | Ambil seluruh daftar kategori komoditas |
+| `POST` | `/api/admin/kategori` | Admin Wajib | Tambah kategori komoditas baru |
+| `PUT` | `/api/admin/kategori/[id]` | Admin Wajib | Perbarui nama dan gambar kategori |
+| `DELETE` | `/api/admin/kategori/[id]` | Admin Wajib | Hapus kategori komoditas |
+| `GET` | `/api/admin/peruntukan` | Admin Wajib | Ambil seluruh taksonomi peruntukan (*Usage*) |
+| `POST` | `/api/admin/peruntukan` | Admin Wajib | Tambah taksonomi peruntukan baru |
+| `PUT` | `/api/admin/peruntukan/[id]` | Admin Wajib | Perbarui nama taksonomi peruntukan |
+| `DELETE` | `/api/admin/peruntukan/[id]` | Admin Wajib | Hapus taksonomi peruntukan |
+| `GET` | `/api/admin/produk` | Admin Wajib | Ambil katalog produk dengan filter dan pencarian |
+| `POST` | `/api/admin/produk` | Admin Wajib | Buat produk komoditas baru |
+| `GET` | `/api/admin/produk/[id]` | Admin Wajib | Ambil detail lengkap satu produk |
+| `PUT` | `/api/admin/produk/[id]` | Admin Wajib | Perbarui data produk, harga, galeri, dan stok |
+| `DELETE` | `/api/admin/produk/[id]` | Admin Wajib | Hapus produk dari katalog |
+| `GET` | `/api/admin/pesanan` | Admin Wajib | Daftar seluruh transaksi pesanan pembeli |
+| `GET` | `/api/admin/pesanan/[id]` | Admin Wajib | Detail pesanan spesifik beserta item & bukti bayar |
+| `PATCH` | `/api/admin/pesanan/[id]` | Admin Wajib | Update status pesanan (dengan restock jika dibatalkan) |
+| `POST` | `/api/admin/pesanan/[id]/verifikasi` | Admin Wajib | Setujui bukti bayar (PAID + trigger DEAL CRM) / Tolak |
+| `GET` | `/api/admin/pelanggan` | Admin Wajib | Direktori CRM database kontak (prospek & customer) |
+| `POST` | `/api/admin/pelanggan` | Admin Wajib | Tambah data kontak pelanggan/prospek manual |
+| `GET` | `/api/admin/pelanggan/[id]` | Admin Wajib | Detail kontak pelanggan & riwayat transaksi |
+| `PUT` | `/api/admin/pelanggan/[id]` | Admin Wajib | Perbarui kontak, status prospek, & catatan negosiasi |
+| `DELETE` | `/api/admin/pelanggan/[id]` | Admin Wajib | Hapus kontak dari database pelanggan |
+| `GET` | `/api/admin/pelanggan/export` | Admin Wajib | Ekspor seluruh database kontak dalam format CSV |
+| `GET` | `/api/admin/artikel` | Admin Wajib | Ambil daftar artikel CMS |
+| `POST` | `/api/admin/artikel` | Admin Wajib | Buat artikel edukasi/berita baru |
+| `GET` | `/api/admin/artikel/[id]` | Admin Wajib | Ambil data satu artikel |
+| `PUT` | `/api/admin/artikel/[id]` | Admin Wajib | Perbarui konten artikel (tersanitasi) |
+| `DELETE` | `/api/admin/artikel/[id]` | Admin Wajib | Hapus artikel |
+| `GET` | `/api/admin/konten` | Admin Wajib | Ambil seluruh blok teks web dinamis |
+| `PUT` | `/api/admin/konten` | Admin Wajib | Perbarui isi blok teks web |
+| `GET` | `/api/admin/faq` | Admin Wajib | Ambil daftar tanya jawab |
+| `POST` | `/api/admin/faq` | Admin Wajib | Buat item FAQ baru |
+| `GET` | `/api/admin/faq/[id]` | Admin Wajib | Ambil satu item FAQ |
+| `PUT` | `/api/admin/faq/[id]` | Admin Wajib | Perbarui pertanyaan & jawaban FAQ |
+| `DELETE` | `/api/admin/faq/[id]` | Admin Wajib | Hapus item FAQ |
+| `GET` | `/api/admin/pengaturan` | Admin Wajib | Ambil konfigurasi situs & rekening bank |
+| `PUT` | `/api/admin/pengaturan` | Admin Wajib | Perbarui identitas, kontak CS, dan rekening bank |
 
 ---
 
 ## 8. Environment Variables
-Daftar variabel lingkungan yang dibutuhkan (`.env.example`):
+Daftar variabel lingkungan resmi (`.env.example`):
 
 ```env
-# Database PostgreSQL
-DATABASE_URL="postgresql://user:password@localhost:5432/mineral_db?schema=public"
+# Database PostgreSQL URL (Wajib diisi untuk lingkungan produksi)
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/mineral_db?schema=public"
 
-# Auth Secret (digunakan untuk signing JWT session admin)
-AUTH_SECRET="change-this-to-a-super-secret-random-key-at-least-32-chars"
+# Auth Secret untuk signing JWT session Superadmin (WAJIB diisi acak >= 32 karakter)
+# Sistem akan fail-fast (menolak start) jika variabel ini tidak diset atau kurang dari 32 karakter.
+AUTH_SECRET="kunci_rahasia_acak_minimal_32_karakter_produksi!"
 
-# App URL
+# Base URL Aplikasi
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
+
+# Opsi Development Resilience (HANYA untuk dev mode lokal tanpa PostgreSQL)
+ALLOW_DEV_FALLBACK_LOGIN="false"
+ALLOW_LOCAL_FALLBACK="false"
 ```
 
 ---
 
-## 9. Keputusan Teknis Penting
-1. **Pemisahan Peruntukan (`Usage`) vs Tags**:
-   - `Usage` dimodelkan sebagai tabel taksonomi terpisah (`Usage` & `ProductUsage`) agar admin dapat mengelola opsi checkbox terstruktur di halaman storefront.
-   - `Tags` disimpan sebagai array string (`Json`) untuk kemudahan penambahan kata kunci bebas tanpa batas.
-2. **Guest Checkout & Tracking**:
-   - Menghilangkan friksi pendaftaran akun bagi pembeli. Verifikasi identitas saat melacak pesanan cukup mencocokkan `orderCode` dan nomor WhatsApp pembeli.
-3. **Session Admin via HTTP-only Cookie**:
-   - Menggunakan JWT yang disimpan dalam cookie `httpOnly` dengan header `SameSite=Lax` untuk mencegah manipulasi client-side script dan XSS.
-4. **Sanitasi HTML Terpusat**:
-   - Semua input HTML (artikel dan teks web) wajib melewati sanitizer sebelum dirender ke DOM untuk mencegah celah keamanan injeksi skrip.
-5. **Mobile-First ala XPDC Hub**:
-   - Desain menyertakan navigasi bawah (*bottom bar*) mengambang saat diakses via ponsel/PWA, serta top bar desktop lengkap saat diakses lewat layar lebar.
+## 9. Keputusan Teknis & Arsitektur Keamanan Penting
+
+1. **Otorisasi Berlapis (*Defense-in-Depth*) Admin API**:
+   - Menghindari ketergantungan semata pada disiplin manual penulisan guard di setiap file route. `src/middleware.ts` secara proaktif menyaring rute `/api/admin/*` dan memblokir permintaan tanpa token sah dengan HTTP 401 sebelum menyentuh route handler.
+2. **Ketiadaan Secret Hardcode & Fail-Fast Startup**:
+   - Menghilangkan fallback default token JWT yang rentan dipalsukan (*token forgery*). Aplikasi langsung melempar exception saat inisialisasi jika secret tidak memadai.
+3. **Pemberantasan Backdoor Kredensial**:
+   - Menghapus total akun default hardcode dari jalur runtime produksi. Resilience mode offline lokal hanya dapat dibuka melalui flag eksplisit `ALLOW_DEV_FALLBACK_LOGIN=true` pada `NODE_ENV=development`.
+4. **Isolasi Dual Persistence & Penolakan Silent-Fallback**:
+   - Pada server produksi, kegagalan database Postgres tidak disembunyikan sebagai "berhasil" ke file JSON lokal `.local-store.json` yang bersifat *ephemeral*. Sistem melempar error keras termonitor (*fail-loud*).
+5. **Pemberantasan Race Condition Stok Checkout**:
+   - Pemotongan stok dilakukan di dalam transaksi atomik `prisma.$transaction` dengan syarat kondisional `stock: { gte: qty }`. Jika dua pembeli checkout barang terakhir secara bersamaan, transaksi kedua dibatalkan dan mengembalikan pesan stok tidak cukup.
+6. **Restock Otomatis pada Pembatalan/Penolakan Pesanan**:
+   - Perubahan status pesanan menjadi `CANCELLED` atau `REJECTED` secara otomatis mengembalikan jumlah barang ke inventori stok komoditas.
+7. **Siklus Data CRM & Metrik LTV Berbasis Pembayaran Sah**:
+   - Formulir checkout hanya mencatat kontak sebagai prospek (`PROSPECT`) dengan status `BARU` tanpa menaikkan akumulasi omset `totalSpent` atau `totalOrders`. Akumulasi LTV dan promosi status ke `CUSTOMER` / `DEAL` hanya terjadi saat pembayaran diverifikasi lunas (`PAID`).
+8. **Sanitasi Upload & Pencegahan Stored XSS**:
+   - Format `image/svg+xml` dilarang untuk upload publik bukti transfer. Berkas diverifikasi berdasarkan Magic Bytes buffer biner sesungguhnya, dilengkapi pembatasan laju IP (10 upload per 5 menit).

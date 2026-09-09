@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getAdminSession } from '@/lib/auth';
 import { getCustomers } from '@/lib/data-store';
 
 function escapeCsvField(val: string | number | null | undefined): string {
@@ -8,6 +9,11 @@ function escapeCsvField(val: string | number | null | undefined): string {
 }
 
 export async function GET(req: Request) {
+  const session = await getAdminSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const { searchParams } = new URL(req.url);
     const type = searchParams.get('type') || undefined;

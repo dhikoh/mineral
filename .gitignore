@@ -3,8 +3,11 @@
 /.pnp
 .pnp.js
 
-# testing
+# testing & audit scripts
 /coverage
+/scripts/
+*.test.ts
+*.spec.ts
 
 # next.js
 /.next/

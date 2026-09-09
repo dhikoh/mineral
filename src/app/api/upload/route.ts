@@ -3,19 +3,116 @@ import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
 import crypto from 'crypto';
 
+// R-14: Rate limiting per-IP untuk endpoint upload publik
+interface UploadAttemptRecord {
+  count: number;
+  firstAttemptTime: number;
+}
+
+const uploadRateLimitMap = new Map<string, UploadAttemptRecord>();
+const MAX_UPLOADS_PER_WINDOW = 10;
+const RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000; // 5 menit
+
+function checkUploadRateLimit(ip: string): { allowed: boolean; remainingMinutes: number } {
+  const now = Date.now();
+  const record = uploadRateLimitMap.get(ip);
+
+  if (!record) {
+    uploadRateLimitMap.set(ip, { count: 1, firstAttemptTime: now });
+    return { allowed: true, remainingMinutes: 5 };
+  }
+
+  if (now - record.firstAttemptTime > RATE_LIMIT_WINDOW_MS) {
+    uploadRateLimitMap.set(ip, { count: 1, firstAttemptTime: now });
+    return { allowed: true, remainingMinutes: 5 };
+  }
+
+  if (record.count >= MAX_UPLOADS_PER_WINDOW) {
+    const remainingMs = RATE_LIMIT_WINDOW_MS - (now - record.firstAttemptTime);
+    return { allowed: false, remainingMinutes: Math.max(1, Math.ceil(remainingMs / 60000)) };
+  }
+
+  record.count += 1;
+  return { allowed: true, remainingMinutes: 5 };
+}
+
+// R-14: Hapus image/svg+xml demi keamanan stored XSS pada upload publik
 const ALLOWED_TYPES = [
   'image/jpeg',
   'image/jpg',
   'image/png',
   'image/webp',
-  'image/svg+xml',
-  'application/pdf', // untuk bukti transfer
+  'application/pdf', // untuk foto bukti transfer / dokumen PDF
 ];
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 
+// R-14: Deteksi tipe berkas fisik sesungguhnya dari magic bytes header
+function detectFileTypeFromMagicBytes(buffer: Buffer): string | null {
+  if (buffer.length < 12) return null;
+
+  // JPEG: FF D8 FF
+  if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+    return 'image/jpeg';
+  }
+
+  // PNG: 89 50 4E 47 0D 0A 1A 0A
+  if (
+    buffer[0] === 0x89 &&
+    buffer[1] === 0x50 &&
+    buffer[2] === 0x4e &&
+    buffer[3] === 0x47 &&
+    buffer[4] === 0x0d &&
+    buffer[5] === 0x0a &&
+    buffer[6] === 0x1a &&
+    buffer[7] === 0x0a
+  ) {
+    return 'image/png';
+  }
+
+  // WebP: RIFF....WEBP
+  if (
+    buffer[0] === 0x52 &&
+    buffer[1] === 0x49 &&
+    buffer[2] === 0x46 &&
+    buffer[3] === 0x46 &&
+    buffer[8] === 0x57 &&
+    buffer[9] === 0x45 &&
+    buffer[10] === 0x42 &&
+    buffer[11] === 0x50
+  ) {
+    return 'image/webp';
+  }
+
+  // PDF: %PDF- (25 50 44 46)
+  if (
+    buffer[0] === 0x25 &&
+    buffer[1] === 0x50 &&
+    buffer[2] === 0x44 &&
+    buffer[3] === 0x46
+  ) {
+    return 'application/pdf';
+  }
+
+  return null;
+}
+
 export async function POST(req: NextRequest) {
   try {
+    // 1. Terapkan Rate Limiting berdasarkan IP klien
+    const forwarded = req.headers.get('x-forwarded-for');
+    const clientIp = forwarded ? forwarded.split(',')[0].trim() : '127.0.0.1';
+    const rateLimit = checkUploadRateLimit(clientIp);
+
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        {
+          error: `Batas upload terlampaui. Alamat IP Anda ditangguhkan sementara. Silakan coba kembali dalam ${rateLimit.remainingMinutes} menit.`,
+        },
+        { status: 429 }
+      );
+    }
+
     const contentType = req.headers.get('content-type') || '';
 
     // Mode 1: Tempel Link URL gambar eksternal (JSON)
@@ -51,14 +148,15 @@ export async function POST(req: NextRequest) {
 
     if (!file) {
       return NextResponse.json(
-        { error: 'File gambar tidak ditemukan dalam formulir upload' },
+        { error: 'File tidak ditemukan dalam formulir upload' },
         { status: 400 }
       );
     }
 
+    // Validasi tipe file yang dideklarasikan klien
     if (!ALLOWED_TYPES.includes(file.type)) {
       return NextResponse.json(
-        { error: 'Format file tidak didukung. Harap unggah format JPG, PNG, WEBP, atau SVG.' },
+        { error: 'Format file tidak didukung. Harap unggah format JPG, PNG, WEBP, atau PDF.' },
         { status: 400 }
       );
     }
@@ -73,16 +171,28 @@ export async function POST(req: NextRequest) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // Ambil ekstensi asli yang aman
-    const rawExt = path.extname(file.name).toLowerCase() || '.jpg';
-    const ext = ['.jpg', '.jpeg', '.png', '.webp', '.svg', '.pdf'].includes(rawExt)
-      ? rawExt
-      : '.jpg';
+    // R-14: Validasi berkas fisik dengan inspeksi Magic Bytes
+    const verifiedMimeType = detectFileTypeFromMagicBytes(buffer);
+    if (!verifiedMimeType) {
+      return NextResponse.json(
+        { error: 'Isi berkas tidak valid atau rusak. Harap unggah berkas gambar JPG, PNG, WEBP, atau PDF yang valid.' },
+        { status: 400 }
+      );
+    }
 
-    // Buat nama file unik dan terenkripsi untuk mencegah tabrakan file & tebakan path
+    // Tentukan ekstensi yang aman dari tipe yang diverifikasi
+    const mimeToExt: Record<string, string> = {
+      'image/jpeg': '.jpg',
+      'image/png': '.png',
+      'image/webp': '.webp',
+      'application/pdf': '.pdf',
+    };
+    const safeExt = mimeToExt[verifiedMimeType] || '.jpg';
+
+    // Buat nama file unik dan acak
     const randomHash = crypto.randomBytes(8).toString('hex');
     const timestamp = Date.now();
-    const filename = `media_${timestamp}_${randomHash}${ext}`;
+    const filename = `media_${timestamp}_${randomHash}${safeExt}`;
 
     const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
     await mkdir(uploadsDir, { recursive: true });
@@ -97,6 +207,7 @@ export async function POST(req: NextRequest) {
       url: publicUrl,
       filename,
       size: file.size,
+      mimeType: verifiedMimeType,
       mode: 'upload',
     });
   } catch (error: any) {

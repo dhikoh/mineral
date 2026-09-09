@@ -1,9 +1,15 @@
 import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 
-const SECRET_KEY = new TextEncoder().encode(
-  process.env.AUTH_SECRET || 'mineral_super_secret_session_jwt_key_2026_min32chars!'
-);
+export function getJwtSecretKey(): Uint8Array {
+  const secret = process.env.AUTH_SECRET;
+  if (!secret || secret.trim().length < 32) {
+    throw new Error(
+      '[CRITICAL SECURITY CONFIG] AUTH_SECRET environment variable is missing or shorter than 32 characters. Please configure a strong random secret (>= 32 chars) in .env before starting the application.'
+    );
+  }
+  return new TextEncoder().encode(secret.trim());
+}
 
 const COOKIE_NAME = 'mineral_admin_token';
 const TOKEN_EXPIRY = '7d';
@@ -20,12 +26,12 @@ export async function signAdminToken(payload: AdminSessionPayload): Promise<stri
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime(TOKEN_EXPIRY)
-    .sign(SECRET_KEY);
+    .sign(getJwtSecretKey());
 }
 
 export async function verifyAdminToken(token: string): Promise<AdminSessionPayload | null> {
   try {
-    const { payload } = await jwtVerify(token, SECRET_KEY);
+    const { payload } = await jwtVerify(token, getJwtSecretKey());
     return payload as unknown as AdminSessionPayload;
   } catch {
     return null;

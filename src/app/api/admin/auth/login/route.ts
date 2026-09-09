@@ -91,18 +91,39 @@ export async function POST(req: NextRequest) {
         isMatch = await bcrypt.compare(password, user.password);
       }
     } catch (dbErr: any) {
-      console.warn('Database offline/unreachable, checking default seed admin fallback:', dbErr?.message || dbErr);
-      // Fallback dev mode saat PostgreSQL belum terhubung
-      if (normalizedEmail === 'admin@mineralhub.com') {
+      console.error(
+        JSON.stringify({
+          level: 'ERROR',
+          event: 'AUTH_DB_UNREACHABLE',
+          message: 'Database query failed during admin login',
+          error: dbErr?.message || String(dbErr),
+          timestamp: new Date().toISOString(),
+        })
+      );
+
+      // Keamanan R-3: Fallback dev mode HANYA boleh aktif jika diatur secara eksplisit
+      const isDevFallbackAllowed =
+        process.env.NODE_ENV === 'development' &&
+        process.env.ALLOW_DEV_FALLBACK_LOGIN === 'true';
+
+      if (isDevFallbackAllowed && normalizedEmail === 'admin@mineralhub.com') {
         if (password === 'admin123456') {
+          console.warn(
+            '[SECURITY WARNING] Dev-mode fallback login used. This MUST be disabled in production.'
+          );
           user = {
             id: 'seed-admin-01',
-            name: 'Super Admin MineralHub',
+            name: 'Super Admin MineralHub (Dev Fallback)',
             email: 'admin@mineralhub.com',
             role: 'SUPERADMIN',
           };
           isMatch = true;
         }
+      } else {
+        return NextResponse.json(
+          { error: 'Layanan autentikasi database tidak dapat dijangkau. Silakan hubungi administrator.' },
+          { status: 503 }
+        );
       }
     }
 

@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "test": "node -e \"const fs = require('fs'); if (fs.existsSync('./scripts/test-phase7-e2e.ts')) { require('child_process').execSync('tsx scripts/test-phase7-e2e.ts && tsx scripts/test-crm-module.ts && tsx scripts/test-crm-http.ts', { stdio: 'inherit' }); } else { console.log('Test scripts are local-only and excluded from git.'); }\"",
     "postinstall": "prisma generate"
   },
   "dependencies": {

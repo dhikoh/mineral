@@ -1,7 +1,13 @@
 import { NextResponse } from 'next/server';
+import { getAdminSession } from '@/lib/auth';
 import { getCustomers, createCustomer } from '@/lib/data-store';
 
 export async function GET(req: Request) {
+  const session = await getAdminSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const { searchParams } = new URL(req.url);
     const q = searchParams.get('q') || undefined;
@@ -20,6 +26,10 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  const session = await getAdminSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
   try {
     const body = await req.json();
     const {

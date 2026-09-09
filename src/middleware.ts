@@ -1,22 +1,63 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { jwtVerify } from 'jose';
 
-const SECRET_KEY = new TextEncoder().encode(
-  process.env.AUTH_SECRET || 'mineral_super_secret_session_jwt_key_2026_min32chars!'
-);
+function getJwtSecretKey(): Uint8Array {
+  const secret = process.env.AUTH_SECRET;
+  if (!secret || secret.trim().length < 32) {
+    throw new Error(
+      '[CRITICAL SECURITY CONFIG] AUTH_SECRET environment variable is missing or shorter than 32 characters.'
+    );
+  }
+  return new TextEncoder().encode(secret.trim());
+}
+
 const COOKIE_NAME = 'mineral_admin_token';
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Hanya periksa rute yang diawali dengan /admin
+  // 1. Proteksi endpoint API Admin (/api/admin/*)
+  if (pathname.startsWith('/api/admin')) {
+    // Whitelist endpoint autentikasi publik (login)
+    if (pathname === '/api/admin/auth/login') {
+      return NextResponse.next();
+    }
+
+    // Ambil token dari cookie atau Authorization header
+    let token = req.cookies.get(COOKIE_NAME)?.value;
+    const authHeader = req.headers.get('authorization');
+    if (!token && authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.substring(7).trim();
+    }
+
+    let isValid = false;
+    if (token) {
+      try {
+        await jwtVerify(token, getJwtSecretKey());
+        isValid = true;
+      } catch {
+        isValid = false;
+      }
+    }
+
+    if (!isValid) {
+      return NextResponse.json(
+        { error: 'Unauthorized: Sesi admin tidak valid atau belum login' },
+        { status: 401 }
+      );
+    }
+
+    return NextResponse.next();
+  }
+
+  // 2. Proteksi Halaman Antarmuka Admin (/admin/*)
   if (pathname.startsWith('/admin')) {
     const token = req.cookies.get(COOKIE_NAME)?.value;
     let isValid = false;
 
     if (token) {
       try {
-        await jwtVerify(token, SECRET_KEY);
+        await jwtVerify(token, getJwtSecretKey());
         isValid = true;
       } catch {
         isValid = false;
@@ -43,5 +84,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*'],
+  matcher: ['/admin/:path*', '/api/admin/:path*'],
 };
