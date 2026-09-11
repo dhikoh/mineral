@@ -5,7 +5,7 @@ import { FAQClient } from './FAQClient';
 export const metadata: Metadata = {
   title: 'Tanya Jawab (FAQ) — MineralHub Indonesia',
   description:
-    'Pertanyaan yang sering diajukan mengenai pemesanan komoditas mineral, uji lab COA, izin tambang IUP, sampel, dan pengiriman kontainer nusantara.',
+    'Pertanyaan yang sering diajukan mengenai pemesanan komoditas mineral, kesesuaian spesifikasi, sampel produk, prosedur pengiriman, dan ketentuan niaga.',
 };
 
 export default async function FAQPage() {

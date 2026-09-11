@@ -52,7 +52,7 @@ export function Navbar({
               Pasokan Komoditas Industri & Ekspor Siap Kirim
             </span>
             <span className="text-slate-500">|</span>
-            <span>Pengiriman Armada Truk & Kontainer FCL/LCL</span>
+            <span>Dukungan Ekspedisi Truk & Kargo FCL/LCL</span>
           </div>
           <div className="flex items-center gap-4">
             <Link

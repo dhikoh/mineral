@@ -352,18 +352,18 @@ export function ProductDetailClient({
               className="w-full flex items-center justify-center gap-2 rounded-2xl border border-dashed border-emerald-300 bg-emerald-50/70 hover:bg-emerald-100/70 py-2.5 px-4 text-xs font-bold text-emerald-800 transition-all active:scale-95"
             >
               <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
-              <span>Minta Penawaran Skala Industri / Sampel Lab (RFQ)</span>
+              <span>Minta Penawaran Skala Industri / Uji Sampel (RFQ)</span>
             </button>
 
             {/* Trust Points */}
             <div className="grid grid-cols-2 gap-2 pt-4 border-t border-surface-100 text-[11px] text-slate-500">
               <div className="flex items-center gap-1.5">
                 <ShieldCheck className="h-4 w-4 text-emerald-600 flex-shrink-0" />
-                <span>Jaminan Mutu & Hasil Lab</span>
+                <span>Kesesuaian Spesifikasi & Sampel</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <Truck className="h-4 w-4 text-emerald-600 flex-shrink-0" />
-                <span>Pengiriman Armada Truk/FCL</span>
+                <span>Opsi Pengiriman Truk / Kargo FCL</span>
               </div>
             </div>
           </div>

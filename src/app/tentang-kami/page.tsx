@@ -16,7 +16,7 @@ import { sanitize } from '@/lib/sanitize';
 export const metadata: Metadata = {
   title: 'Tentang Kami — MineralHub Indonesia',
   description:
-    'Profil PT MineralHub Indonesia sebagai platform rantai pasok komoditas mineral tambang berkualitas ekspor dan teruji laboratorium.',
+    'Profil MineralHub Indonesia sebagai mitra penyedia komoditas mineral tambang dan bahan baku industri dengan spesifikasi transparan dan layanan profesional.',
 };
 
 export default async function TentangKamiPage() {
@@ -57,22 +57,22 @@ export default async function TentangKamiPage() {
               {aboutBlock?.title || 'Tentang MineralHub Indonesia'}
             </h1>
             <p className="text-xs sm:text-sm text-slate-300 leading-relaxed pt-2">
-              Menghubungkan sektor industri manufaktur, agrikultur modern, dan eksportir global dengan sumber daya mineral terbaik nusantara secara transparan, legal, dan teruji laboratorium.
+              Menghubungkan sektor industri manufaktur, agrikultur modern, dan pelaku usaha dengan pasokan komoditas mineral nusantara secara profesional, transparan, dan terpercaya.
             </p>
           </div>
 
           <div className="mt-8 flex flex-wrap gap-4 relative z-10 text-xs">
             <div className="flex items-center gap-2 rounded-xl bg-white/10 px-3.5 py-2 backdrop-blur-md">
               <ShieldCheck className="h-4 w-4 text-emerald-400" />
-              <span className="font-semibold">Izin Usaha Pertambangan (IUP) Resmi</span>
+              <span className="font-semibold">Legalitas Usaha Terdaftar</span>
             </div>
             <div className="flex items-center gap-2 rounded-xl bg-white/10 px-3.5 py-2 backdrop-blur-md">
               <Award className="h-4 w-4 text-emerald-400" />
-              <span className="font-semibold">Uji Sucofindo & Geoservices</span>
+              <span className="font-semibold">Kesesuaian Sampel & Data Teknis</span>
             </div>
             <div className="flex items-center gap-2 rounded-xl bg-white/10 px-3.5 py-2 backdrop-blur-md">
               <Truck className="h-4 w-4 text-emerald-400" />
-              <span className="font-semibold">Jaringan Armada Tronton & FCL</span>
+              <span className="font-semibold">Dukungan Ekspedisi & Self-Pickup</span>
             </div>
           </div>
         </div>
@@ -108,9 +108,9 @@ export default async function TentangKamiPage() {
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-600 text-white">
                   <ShieldCheck className="h-5 w-5" />
                 </div>
-                <h4 className="text-sm font-bold text-slate-900">Legalitas & Kepatuhan IUP</h4>
+                <h4 className="text-sm font-bold text-slate-900">Legalitas Usaha & Kemitraan Terverifikasi</h4>
                 <p className="text-xs text-slate-600 leading-relaxed">
-                  Seluruh konsesi tambang mitra beroperasi dengan Izin Usaha Pertambangan Operasi Produksi resmi serta mematuhi AMDAL dan regulasi lingkungan hidup.
+                  Menjalankan aktivitas niaga melalui badan usaha resmi dengan rantai pasok yang jelas, mengutamakan keterbukaan dokumen pengiriman dan kepatuhan terhadap ketentuan perdagangan yang berlaku.
                 </p>
               </div>
 
@@ -118,9 +118,9 @@ export default async function TentangKamiPage() {
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600 text-white">
                   <FileCheck className="h-5 w-5" />
                 </div>
-                <h4 className="text-sm font-bold text-slate-900">Sertifikat Analisis (COA) Valid</h4>
+                <h4 className="text-sm font-bold text-slate-900">Kesesuaian Spesifikasi & Uji Sampel</h4>
                 <p className="text-xs text-slate-600 leading-relaxed">
-                  Setiap spesifikasi kadar kemurnian, mesh, dan parameter fisika-kimia diuji di laboratorium independen terakreditasi sebelum pengiriman.
+                  Informasi kadar kemurnian, mesh, dan parameter fisik disajikan sesuai data fisik komoditas. Kami mendukung pengiriman sampel fisik dan penyediaan dokumen uji teknis sesuai ketersediaan pada masing-masing komoditas.
                 </p>
               </div>
 
@@ -128,9 +128,9 @@ export default async function TentangKamiPage() {
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-600 text-white">
                   <Truck className="h-5 w-5" />
                 </div>
-                <h4 className="text-sm font-bold text-slate-900">Logistik Multi-Moda Nusantara</h4>
+                <h4 className="text-sm font-bold text-slate-900">Fleksibilitas Pengambilan & Ekspedisi</h4>
                 <p className="text-xs text-slate-600 leading-relaxed">
-                  Armada tronton muatan jumbo bag dan kontainer FCL 20ft/40ft siap didistribusikan langsung ke pabrik atau pelabuhan muat ekspor utama.
+                  Mendukung opsi pengambilan mandiri di sentra/gudang penyimpanan (Loco/FOB) maupun koordinasi pengiriman dengan mitra jasa ekspedisi kargo independen sesuai kuantitas pesanan Anda.
                 </p>
               </div>
 
@@ -138,9 +138,9 @@ export default async function TentangKamiPage() {
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-600 text-white">
                   <Building2 className="h-5 w-5" />
                 </div>
-                <h4 className="text-sm font-bold text-slate-900">Harga Tangan Pertama</h4>
+                <h4 className="text-sm font-bold text-slate-900">Skema Grosir & Harga Kompetitif</h4>
                 <p className="text-xs text-slate-600 leading-relaxed">
-                  Jalur langsung dari sentra produksi memangkas biaya perantara sehingga mitra mendapatkan efisiensi pengadaan bahan baku yang optimal.
+                  Penawaran harga yang rasional dan transparan dengan penyesuaian khusus untuk pembelian partai besar, kebutuhan kontinuitas industri, maupun pemesanan berkala.
                 </p>
               </div>
             </div>
@@ -164,7 +164,7 @@ export default async function TentangKamiPage() {
             Siap Bermitra untuk Pasokan Bahan Baku Industri Anda?
           </h3>
           <p className="mx-auto mt-2 max-w-xl text-xs sm:text-sm text-slate-500 leading-relaxed">
-            Hubungi Customer Service kami untuk penawaran kontrak pasokan berkala, permintaan sampel, atau pengiriman armada partai besar.
+            Hubungi Customer Service kami untuk penawaran pasokan berkala, permintaan sampel fisik, atau konsultasi pengiriman partai besar.
           </p>
           <div className="mt-6 flex justify-center">
             <a

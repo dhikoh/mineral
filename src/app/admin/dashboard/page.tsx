@@ -510,7 +510,7 @@ export default function AdminDashboardPage() {
               </div>
               <h4 className="mt-4 font-bold text-slate-900 text-sm">Pesanan & Transaksi</h4>
               <p className="mt-1 text-xs text-slate-500 leading-relaxed">
-                Verifikasi setoran transfer bank, proses armada kirim, input nomor resi, dan konfirmasi selesai.
+                Verifikasi setoran transfer bank, proses pengiriman kargo, input nomor resi, dan konfirmasi selesai.
               </p>
             </Link>
 

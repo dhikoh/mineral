@@ -28,9 +28,9 @@ interface ContentBlockItem {
 
 const BLOCK_TABS = [
   { key: 'homepage_hero', label: 'Banner Beranda', icon: Sparkles, desc: 'Judul & deskripsi utama pada header beranda' },
-  { key: 'about_us', label: 'Tentang Kami', icon: FileText, desc: 'Profil perusahaan, visi mutu, dan laboratorium' },
+  { key: 'about_us', label: 'Tentang Kami', icon: FileText, desc: 'Profil perusahaan, komitmen pasokan, dan spesifikasi' },
   { key: 'why_us', label: 'Keunggulan Kami', icon: ShieldCheck, desc: '4 pilar keunggulan pasokan komoditas' },
-  { key: 'shipping_info', label: 'Pengiriman & Logistik', icon: Truck, desc: 'Armada truk, peti kemas, dan pelabuhan muat' },
+  { key: 'shipping_info', label: 'Pengiriman & Logistik', icon: Truck, desc: 'Opsi ekspedisi truk, kargo kontainer, dan pelabuhan muat' },
   { key: 'terms', label: 'Syarat & Ketentuan', icon: FileText, desc: 'Aturan pemesanan, MOQ, dan inspeksi komplain' },
   { key: 'privacy_policy', label: 'Kebijakan Privasi', icon: ShieldCheck, desc: 'Perlindungan data dan kerahasiaan mitra' },
 ];

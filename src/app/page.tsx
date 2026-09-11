@@ -136,22 +136,22 @@ export default async function HomePage() {
             <div className="flex items-center gap-2.5 p-2 rounded-xl bg-slate-800/40">
               <FileCheck2 className="h-5 w-5 text-emerald-400 flex-shrink-0" />
               <div>
-                <p className="text-xs font-bold text-white">Sertifikat Uji Lab</p>
-                <p className="text-[11px] text-slate-400">CoA resmi terstandarisasi</p>
+                <p className="text-xs font-bold text-white">Spesifikasi Transparan</p>
+                <p className="text-[11px] text-slate-400">Opsi uji sampel & verifikasi</p>
               </div>
             </div>
             <div className="flex items-center gap-2.5 p-2 rounded-xl bg-slate-800/40">
               <Truck className="h-5 w-5 text-emerald-400 flex-shrink-0" />
               <div>
-                <p className="text-xs font-bold text-white">Logistik Skala Besar</p>
-                <p className="text-[11px] text-slate-400">Armada darat & kontainer FCL</p>
+                <p className="text-xs font-bold text-white">Pengiriman Fleksibel</p>
+                <p className="text-[11px] text-slate-400">Loco, FOB & kargo kontainer</p>
               </div>
             </div>
             <div className="col-span-2 md:col-span-1 flex items-center gap-2.5 p-2 rounded-xl bg-slate-800/40">
               <ShieldCheck className="h-5 w-5 text-emerald-400 flex-shrink-0" />
               <div>
                 <p className="text-xs font-bold text-white">Transaksi Aman</p>
-                <p className="text-[11px] text-slate-400">Legalitas & IUP Terverifikasi</p>
+                <p className="text-[11px] text-slate-400">Kemitraan niaga terpercaya</p>
               </div>
             </div>
           </div>

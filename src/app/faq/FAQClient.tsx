@@ -72,7 +72,7 @@ export function FAQClient({ faqs, csWhatsapp, siteName }: FAQClientProps) {
             Pertanyaan yang Sering Diajukan
           </h1>
           <p className="mx-auto mt-3 max-w-2xl text-xs sm:text-sm text-slate-500 leading-relaxed">
-            Temukan jawaban lengkap seputar legalitas izin tambang IUP, sertifikat analisis COA, minimum pemesanan (MOQ), prosedur pembayaran, hingga armada logistik nusantara.
+            Temukan jawaban lengkap seputar legalitas usaha, pengujian sampel komoditas, minimum pemesanan (MOQ), prosedur pembayaran, hingga opsi ekspedisi kargo nusantara.
           </p>
         </div>
 
@@ -166,7 +166,7 @@ export function FAQClient({ faqs, csWhatsapp, siteName }: FAQClientProps) {
                 Punya Pertanyaan Spesifik Mengenai Komoditas?
               </h2>
               <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-                Tim teknis kami siap membantu kebutuhan Certificate of Analysis (COA) spesifik, pengajuan sampel uji lab, hingga penawaran harga FOB/CIF kontainer skala industri.
+                Tim layanan kami siap membantu pengecekan ketersediaan data teknis, pengajuan sampel fisik, hingga penawaran pengiriman kargo skala industri.
               </p>
             </div>
 

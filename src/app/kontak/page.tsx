@@ -52,7 +52,7 @@ export default async function KontakPage() {
             Hubungi Tim Penjualan & Dukungan Kami
           </h1>
           <p className="mx-auto mt-3 max-w-2xl text-xs sm:text-sm text-slate-500 leading-relaxed">
-            Apakah Anda memerlukan sertifikat analisis spesifik (COA), paket sampel laboratorium, penawaran harga FOB/CIF armada kontainer, atau verifikasi pembayaran? Tim kami siap melayani.
+            Apakah Anda memerlukan informasi spesifikasi komoditas, permintaan sampel fisik, konsultasi pengiriman kargo partai besar, atau konfirmasi transaksi? Tim kami siap melayani.
           </p>
         </div>
 
@@ -66,7 +66,7 @@ export default async function KontakPage() {
               </div>
               <h3 className="text-base font-bold text-slate-900">WhatsApp Resmi</h3>
               <p className="text-xs text-slate-500 leading-relaxed">
-                Respon cepat untuk pertanyaan teknis, cek ketersediaan stok tambang, dan konfirmasi bukti pembayaran.
+                Respon cepat untuk pertanyaan teknis, cek ketersediaan stok komoditas, dan konfirmasi bukti pembayaran.
               </p>
               <p className="font-mono text-sm font-bold text-emerald-700">
                 +{settings.csWhatsapp}
@@ -116,7 +116,7 @@ export default async function KontakPage() {
               </div>
               <h3 className="text-base font-bold text-slate-900">Jam Operasional</h3>
               <p className="text-xs text-slate-500 leading-relaxed">
-                Jadwal layanan customer service, muat muatan gudang, dan inspeksi penimbangan timbangan jembatan.
+                Jadwal layanan customer service, koordinasi pengiriman, dan konfirmasi administrasi pesanan.
               </p>
               <div className="rounded-xl bg-surface-50 p-3 text-xs font-bold text-slate-700">
                 {settings.csOperationalHours}
@@ -141,12 +141,12 @@ export default async function KontakPage() {
               {settings.address}
             </p>
             <div className="rounded-2xl border border-surface-200 bg-surface-50 p-4 text-xs text-slate-500 space-y-1.5">
-              <p className="font-bold text-slate-800">Fasilitas Pergudangan Kami:</p>
+              <p className="font-bold text-slate-800">Standar Penanganan & Pengemasan Kami:</p>
               <ul className="list-disc list-inside space-y-1 text-slate-600 text-[11px]">
-                <li>Jembatan Timbang Truk Resmi Terkalibrasi (Kapasitas 80 Ton)</li>
-                <li>Area Penyimpanan Kering Terlindung (Silo & Gudang Tertutup)</li>
-                <li>Fasilitas Pengemasan Jumbo Bag (1 Ton) dan Sak Paper Bag 25 Kg</li>
-                <li>Akses Dekat Jalur Tol Logistik & Pelabuhan Muat Kontainer</li>
+                <li>Pengemasan Jumbo Bag (1 Ton) dan Sak Paper Bag 25 Kg sesuai spesifikasi</li>
+                <li>Area penyimpanan terlindung untuk menjaga kualitas dan kelembaban komoditas</li>
+                <li>Verifikasi kuantitas dan pengecekan fisik sebelum serah terima</li>
+                <li>Dukungan pengambilan mandiri (Loco) maupun koordinasi mitra ekspedisi kargo</li>
               </ul>
             </div>
           </div>

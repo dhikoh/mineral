@@ -173,7 +173,7 @@ export function OrderDetailClient({
             <div className="space-y-1">
               <h3 className="text-sm font-bold">Pesanan Sedang Dalam Pengiriman</h3>
               <p className="text-xs text-purple-800 leading-relaxed">
-                Muatan pesanan Anda telah berangkat bersama armada ekspedisi/truk logistik.
+                Muatan pesanan Anda telah diberangkatkan melalui jasa ekspedisi/kargo logistik.
                 {order.trackingNumber && (
                   <span className="block font-bold mt-1">
                     No. Resi / Surat Jalan: {order.trackingNumber}

@@ -246,7 +246,7 @@ export default function CheckoutPage() {
                   rows={2}
                   value={formData.notes}
                   onChange={handleChange}
-                  placeholder="Contoh: Pengiriman via armada truking sendiri / butuh dokumen uji lab COA fisik / jam bongkar muat."
+                  placeholder="Contoh: Pengambilan mandiri (Loco) / minta dokumen spesifikasi teknis bila ada / jam bongkar muat."
                   className="w-full rounded-xl border border-surface-300 bg-white px-4 py-2.5 text-xs text-slate-800 placeholder-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                 />
               </div>

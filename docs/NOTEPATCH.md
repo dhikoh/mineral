@@ -691,12 +691,51 @@ Audit total dan mendalam terhadap seluruh logika bisnis, alur kerja (workflow), 
 - `npm test`: 102/102 assertions lulus 100% (Phase 7 E2E 39/39, CRM 40/40, Audit P0/P1/Bisnis 23/23).
 - `npm run build`: Exit Code 0 (berhasil mengompilasi 45 routes Next.js 16 App Router tanpa error).
 
+---
 
+## [2026-09-11] - Sesi #13: Penyesuaian Komprehensif Klaim Bisnis (De-overclaiming Copywriting) & Realisme B2B Transparan
 
+**Tujuan Sesi:**
+Menindaklanjuti instruksi pemilik proyek untuk merombak seluruh narasi, copywriting, badge, dan klaim bisnis yang berpotensi overclaim atau menimbulkan risiko kepatuhan/legalitas. Mengubah positioning dari "pemilik tambang/konsesi & armada tronton langsung" menjadi **platform kemitraan niaga komoditas (B2B trading / distributor) terpercaya**, profesional, transparan, dan realistis tanpa menampakkan kesan ilegal.
 
+**Area Perombakan & Penyelarasan Kata Kunci:**
+1. **Klaim Legalitas IUP & Konsesi Tambang:**
+   - *Sebelum:* Mengklaim seluruh mitra beroperasi dengan IUP Operasi Produksi resmi, AMDAL, dan kepemilikan konsesi langsung.
+   - *Sesudah:* Diubah menjadi **"Legalitas Usaha & Kemitraan Terverifikasi"** serta **"Legalitas Usaha Terdaftar"**, menegaskan aktivitas perdagangan melalui badan usaha resmi dengan rantai pasok yang jelas, kepatuhan ketentuan niaga, serta transparansi faktur/dokumen jalan.
+2. **Klaim Uji Laboratorium (COA, Sucofindo & Geoservices):**
+   - *Sebelum:* Mengklaim setiap produk selalu memiliki sertifikat COA valid dari laboratorium independen terakreditasi sebelum kirim.
+   - *Sesudah:* Diubah menjadi **"Kesesuaian Spesifikasi & Uji Sampel"**, menyajikan spesifikasi sesuai data fisik komoditas, mendukung pengiriman sampel fisik untuk trial industri, serta koordinasi penyediaan dokumen teknis bila tersedia pada masing-masing komoditas.
+3. **Klaim Kepemilikan Armada Logistik Sendiri (Tronton & Kontainer):**
+   - *Sebelum:* Mengklaim kepemilikan armada tronton muatan jumbo bag dan kontainer FCL siap kirim.
+   - *Sesudah:* Diubah menjadi **"Fleksibilitas Pengambilan & Ekspedisi"**, mendukung opsi pengambilan mandiri (Loco/FOB) langsung di gudang/sentra penyimpanan maupun koordinasi pengiriman menggunakan mitra jasa ekspedisi/kargo terpercaya (CDD, Fuso, Tronton, FCL/LCL).
+4. **Klaim "Harga Tangan Pertama":**
+   - *Sebelum:* Menjanjikan harga tangan pertama dari sentra produksi pemangkas perantara.
+   - *Sesudah:* Diubah menjadi **"Skema Grosir & Harga Kompetitif"**, penawaran harga rasional dan transparan yang dapat disesuaikan untuk skala volume industri dan pemesanan berkala.
+5. **Standar Pergudangan & Penanganan:**
+   - Menyelaraskan teks fasilitas pergudangan di halaman kontak menjadi standar penanganan pengemasan Jumbo Bag (1 Ton) / Sak 25 Kg, penyimpanan kering terlindung, verifikasi kuantitas sebelum serah terima, dan koordinasi ekspedisi kargo/Loco.
 
+**File yang Diubah/Diselaraskan (17 File):**
+- `src/app/tentang-kami/page.tsx` [MODIFIKASI] — 4 pilar keunggulan, hero intro, badge kredensial, metadata & bottom CTA
+- `src/app/kontak/page.tsx` [MODIFIKASI] — Header subtitle, deskripsi CS WhatsApp, jam kerja, dan standar fasilitas pengemasan pergudangan
+- `src/app/page.tsx` [MODIFIKASI] — Trust badges hero homepage diselaraskan ke "Spesifikasi Transparan", "Pengiriman Fleksibel", "Transaksi Aman"
+- `src/app/faq/page.tsx` [MODIFIKASI] — Metadata description dan hero subtitle modul FAQ
+- `src/app/faq/FAQClient.tsx` [MODIFIKASI] — Subtitle pencarian FAQ dan deskripsi CTA konsultasi bawah
+- `src/components/layout/Navbar.tsx` [MODIFIKASI] — Announcement banner atas diubah menjadi opsi ekspedisi kargo truk & FCL/LCL
+- `src/components/storefront/ProductDetailClient.tsx` [MODIFIKASI] — RFQ info box dan trust badges halaman detail produk
+- `src/app/keranjang/page.tsx` [MODIFIKASI] — Label estimasi ongkir diubah menjadi "Ongkos Kirim Ekspedisi / Kargo"
+- `src/app/lacak-pesanan/page.tsx` [MODIFIKASI] — Metadata description pelacakan pesanan kargo
+- `src/app/lacak-pesanan/OrderTrackingClient.tsx` [MODIFIKASI] — Step timeline pengiriman diselaraskan ke mitra jasa ekspedisi/kargo
+- `src/app/pesanan/[orderCode]/OrderDetailClient.tsx` [MODIFIKASI] — Banner status pesanan sedang dikirim via ekspedisi logistik
+- `src/app/checkout/page.tsx` [MODIFIKASI] — Placeholder catatan pesanan diselaraskan ke opsi Loco & dokumen teknis
+- `src/app/syarat-ketentuan/page.tsx` [MODIFIKASI] — Fallback informasi pengiriman diselaraskan ke ekspedisi kargo & Loco
+- `src/app/admin/dashboard/page.tsx` [MODIFIKASI] — Deskripsi quick action kartu pesanan ke proses pengiriman kargo
+- `src/app/admin/konten/page.tsx` [MODIFIKASI] — Deskripsi tab CMS konten `about_us` dan `shipping_info`
+- `src/lib/data-store.ts` [MODIFIKASI] — Default content blocks (`about_us`, `why_us`, `shipping_info`) & default FAQs (`faq-1`, `faq-2`, `faq-5`)
+- `prisma/seed.ts` [MODIFIKASI] — Sinkronisasi data awal seed database agar sejalan dengan copywriting non-overclaim
+- `docs/NOTEPATCH.md` [MODIFIKASI] — Pencatatan dokumentasi Sesi #13
 
-
-
-
-
+**Verifikasi Kualitas & Integritas:**
+- `npx tsc --noEmit`: 0 error (TypeScript strict typecheck lolos 100%).
+- `npm test`: 102/102 assertions lulus 100% (Phase 7 E2E 39/39, CRM 40/40, Audit P0/P1/Bisnis 23/23).
+- `npm run build`: Exit Code 0 (Kompilasi bersih pada seluruh 45 rute statis dan dinamis Next.js 16).
+- Audit Kata Kunci: Grep pencarian menyeluruh terhadap `IUP`, `COA`, `armada darat kami`, `Sucofindo`, `Geoservices`, `tangan pertama`, `konsesi`, dan `AMDAL` terkonfirmasi 0 overclaim pada seluruh kode sumber.

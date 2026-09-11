@@ -59,22 +59,22 @@ async function main() {
     {
       key: 'homepage_hero',
       title: 'Pasokan Mineral Tambang & Komoditas Alam Terpercaya',
-      content: '<p>Kami menyediakan komoditas mineral tambang mentah dan olahan berstandar industri dengan pengujian laboratorium berkala. Siap melayani kebutuhan pengiriman industri domestik maupun ekspor skala besar.</p>',
+      content: '<p>Kami menyediakan komoditas mineral tambang mentah dan olahan berstandar industri dengan spesifikasi transparan. Siap melayani kebutuhan pengadaan industri domestik maupun ekspor.</p>',
     },
     {
       key: 'about_us',
       title: 'Tentang MineralHub Indonesia',
-      content: '<p>MineralHub Indonesia adalah platform pengadaan mineral dan hasil alam terintegrasi. Kami menghubungkan sumber tambang terverifikasi langsung dengan pelaku industri kimia, pertanian, konstruksi, dan manufaktur global dengan jaminan kualitas serta transparansi analisis laboratorium.</p>',
+      content: '<p>MineralHub Indonesia adalah platform pengadaan mineral dan hasil alam terintegrasi. Kami melayani kebutuhan pelaku industri kimia, pertanian, konstruksi, dan manufaktur melalui kemitraan rantai pasok terpercaya dengan komitmen transparansi spesifikasi fisik dan uji sampel.</p>',
     },
     {
       key: 'why_us',
       title: 'Mengapa Memilih MineralHub?',
-      content: '<ul><li><strong>Spesifikasi Teruji:</strong> Setiap pengiriman disertai Certificate of Analysis (CoA) resmi.</li><li><strong>Kapasitas Stabil:</strong> Jaringan tambang dan pengolahan langsung memastikan kontinuitas pasokan.</li><li><strong>Harga Transparan:</strong> Pembelian langsung tanpa rantai perantara berlebih.</li><li><strong>Pengiriman Aman:</strong> Armada logistik darat dan laut berpengalaman.</li></ul>',
+      content: '<ul><li><strong>Legalitas Usaha Terverifikasi:</strong> Kemitraan niaga resmi dengan transparansi dokumen pengiriman.</li><li><strong>Kesesuaian Spesifikasi:</strong> Data fisik disajikan transparan dengan dukungan uji sampel sebelum transaksi.</li><li><strong>Skema Grosir Kompetitif:</strong> Struktur harga rasional yang disesuaikan untuk skala volume industri.</li><li><strong>Pengiriman Fleksibel:</strong> Opsi pengambilan mandiri (Loco/FOB) maupun koordinasi ekspedisi kargo terpercaya.</li></ul>',
     },
     {
       key: 'shipping_info',
       title: 'Informasi Pengiriman & Logistik',
-      content: '<p>Pengiriman darat mencakup seluruh Pulau Jawa, Bali, dan Sumatra menggunakan armada truk colt diesel, fuso, hingga tronton. Untuk pengiriman antar-pulau dan ekspor, kami menyediakan kontainer FCL (Full Container Load) dan LCL melalui pelabuhan Tanjung Priok dan Tanjung Perak.</p>',
+      content: '<p>Pengiriman darat mencakup wilayah Pulau Jawa, Bali, dan Sumatra bekerja sama dengan penyedia jasa ekspedisi truk colt diesel, fuso, hingga tronton. Untuk pengiriman antar-pulau dan ekspor, dapat dikoordinasikan menggunakan opsi kontainer FCL (Full Container Load) dan LCL melalui pelabuhan muat utama.</p>',
     },
     {
       key: 'terms',
@@ -84,7 +84,7 @@ async function main() {
     {
       key: 'privacy_policy',
       title: 'Kebijakan Privasi',
-      content: '<p>Data pribadi yang dikirimkan pada saat checkout (nama, nomor kontak, alamat pengiriman) hanya digunakan untuk pemrosesan faktur, verifikasi pembayaran, dan koordinasi pengiriman armada logistik.</p>',
+      content: '<p>Data pribadi yang dikirimkan pada saat checkout (nama, nomor kontak, alamat pengiriman) hanya digunakan untuk pemrosesan faktur, verifikasi pembayaran, dan koordinasi pengiriman jasa ekspedisi/kargo.</p>',
     },
   ];
 

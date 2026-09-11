@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
   title: 'Lacak Pesanan Komoditas — MineralHub Indonesia',
   description:
-    'Lacak status pengiriman kontainer dan armada darat pesanan komoditas mineral Anda secara real-time dengan kode pesanan dan nomor WhatsApp.',
+    'Lacak status pengiriman dan kargo pesanan komoditas mineral Anda secara real-time dengan kode pesanan dan nomor WhatsApp.',
 };
 
 export default async function LacakPesananPage() {

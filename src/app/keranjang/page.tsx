@@ -166,7 +166,7 @@ export default function KeranjangPage() {
                   <span className="font-bold text-slate-900">{formatRupiah(totalPrice)}</span>
                 </div>
                 <div className="flex justify-between text-slate-600">
-                  <span>Ongkos Kirim Armada</span>
+                  <span>Ongkos Kirim Ekspedisi / Kargo</span>
                   <span className="text-emerald-700 font-semibold">Dihitung saat Checkout</span>
                 </div>
               </div>

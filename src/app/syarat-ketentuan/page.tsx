@@ -71,7 +71,7 @@ export default async function SyaratKetentuanPage() {
             dangerouslySetInnerHTML={{
               __html: sanitize(
                 shippingBlock?.content ||
-                  'Pengiriman menggunakan armada truk curah, tronton muatan jumbo bag, atau peti kemas kontainer 20ft/40ft.'
+                  'Pengiriman dikoordinasikan menggunakan ekspedisi kargo darat dan laut atau opsi pengambilan mandiri (Loco).'
               ),
             }}
           />

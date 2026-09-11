@@ -129,7 +129,7 @@ export function OrderTrackingClient({ csWhatsapp }: { csWhatsapp: string }) {
     {
       step: 5,
       title: 'Dalam Pengiriman',
-      desc: 'Armada logistik / ekspedisi',
+      desc: 'Kurir / jasa ekspedisi kargo',
       icon: Truck,
     },
     {
