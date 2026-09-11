@@ -423,8 +423,8 @@ model Customer {
 
 | Role | Hak Akses | Catatan Keamanan |
 |---|---|---|
-| **Superadmin** | Full akses: Pengaturan situs, kelola produk, kategori, peruntukan, verifikasi pembayaran pesanan, CMS artikel, CMS teks & FAQ, serta CRM Database Pelanggan & Prospek Leads. | Seluruh endpoint admin diproteksi ganda via middleware dan `getAdminSession()`. Sesi via HTTP-only cookie. |
-| **Admin** | Operasional katalog, pesanan, dan follow-up prospek sales. | Disiapkan strukturnya pada role enum. |
+| **Superadmin** | Full akses: Pengaturan situs & rekening, manajemen akun staf/admin (`/admin/pengguna`), kelola produk, kategori, peruntukan, verifikasi pembayaran pesanan, CMS artikel, CMS teks & FAQ, serta CRM Database Pelanggan & Prospek Leads. | Seluruh endpoint admin diproteksi ganda via middleware dan `getAdminSession()`. Operasi mutasi pengaturan dan manajemen pengguna dikunci khusus role `SUPERADMIN` via `requireSuperAdminSession()`. Sesi via HTTP-only cookie. |
+| **Admin (Staf)** | Operasional harian: Katalog produk, kategori, peruntukan, pengelolaan pesanan, verifikasi pembayaran bukti transfer, database CRM pelanggan/prospek, CMS artikel, FAQ, dan blok konten web. Dibatasi dari pengaturan global sistem dan manajemen akun staf. | Terotentikasi sesi JWT admin. Diproteksi guard RBAC `isAdmin` & `isSuperAdmin`. |
 | **Buyer / Publik** | Browse katalog, pencarian & filter, guest checkout, request penawaran resmi (RFQ), upload bukti transfer (JPG/PNG/WEBP/PDF max 5MB rate limited), lacak pesanan via `orderCode` + HP, membaca artikel & FAQ, klik-chat CS WhatsApp. | Tanpa wajib login / registrasi akun. |
 
 ---
@@ -436,11 +436,14 @@ model Customer {
 | Inisialisasi Project (Next.js + Tailwind + TS) | Selesai | Fase 1: Next.js 16 (App Router) + TS + Tailwind v3 + Lucide Icons |
 | Setup Schema Prisma & Migrasi | Selesai | Fase 1: 13 model Prisma lengkap, validasi & Prisma Client generated |
 | Seed Data Awal (Komoditas Mineral) | Selesai | Fase 1: Script seed (Zeolite, Bentonite, Timah, Gaharu, dsb.) |
-| Auth Superadmin (Login, Logout, Middleware) | Selesai (Hardened) | Sesi #10: Fail-fast JWT Secret (>= 32 chars), backdoor dihapus di produksi, middleware defense-in-depth |
+| Auth Superadmin (Login, Logout, Middleware) | Selesai (Hardened) | Sesi #10-11: Fail-fast JWT Secret (>= 32 chars), backdoor dihapus di produksi, middleware defense-in-depth, logout whitelist untuk mitigasi token expired |
 | Otorisasi Admin API 100% Terlindungi | Selesai (Hardened) | Sesi #10: Seluruh endpoint `/api/admin/**` menolak akses tanpa sesi dengan HTTP 401 |
-| Upload Berkas Terlindungi | Selesai (Hardened) | Sesi #10: Rate limiting per-IP, verifikasi Magic Bytes fisik, disallow format SVG |
-| CRUD Kategori & Peruntukan | Selesai (Terproteksi) | Sesi #10: Endpoint & UI Admin terlindungi otorisasi penuh |
-| CRUD Produk (Galeri, Tags, Peruntukan) | Selesai (Terproteksi) | Sesi #10: Endpoint & UI Admin terlindungi otorisasi penuh |
+| Role-Based Access Control (RBAC) & Manajemen Staf | Selesai (Terverifikasi) | Sesi #10-11: Rute `/admin/pengguna` dan API `/api/admin/users`, kontrol level akun `SUPERADMIN` vs `ADMIN`, proteksi restriksi mutasi pengaturan situs |
+| Satuan Komoditas Dinamis (UoM) & Ambang Stok Rendah | Selesai (Terverifikasi) | Sesi #10-11: Multi-unit (`kg`, `ton`, `sak`, `m³`), atribut `minStock` pada produk & `lowStockAlertThreshold` pada pengaturan situs, badge visual stok menipis |
+| Upload Berkas Publik Terlindungi | Selesai (Hardened) | Sesi #10: Rate limiting per-IP (10x/5m), verifikasi Magic Bytes fisik, disallow format SVG |
+| Admin Media Upload Berkas Terlindungi | Selesai (Hardened) | Sesi #10: Endpoint `/api/admin/upload` khusus CMS admin (limit 10MB, rate-limiting, validasi Magic Bytes fisik, disallow SVG) |
+| CRUD Kategori & Peruntukan | Selesai (Terproteksi) | Sesi #10: Endpoint & UI Admin terlindungi otorisasi penuh, relasi integritas pencegah orphan data |
+| CRUD Produk (Galeri, Tags, Peruntukan, Satuan) | Selesai (Terproteksi) | Sesi #10: Endpoint & UI Admin terlindungi otorisasi penuh, proteksi hapus jika ada riwayat pesanan |
 | Storefront Publik & Keranjang Belanja | Selesai | Fase 2: /produk, /produk/[slug], /keranjang + CartContext localStorage |
 | Pencarian & Filter Multi-Dimensi (URL Query) | Selesai | Fase 3: FilterSidebar desktop sticky + mobile bottom drawer, SortSelect, ActiveFilterChips |
 | Checkout & Transaksi Stok Atomik | Selesai (Anti-Overselling) | Sesi #10: `prisma.$transaction` dengan validasi kondisional `stock >= qty` |
@@ -457,47 +460,52 @@ model Customer {
 
 ---
 
-## 7. Matriks Endpoint API Lengkap (28 Route)
+## 7. Matriks Endpoint API Lengkap (31 Route)
 
 | Method | Endpoint | Tipe Akses | Deskripsi & Proteksi |
 |---|---|---|---|
 | `POST` | `/api/checkout` | Publik | Formulir guest checkout (transaksi atomik potong stok & catat lead) |
 | `GET` | `/api/pesanan/[orderCode]` | Publik | Detail pesanan untuk verifikasi nomor rekening & upload bukti |
-| `POST` | `/api/pesanan/[orderCode]/bukti` | Publik | Simpan informasi bukti transfer pembayaran |
+| `POST` | `/api/pesanan/[orderCode]/bukti` | Publik | Simpan informasi bukti transfer pembayaran (dengan status gate) |
 | `POST` | `/api/lacak-pesanan` | Publik | Pelacakan pesanan publik (verifikasi orderCode + 4 digit no WA) |
 | `POST` | `/api/leads` | Publik | Penangkapan lead prospek dari formulir RFQ storefront |
-| `POST` | `/api/upload` | Publik | Upload media (Rate limited 10x/5m, Magic Bytes valid, no SVG) |
-| `POST` | `/api/admin/auth/login` | Publik (Admin) | Login superadmin dengan rate limit brute-force & audit log |
-| `POST` | `/api/admin/auth/logout` | Publik / Admin | Menghapus session cookie admin (`mineral_admin_token`) |
-| `GET` | `/api/admin/auth/me` | Admin Wajib | Cek profil sesi superadmin yang sedang aktif |
-| `GET` | `/api/admin/dashboard/stats` | Admin Wajib | Statistik real-time omset, pesanan, dan ringkasan CRM |
+| `POST` | `/api/upload` | Publik | Upload media bukti bayar (Rate limited 10x/5m, Magic Bytes valid, no SVG, max 5MB) |
+| `POST` | `/api/admin/auth/login` | Publik (Admin) | Login superadmin/staf dengan rate limit brute-force & audit log |
+| `POST` | `/api/admin/auth/logout` | Publik / Admin | Menghapus session cookie admin (`mineral_admin_token`, bebas blokir expired token) |
+| `GET` | `/api/admin/auth/me` | Admin Wajib | Cek profil sesi superadmin/staf yang sedang aktif |
+| `GET` | `/api/admin/dashboard/stats` | Admin Wajib | Statistik real-time omset, pesanan, peringatan stok rendah, dan ringkasan CRM |
 | `GET` | `/api/admin/kategori` | Admin Wajib | Ambil seluruh daftar kategori komoditas |
 | `POST` | `/api/admin/kategori` | Admin Wajib | Tambah kategori komoditas baru |
 | `PUT` | `/api/admin/kategori/[id]` | Admin Wajib | Perbarui nama dan gambar kategori |
-| `DELETE` | `/api/admin/kategori/[id]` | Admin Wajib | Hapus kategori komoditas |
+| `DELETE` | `/api/admin/kategori/[id]` | Admin Wajib | Hapus kategori komoditas (dicek integritas produk terkait) |
 | `GET` | `/api/admin/peruntukan` | Admin Wajib | Ambil seluruh taksonomi peruntukan (*Usage*) |
 | `POST` | `/api/admin/peruntukan` | Admin Wajib | Tambah taksonomi peruntukan baru |
 | `PUT` | `/api/admin/peruntukan/[id]` | Admin Wajib | Perbarui nama taksonomi peruntukan |
-| `DELETE` | `/api/admin/peruntukan/[id]` | Admin Wajib | Hapus taksonomi peruntukan |
-| `GET` | `/api/admin/produk` | Admin Wajib | Ambil katalog produk dengan filter dan pencarian |
-| `POST` | `/api/admin/produk` | Admin Wajib | Buat produk komoditas baru |
+| `DELETE` | `/api/admin/peruntukan/[id]` | Admin Wajib | Hapus taksonomi peruntukan (dicek integritas produk terkait) |
+| `GET` | `/api/admin/produk` | Admin Wajib | Ambil katalog produk dengan filter, pencarian, satuan, dan ambang stok |
+| `POST` | `/api/admin/produk` | Admin Wajib | Buat produk komoditas baru (lengkap dengan satuan & minStock) |
 | `GET` | `/api/admin/produk/[id]` | Admin Wajib | Ambil detail lengkap satu produk |
-| `PUT` | `/api/admin/produk/[id]` | Admin Wajib | Perbarui data produk, harga, galeri, dan stok |
-| `DELETE` | `/api/admin/produk/[id]` | Admin Wajib | Hapus produk dari katalog |
+| `PUT` | `/api/admin/produk/[id]` | Admin Wajib | Perbarui data produk, harga, galeri, stok, satuan, dan minStock |
+| `DELETE` | `/api/admin/produk/[id]` | Admin Wajib | Hapus produk (dicek riwayat pesanan untuk mencegah orphan) |
+| `POST` | `/api/admin/upload` | Admin Wajib | Upload media CMS admin (10 MB, Magic Bytes fisik, rate limited, no SVG) |
+| `GET` | `/api/admin/users` | Admin Wajib (SUPERADMIN) | Ambil daftar akun staf & admin aktif |
+| `POST` | `/api/admin/users` | Admin Wajib (SUPERADMIN) | Buat akun staf/admin baru dengan enkripsi password bcrypt |
+| `PATCH` | `/api/admin/users/[id]` | Admin Wajib (SUPERADMIN) | Perbarui role (ADMIN/SUPERADMIN), status aktif, atau reset password staf |
+| `DELETE` | `/api/admin/users/[id]` | Admin Wajib (SUPERADMIN) | Hapus akun staf (proteksi: dilarang menghapus akun sendiri) |
 | `GET` | `/api/admin/pesanan` | Admin Wajib | Daftar seluruh transaksi pesanan pembeli |
 | `GET` | `/api/admin/pesanan/[id]` | Admin Wajib | Detail pesanan spesifik beserta item & bukti bayar |
-| `PATCH` | `/api/admin/pesanan/[id]` | Admin Wajib | Update status pesanan (dengan restock jika dibatalkan) |
+| `PATCH` | `/api/admin/pesanan/[id]` | Admin Wajib | Update status pesanan (dengan restock otomatis jika dibatalkan/ditolak) |
 | `POST` | `/api/admin/pesanan/[id]/verifikasi` | Admin Wajib | Setujui bukti bayar (PAID + trigger DEAL CRM) / Tolak |
 | `GET` | `/api/admin/pelanggan` | Admin Wajib | Direktori CRM database kontak (prospek & customer) |
 | `POST` | `/api/admin/pelanggan` | Admin Wajib | Tambah data kontak pelanggan/prospek manual |
-| `GET` | `/api/admin/pelanggan/[id]` | Admin Wajib | Detail kontak pelanggan & riwayat transaksi |
-| `PUT` | `/api/admin/pelanggan/[id]` | Admin Wajib | Perbarui kontak, status prospek, & catatan negosiasi |
+| `GET` | `/api/admin/pelanggan/[id]` | Admin Wajib | Detail kontak pelanggan, riwayat transaksi & estimasi kebutuhan |
+| `PUT` | `/api/admin/pelanggan/[id]` | Admin Wajib | Perbarui kontak, status prospek (BARU, NEGOSIASI, DEAL, LOSS), & catatan |
 | `DELETE` | `/api/admin/pelanggan/[id]` | Admin Wajib | Hapus kontak dari database pelanggan |
 | `GET` | `/api/admin/pelanggan/export` | Admin Wajib | Ekspor seluruh database kontak dalam format CSV |
 | `GET` | `/api/admin/artikel` | Admin Wajib | Ambil daftar artikel CMS |
 | `POST` | `/api/admin/artikel` | Admin Wajib | Buat artikel edukasi/berita baru |
 | `GET` | `/api/admin/artikel/[id]` | Admin Wajib | Ambil data satu artikel |
-| `PUT` | `/api/admin/artikel/[id]` | Admin Wajib | Perbarui konten artikel (tersanitasi) |
+| `PUT` | `/api/admin/artikel/[id]` | Admin Wajib | Perbarui konten artikel (tersanitasi XSS) |
 | `DELETE` | `/api/admin/artikel/[id]` | Admin Wajib | Hapus artikel |
 | `GET` | `/api/admin/konten` | Admin Wajib | Ambil seluruh blok teks web dinamis |
 | `PUT` | `/api/admin/konten` | Admin Wajib | Perbarui isi blok teks web |
@@ -507,7 +515,7 @@ model Customer {
 | `PUT` | `/api/admin/faq/[id]` | Admin Wajib | Perbarui pertanyaan & jawaban FAQ |
 | `DELETE` | `/api/admin/faq/[id]` | Admin Wajib | Hapus item FAQ |
 | `GET` | `/api/admin/pengaturan` | Admin Wajib | Ambil konfigurasi situs & rekening bank |
-| `PUT` | `/api/admin/pengaturan` | Admin Wajib | Perbarui identitas, kontak CS, dan rekening bank |
+| `PUT` | `/api/admin/pengaturan` | Admin Wajib (SUPERADMIN) | Perbarui identitas, kontak CS, ambang stok, dan rekening bank |
 
 ---
 

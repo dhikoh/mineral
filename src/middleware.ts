@@ -18,8 +18,8 @@ export async function middleware(req: NextRequest) {
 
   // 1. Proteksi endpoint API Admin (/api/admin/*)
   if (pathname.startsWith('/api/admin')) {
-    // Whitelist endpoint autentikasi publik (login)
-    if (pathname === '/api/admin/auth/login') {
+    // Whitelist endpoint autentikasi publik (login & logout)
+    if (pathname === '/api/admin/auth/login' || pathname === '/api/admin/auth/logout') {
       return NextResponse.next();
     }
 

@@ -654,6 +654,43 @@
 - `npm test`: Seluruh suite pengujian lolos 100% (23 assertions audit P0-P1, 40 CRM assertions, E2E).
 - `npm run build`: Exit Code 0 (berhasil mengompilasi 45 static/dynamic routes Next.js 16 App Router).
 
+---
+
+## [2026-09-11] - Sesi #12: Audit Total Menyeluruh, Verifikasi Integritas Sistem & Sinkronisasi Final Blueprint
+
+**Tujuan Sesi:**
+Audit total dan mendalam terhadap seluruh logika bisnis, alur kerja (workflow), arsitektur keamanan, ketiadaan rute yatim (no orphan), redundansi kode (no duplicate), kepatuhan mutlak terhadap BLUEPRINT.md, dan verifikasi kesiapan rilis final aplikasi web MineralHub Indonesia.
+
+**Temuan Audit & Perbaikan yang Diterapkan:**
+1. **P0 Keamanan: Whitelist Logout pada Middleware (`src/middleware.ts`):**
+   - *Temuan:* Sesi admin yang telah kedaluwarsa (expired token) sebelumnya ditolak oleh middleware dengan HTTP 401 saat memanggil `POST /api/admin/auth/logout`, menghambat browser menghapus cookie `mineral_admin_token` melalui server-side response.
+   - *Tindakan:* Menambahkan `/api/admin/auth/logout` ke whitelist pengecualian middleware sehingga aksi logout selalu berhasil membersihkan cookie sesi tanpa terjebak status Unauthorized.
+2. **Sinkronisasi Matriks Rute Blueprint (`docs/BLUEPRINT.md`):**
+   - *Temuan:* Matriks endpoint API pada BLUEPRINT.md masih mencatat 28 rute, padahal implementasi riil memiliki 31 rute aktif.
+   - *Tindakan:* Menyelaraskan Section 7 menjadi 31 rute dengan mendokumentasikan rute `POST /api/admin/upload`, `GET/POST /api/admin/users`, dan `PATCH/DELETE /api/admin/users/[id]`.
+3. **Penyelarasan Hak Akses & Fitur Blueprint:**
+   - Memperbarui Section 5 (Role & Permission) untuk mendokumentasikan spesifikasi RBAC peran `SUPERADMIN` vs `ADMIN (Staf)`.
+   - Menambahkan fitur Manajemen Staf (RBAC), Satuan Komoditas Dinamis (`unit`), Ambang Stok Rendah (`minStock`), dan Admin Media Upload ke tabel daftar fitur Section 6.
+4. **Verifikasi Integritas Logika Bisnis & Siklus Transaksi:**
+   - ✅ *Transaksi Stok Atomik:* `createOrder` terproteksi transaksi atomik `prisma.$transaction` dengan guard `stock: { gte: qty }` anti-overselling.
+   - ✅ *Restock Otomatis:* Pembatalan pesanan (`CANCELLED`/`REJECTED`) terbukti mengembalikan stok komoditas dan mengompensasi nilai LTV.
+   - ✅ *Siklus CRM B2B:* Pembelian baru mencatat prospek `PROSPECT` / `BARU`, promosi ke `CUSTOMER` / `DEAL` serta akumulasi LTV hanya terpicu saat bukti bayar disetujui sah (`PAID`).
+   - ✅ *Proteksi Penghapusan Relasional:* Kategori, peruntukan, dan produk terproteksi dari penghapusan jika masih terkait data produk atau riwayat transaksi pesanan.
+   - ✅ *Validasi Konten & File:* Upload publik menerapkan rate-limiting, ukuran maksimum 5MB, dan validasi magic bytes fisik (JPG/PNG/WEBP/PDF; SVG diblokir untuk mencegah stored XSS).
+5. **Audit Arsitektur & Ketiadaan Kode Yatim (Zero Orphan & Zero Broken Links):**
+   - 100% dari 31 halaman storefront dan admin terhubung secara konsisten ke navbar, footer, mobile bottom nav, atau dashboard admin.
+   - Seluruh halaman form dan detail admin dilengkapi tombol navigasi kembali (`ArrowLeft`).
+
+**File diubah/dibuat:**
+- `src/middleware.ts` [MODIFIKASI] — Whitelist rute logout admin pada layer proxy/middleware
+- `docs/BLUEPRINT.md` [MODIFIKASI] — Sinkronisasi matriks 31 API, RBAC Superadmin vs Staf, UoM & stok
+- `docs/NOTEPATCH.md` [MODIFIKASI] — Pencatatan audit komprehensif Sesi #12
+
+**Verifikasi:**
+- `npx tsc --noEmit`: 0 error (TypeScript compiler lulus 100%).
+- `npm test`: 102/102 assertions lulus 100% (Phase 7 E2E 39/39, CRM 40/40, Audit P0/P1/Bisnis 23/23).
+- `npm run build`: Exit Code 0 (berhasil mengompilasi 45 routes Next.js 16 App Router tanpa error).
+
 
 
 
