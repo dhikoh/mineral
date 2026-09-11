@@ -386,6 +386,7 @@ export function OrderDetailClient({
               <ImageUploader
                 value={proofFileUrl}
                 onChange={(val) => setProofFileUrl(val as string)}
+                uploadEndpoint="/api/upload"
                 helperText="Upload struk transfer bank (JPG, PNG, WEBP, maks 5MB)"
               />
             </div>
@@ -585,7 +586,7 @@ export function OrderDetailClient({
                       </span>
                     )}
                     <div className="text-[11px] text-slate-400 mt-0.5">
-                      {it.qty} unit × {formatRupiah(it.price)}
+                      {it.qty} {prod?.unit || 'unit'} × {formatRupiah(it.price)}
                     </div>
                   </div>
                 </div>

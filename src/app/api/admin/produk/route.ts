@@ -35,6 +35,8 @@ export async function POST(req: NextRequest) {
       description,
       price,
       stock,
+      unit,
+      minStock,
       images,
       tags,
       categoryId,
@@ -60,11 +62,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Jumlah stok tidak valid' }, { status: 400 });
     }
 
+    const numMinStock = minStock !== undefined ? Number(minStock) : 50;
+
     const newProduct = await createProduct({
       name: name.trim(),
       description: description ? description.trim() : '',
       price: numPrice,
       stock: numStock,
+      unit: unit ? String(unit).trim() : 'kg',
+      minStock: isNaN(numMinStock) ? 50 : numMinStock,
       images: Array.isArray(images) ? images : [],
       tags: Array.isArray(tags) ? tags : [],
       categoryId,

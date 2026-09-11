@@ -1,51 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getAdminSession } from '@/lib/auth';
 import { uploadMedia } from '@/lib/storage';
 
-// R-14: Rate limiting per-IP untuk endpoint upload publik
-interface UploadAttemptRecord {
-  count: number;
-  firstAttemptTime: number;
-}
-
-const uploadRateLimitMap = new Map<string, UploadAttemptRecord>();
-const MAX_UPLOADS_PER_WINDOW = 10;
-const RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000; // 5 menit
-
-function checkUploadRateLimit(ip: string): { allowed: boolean; remainingMinutes: number } {
-  const now = Date.now();
-  const record = uploadRateLimitMap.get(ip);
-
-  if (!record) {
-    uploadRateLimitMap.set(ip, { count: 1, firstAttemptTime: now });
-    return { allowed: true, remainingMinutes: 5 };
-  }
-
-  if (now - record.firstAttemptTime > RATE_LIMIT_WINDOW_MS) {
-    uploadRateLimitMap.set(ip, { count: 1, firstAttemptTime: now });
-    return { allowed: true, remainingMinutes: 5 };
-  }
-
-  if (record.count >= MAX_UPLOADS_PER_WINDOW) {
-    const remainingMs = RATE_LIMIT_WINDOW_MS - (now - record.firstAttemptTime);
-    return { allowed: false, remainingMinutes: Math.max(1, Math.ceil(remainingMs / 60000)) };
-  }
-
-  record.count += 1;
-  return { allowed: true, remainingMinutes: 5 };
-}
-
-// R-14: Hapus image/svg+xml demi keamanan stored XSS pada upload publik
 const ALLOWED_TYPES = [
   'image/jpeg',
   'image/jpg',
   'image/png',
   'image/webp',
-  'application/pdf', // untuk foto bukti transfer / dokumen PDF
+  'application/pdf',
 ];
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB untuk admin
 
-// R-14: Deteksi tipe berkas fisik sesungguhnya dari magic bytes header
 function detectFileTypeFromMagicBytes(buffer: Buffer): string | null {
   if (buffer.length < 12) return null;
 
@@ -82,7 +48,7 @@ function detectFileTypeFromMagicBytes(buffer: Buffer): string | null {
     return 'image/webp';
   }
 
-  // PDF: %PDF- (25 50 44 46)
+  // PDF: %PDF-
   if (
     buffer[0] === 0x25 &&
     buffer[1] === 0x50 &&
@@ -96,21 +62,13 @@ function detectFileTypeFromMagicBytes(buffer: Buffer): string | null {
 }
 
 export async function POST(req: NextRequest) {
+  // 1. Guard Autentikasi Admin Wajib (R-1)
+  const session = await getAdminSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
-    // 1. Terapkan Rate Limiting berdasarkan IP klien
-    const forwarded = req.headers.get('x-forwarded-for');
-    const clientIp = forwarded ? forwarded.split(',')[0].trim() : '127.0.0.1';
-    const rateLimit = checkUploadRateLimit(clientIp);
-
-    if (!rateLimit.allowed) {
-      return NextResponse.json(
-        {
-          error: `Batas upload terlampaui. Alamat IP Anda ditangguhkan sementara. Silakan coba kembali dalam ${rateLimit.remainingMinutes} menit.`,
-        },
-        { status: 429 }
-      );
-    }
-
     const contentType = req.headers.get('content-type') || '';
 
     // Mode 1: Tempel Link URL gambar eksternal (JSON)
@@ -120,7 +78,7 @@ export async function POST(req: NextRequest) {
 
       if (!url || typeof url !== 'string') {
         return NextResponse.json(
-          { error: 'Tautan URL gambar wajib diisi' },
+          { error: 'Tautan URL gambar wajib diisi.' },
           { status: 400 }
         );
       }
@@ -140,28 +98,27 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Mode 2: Upload file langsung (multipart/form-data)
+    // Mode 2: Upload file fisik
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
 
     if (!file) {
       return NextResponse.json(
-        { error: 'File tidak ditemukan dalam formulir upload' },
+        { error: 'File tidak ditemukan dalam formulir upload.' },
         { status: 400 }
       );
     }
 
-    // Validasi tipe file yang dideklarasikan klien
     if (!ALLOWED_TYPES.includes(file.type)) {
       return NextResponse.json(
-        { error: 'Format file tidak didukung. Harap unggah format JPG, PNG, WEBP, atau PDF.' },
+        { error: 'Format file tidak didukung. Harap unggah JPG, PNG, WEBP, atau PDF.' },
         { status: 400 }
       );
     }
 
     if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json(
-        { error: 'Ukuran file melebihi batas maksimal 5 MB' },
+        { error: 'Ukuran file melebihi batas maksimal 10 MB.' },
         { status: 400 }
       );
     }
@@ -169,16 +126,15 @@ export async function POST(req: NextRequest) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // R-14: Validasi berkas fisik dengan inspeksi Magic Bytes
     const verifiedMimeType = detectFileTypeFromMagicBytes(buffer);
     if (!verifiedMimeType) {
       return NextResponse.json(
-        { error: 'Isi berkas tidak valid atau rusak. Harap unggah berkas gambar JPG, PNG, WEBP, atau PDF yang valid.' },
+        { error: 'Isi berkas tidak valid atau rusak.' },
         { status: 400 }
       );
     }
 
-    const result = await uploadMedia(buffer, verifiedMimeType, 'proof');
+    const result = await uploadMedia(buffer, verifiedMimeType, 'admin');
 
     return NextResponse.json({
       success: true,
@@ -190,9 +146,9 @@ export async function POST(req: NextRequest) {
       mode: 'upload',
     });
   } catch (error: any) {
-    console.error('Upload handler error:', error);
+    console.error('Admin upload error:', error);
     return NextResponse.json(
-      { error: 'Terjadi kesalahan sistem saat mengunggah file' },
+      { error: 'Terjadi kesalahan sistem saat mengunggah file.' },
       { status: 500 }
     );
   }

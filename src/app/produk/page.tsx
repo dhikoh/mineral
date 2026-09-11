@@ -209,8 +209,10 @@ export default async function KatalogProdukPage({
                     description={product.description}
                     price={product.price}
                     stock={product.stock}
+                    unit={product.unit}
                     images={images}
                     categoryName={product.category?.name}
+                    categorySlug={product.category?.slug}
                     usages={productUsages}
                     tags={tags}
                   />

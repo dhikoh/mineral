@@ -25,6 +25,7 @@ import {
   CreditCard,
   MessageSquare,
   Users,
+  UserCheck,
 } from 'lucide-react';
 import { formatRupiah, formatTanggal } from '@/lib/utils';
 
@@ -363,10 +364,10 @@ export default function AdminDashboardPage() {
               <span>Peringatan Stok Menipis ({stats.lowStockProducts.length} Komoditas)</span>
             </div>
             <p className="text-xs text-amber-700 mt-1">
-              Produk berikut memiliki stok di bawah batas aman (500 unit/sak). Disarankan segera memperbarui stok tambang:
+              Produk berikut memiliki stok fisik di bawah batas aman minimum yang ditentukan. Disarankan segera memperbarui stok komoditas:
             </p>
             <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-              {stats.lowStockProducts.map((p) => (
+              {stats.lowStockProducts.map((p: any) => (
                 <div
                   key={p.id}
                   className="rounded-xl border border-amber-200 bg-white p-3 flex items-center justify-between shadow-soft-xs"
@@ -374,7 +375,10 @@ export default function AdminDashboardPage() {
                   <div className="min-w-0 pr-2">
                     <p className="text-xs font-bold text-slate-900 truncate">{p.name}</p>
                     <p className="text-[11px] font-extrabold text-amber-700 mt-0.5">
-                      Sisa: {p.stock} unit
+                      Sisa: {p.stock} {p.unit || 'kg'}
+                    </p>
+                    <p className="text-[10px] text-slate-400">
+                      Batas aman: {p.minStock ?? 50} {p.unit || 'kg'}
                     </p>
                   </div>
                   <Link
@@ -635,6 +639,30 @@ export default function AdminDashboardPage() {
                 Konfigurasi nomor WhatsApp CS, jam operasional, alamat gudang, dan nomor rekening transfer resmi.
               </p>
             </Link>
+
+            {/* 9. Manajemen Pengguna / Admin (Khusus SUPERADMIN) */}
+            {user?.role === 'SUPERADMIN' && (
+              <Link
+                href="/admin/pengguna"
+                className="group rounded-2xl border border-surface-200 bg-white p-5 hover:border-emerald-500 hover:shadow-soft-md transition-all"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="rounded-xl bg-rose-50 p-3 text-rose-600 group-hover:bg-rose-600 group-hover:text-white transition-colors">
+                    <UserCheck className="h-6 w-6" />
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="rounded-full bg-rose-100 text-rose-700 px-2 py-0.5 text-[10px] font-bold">
+                      Superadmin
+                    </span>
+                    <ArrowUpRight className="h-4 w-4 text-slate-400 group-hover:text-rose-600 transition-colors" />
+                  </div>
+                </div>
+                <h4 className="mt-4 font-bold text-slate-900 text-sm">Manajemen Admin & Staf</h4>
+                <p className="mt-1 text-xs text-slate-500 leading-relaxed">
+                  Kelola akun admin portal, atur hak akses SUPERADMIN/ADMIN, dan kredensial login.
+                </p>
+              </Link>
+            )}
           </div>
         </div>
       </main>

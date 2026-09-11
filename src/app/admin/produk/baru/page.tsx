@@ -31,6 +31,8 @@ export default function AdminTambahProdukPage() {
   const [selectedUsageIds, setSelectedUsageIds] = useState<string[]>([]);
   const [price, setPrice] = useState<string>('');
   const [stock, setStock] = useState<string>('100');
+  const [unit, setUnit] = useState<string>('kg');
+  const [minStock, setMinStock] = useState<string>('50');
   const [description, setDescription] = useState('');
   const [tags, setTags] = useState<string[]>(['mineral', 'komoditas']);
   const [images, setImages] = useState<string[]>([]);
@@ -108,6 +110,8 @@ export default function AdminTambahProdukPage() {
           description: description.trim(),
           price: numPrice,
           stock: numStock,
+          unit: unit.trim() || 'kg',
+          minStock: Number(minStock) || 50,
           categoryId,
           usageIds: selectedUsageIds,
           tags,
@@ -265,14 +269,46 @@ export default function AdminTambahProdukPage() {
                 />
                 {price && (
                   <p className="mt-1 text-[11px] font-bold text-emerald-400">
-                    Preview: {formatRupiah(Number(price))}
+                    Preview: {formatRupiah(Number(price))} / {unit || 'kg'}
                   </p>
                 )}
               </div>
 
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
-                  Jumlah Stok Fisik <span className="text-rose-400">*</span>
+                  Satuan Komoditas (UoM) <span className="text-rose-400">*</span>
+                </label>
+                <div className="flex gap-2">
+                  <select
+                    value={['kg', 'ton', 'sak (25 kg)', 'sak (50 kg)', 'jumbo bag (1 ton)', 'batang/ingot', 'm³', 'liter'].includes(unit) ? unit : 'custom'}
+                    onChange={(e) => {
+                      if (e.target.value !== 'custom') setUnit(e.target.value);
+                    }}
+                    className="rounded-xl border border-slate-700 bg-slate-800/90 py-2.5 px-3 text-xs text-white focus:border-emerald-500 focus:outline-none"
+                  >
+                    <option value="kg">kg (Kilogram)</option>
+                    <option value="ton">ton (Metrik Ton)</option>
+                    <option value="sak (25 kg)">sak (25 kg)</option>
+                    <option value="sak (50 kg)">sak (50 kg)</option>
+                    <option value="jumbo bag (1 ton)">jumbo bag (1 ton)</option>
+                    <option value="batang/ingot">batang / ingot</option>
+                    <option value="m³">m³ (Meter Kubik)</option>
+                    <option value="liter">liter</option>
+                    <option value="custom">Kustom...</option>
+                  </select>
+                  <input
+                    type="text"
+                    placeholder="Ketik satuan kustom"
+                    value={unit}
+                    onChange={(e) => setUnit(e.target.value)}
+                    className="flex-1 rounded-xl border border-slate-700 bg-slate-800/90 py-2.5 px-3.5 text-xs text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
+                  Jumlah Stok Fisik ({unit || 'kg'}) <span className="text-rose-400">*</span>
                 </label>
                 <input
                   type="number"
@@ -285,6 +321,23 @@ export default function AdminTambahProdukPage() {
                 />
                 <p className="mt-1 text-[11px] text-slate-400">
                   Jika stok diisi 0, produk otomatis ditandai "Habis" dan tidak bisa di-checkout
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
+                  Batas Peringatan Stok Minimum (Min Stock)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  placeholder="Contoh: 50"
+                  value={minStock}
+                  onChange={(e) => setMinStock(e.target.value)}
+                  className="w-full rounded-xl border border-slate-700 bg-slate-800/90 py-2.5 px-3.5 text-xs text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none font-mono"
+                />
+                <p className="mt-1 text-[11px] text-slate-400">
+                  Peringatan stok tipis muncul di dashboard jika stok &le; angka ini
                 </p>
               </div>
             </div>

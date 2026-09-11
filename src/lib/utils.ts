@@ -40,6 +40,18 @@ export function generateOrderCode(): string {
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, '0');
   const day = String(now.getDate()).padStart(2, '0');
-  const randomPart = Math.floor(1000 + Math.random() * 9000);
+  
+  // High-entropy cryptographically secure random token (8 uppercase hex chars: 4.29 billion combinations/day)
+  let randomPart = '';
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    const bytes = new Uint8Array(4);
+    crypto.getRandomValues(bytes);
+    randomPart = Array.from(bytes)
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('')
+      .toUpperCase();
+  } else {
+    randomPart = Math.random().toString(36).substring(2, 10).toUpperCase();
+  }
   return `ORD-${year}${month}${day}-${randomPart}`;
 }

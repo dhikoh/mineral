@@ -25,6 +25,12 @@ export async function PUT(request: Request) {
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+  if (session.role !== 'SUPERADMIN') {
+    return NextResponse.json(
+      { error: 'Akses ditolak: Hanya SUPERADMIN yang berwenang mengubah pengaturan situs dan nomor rekening transfer.' },
+      { status: 403 }
+    );
+  }
 
   try {
     const body = await request.json();

@@ -20,11 +20,37 @@ export async function POST(request: Request) {
       );
     }
 
-    // Format items for data-store
-    const orderItems = items.map((it: any) => ({
-      productId: it.productId || it.id,
-      qty: Number(it.quantity || it.qty || 1),
-    }));
+    // Validasi dan format items untuk data-store
+    const orderItems: { productId: string; qty: number }[] = [];
+    for (const it of items) {
+      const productId = it.productId || it.id;
+      if (!productId || typeof productId !== 'string') {
+        return NextResponse.json(
+          { error: 'ID produk tidak valid.' },
+          { status: 400 }
+        );
+      }
+
+      const parsedQty = Number(it.quantity !== undefined ? it.quantity : it.qty);
+      if (!parsedQty || !Number.isInteger(parsedQty) || parsedQty <= 0) {
+        return NextResponse.json(
+          { error: 'Jumlah produk (qty) harus berupa bilangan bulat positif minimal 1.' },
+          { status: 400 }
+        );
+      }
+
+      if (parsedQty > 1_000_000) {
+        return NextResponse.json(
+          { error: 'Kuantitas melebihi batas pesanan maksimal per item.' },
+          { status: 400 }
+        );
+      }
+
+      orderItems.push({
+        productId: productId.trim(),
+        qty: parsedQty,
+      });
+    }
 
     const order = await createOrder({
       buyerName: customerName.trim(),

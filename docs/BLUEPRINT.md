@@ -54,6 +54,7 @@ mineral/
 │   ├── offline.html
 │   └── sw.js
 ├── scripts/
+│   ├── test-audit-p0-p1.ts   # Pengujian 23 assertions kepatuhan P0, P1, dan gap bisnis
 │   ├── test-crm-http.ts      # Pengujian HTTP endpoint CRM & otorisasi admin (401 & 200)
 │   ├── test-crm-module.ts    # Pengujian modul CRM B2B & kalkulasi LTV
 │   └── test-phase7-e2e.ts    # Pengujian menyeluruh SEO, PWA, dan data store
@@ -71,6 +72,7 @@ mineral/
 │   │   │   ├── login/page.tsx
 │   │   │   ├── pelanggan/page.tsx
 │   │   │   ├── pengaturan/page.tsx
+│   │   │   ├── pengguna/page.tsx      # Manajemen Staf/Admin RBAC (khusus SUPERADMIN)
 │   │   │   ├── peruntukan/page.tsx
 │   │   │   ├── pesanan/
 │   │   │   │   ├── [id]/
@@ -111,7 +113,11 @@ mineral/
 │   │   │   │   │   │   ├── verifikasi/route.ts
 │   │   │   │   │   │   └── route.ts
 │   │   │   │   │   └── route.ts
-│   │   │   │   └── produk/
+│   │   │   │   ├── produk/
+│   │   │   │   │   ├── [id]/route.ts
+│   │   │   │   │   └── route.ts
+│   │   │   │   ├── upload/route.ts     # Upload file khusus sesi admin (guard getAdminSession)
+│   │   │   │   └── users/              # Manajemen akun staf/admin (SUPERADMIN only)
 │   │   │   │       ├── [id]/route.ts
 │   │   │   │       └── route.ts
 │   │   │   ├── checkout/route.ts
@@ -121,7 +127,7 @@ mineral/
 │   │   │   │   └── [orderCode]/
 │   │   │   │       ├── bukti/route.ts
 │   │   │   │       └── route.ts
-│   │   │   └── upload/route.ts
+│   │   │   └── upload/route.ts         # Upload berkas publik (bukti transfer) dengan rate limit & magic bytes
 │   │   ├── artikel/
 │   │   │   ├── [slug]/page.tsx
 │   │   │   └── page.tsx
@@ -179,12 +185,13 @@ mineral/
 │   │       ├── ImageUploader.tsx
 │   │       └── TagInput.tsx
 │   ├── lib/
-│   │   ├── auth.ts           # Token verification, JWT fail-fast, session helpers
+│   │   ├── auth.ts           # Token verification, JWT fail-fast, session helpers, RBAC (SUPERADMIN / ADMIN)
 │   │   ├── cart-context.tsx   # React context state keranjang
-│   │   ├── data-store.ts     # Data access layer (Prisma + local dev fallback)
+│   │   ├── data-store.ts     # Data access layer (Prisma + local dev fallback, retry collision, status gate)
 │   │   ├── db.ts             # Prisma Client instance
 │   │   ├── sanitize.ts       # HTML sanitizer
-│   │   └── utils.ts          # Format rupiah, slugify, generateOrderCode
+│   │   ├── storage.ts        # Storage driver modular (local, s3/r2, cloudinary)
+│   │   └── utils.ts          # Format rupiah, slugify, generateOrderCode (kriptografis 8-char hex)
 │   └── middleware.ts         # Defense-in-depth auth guard (/admin/* & /api/admin/*)
 ├── .env
 ├── .env.example
@@ -242,21 +249,22 @@ model User {
 }
 
 model SiteSetting {
-  id                 String   @id @default(cuid())
-  siteName           String
-  tagline            String?
-  logoUrl            String?
-  faviconUrl         String?
-  primaryColor       String?  @default("#059669")
-  csWhatsapp         String?
-  csEmail            String?
-  csOperationalHours String?
-  address            String?
-  bankAccounts       Json     // [{ bank: "BCA", noRekening: "1234567890", atasNama: "PT Mineral Alam Indonesia" }]
-  footerText         String?
-  metaTitle          String?
-  metaDesc           String?
-  updatedAt          DateTime @updatedAt
+  id                      String   @id @default(cuid())
+  siteName                String
+  tagline                 String?
+  logoUrl                 String?
+  faviconUrl              String?
+  primaryColor            String?  @default("#059669")
+  csWhatsapp              String?
+  csEmail                 String?
+  csOperationalHours      String?
+  address                 String?
+  bankAccounts            Json     // [{ bank: "BCA", noRekening: "1234567890", atasNama: "PT Mineral Alam Indonesia" }]
+  footerText              String?
+  metaTitle               String?
+  metaDesc                String?
+  lowStockAlertThreshold  Int?     @default(50) // Ambang stok rendah global
+  updatedAt               DateTime @updatedAt
 }
 
 model ContentBlock {
@@ -297,6 +305,8 @@ model Product {
   description String         @db.Text
   price       Int
   stock       Int            @default(0)
+  unit        String         @default("kg")  // Satuan komoditas: kg, ton, sak, jumbo bag, dsb.
+  minStock    Int            @default(50)    // Ambang peringatan stok tipis per-komoditas
   images      Json           // array string URL: ["/uploads/..."]
   tags        Json           // array string hashtag: ["zeolite","pupuk-organik"]
   categoryId  String

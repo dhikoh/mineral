@@ -41,9 +41,13 @@ export async function POST(
     });
   } catch (error: any) {
     console.error('Error submitting payment proof:', error);
+    const isClientError =
+      error.message?.includes('sudah lunas') ||
+      error.message?.includes('telah dibatalkan') ||
+      error.message?.includes('tidak dapat diubah');
     return NextResponse.json(
       { error: error.message || 'Gagal mengirim bukti pembayaran.' },
-      { status: 500 }
+      { status: isClientError ? 400 : 500 }
     );
   }
 }

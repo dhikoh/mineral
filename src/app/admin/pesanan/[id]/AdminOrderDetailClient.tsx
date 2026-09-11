@@ -295,7 +295,7 @@ export function AdminOrderDetailClient({ initialOrder }: { initialOrder: any }) 
                         </div>
                         <div>
                           <div className="text-xs font-bold text-slate-900">{prod?.name || it.productId}</div>
-                          <div className="text-[11px] text-slate-400">{it.qty} unit × {formatRupiah(it.price)}</div>
+                          <div className="text-[11px] text-slate-400">{it.qty} {prod?.unit || 'unit'} × {formatRupiah(it.price)}</div>
                         </div>
                       </div>
                       <div className="text-xs font-bold text-slate-900">

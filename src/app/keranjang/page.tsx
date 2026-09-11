@@ -94,10 +94,10 @@ export default function KeranjangPage() {
                           {item.name}
                         </Link>
                         <p className="text-xs font-semibold text-slate-500 mt-0.5">
-                          {formatRupiah(item.price)}
+                          {formatRupiah(item.price)} <span className="text-[11px] font-normal text-slate-400">/{item.unit || 'kg'}</span>
                         </p>
                         <p className="text-[11px] text-slate-400 mt-0.5">
-                          Stok tersedia: {item.stock} unit
+                          Stok tersedia: {item.stock} {item.unit || 'kg'}
                         </p>
                       </div>
                     </div>
@@ -159,7 +159,7 @@ export default function KeranjangPage() {
               <div className="space-y-2.5 text-xs">
                 <div className="flex justify-between text-slate-600">
                   <span>Total Kuantitas Komoditas</span>
-                  <span className="font-bold text-slate-900">{totalItems} unit</span>
+                  <span className="font-bold text-slate-900">{totalItems} item</span>
                 </div>
                 <div className="flex justify-between text-slate-600">
                   <span>Subtotal Produk</span>

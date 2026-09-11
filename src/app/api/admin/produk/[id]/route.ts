@@ -43,6 +43,8 @@ export async function PUT(
       description,
       price,
       stock,
+      unit,
+      minStock,
       images,
       tags,
       categoryId,
@@ -54,11 +56,15 @@ export async function PUT(
       return NextResponse.json({ error: 'Nama produk wajib diisi' }, { status: 400 });
     }
 
+    const numMinStock = minStock !== undefined ? Number(minStock) : 50;
+
     const updated = await updateProduct(id, {
       name: name.trim(),
       description: description ? description.trim() : '',
       price: Number(price),
       stock: Number(stock),
+      unit: unit ? String(unit).trim() : 'kg',
+      minStock: isNaN(numMinStock) ? 50 : numMinStock,
       images: Array.isArray(images) ? images : [],
       tags: Array.isArray(tags) ? tags : [],
       categoryId,

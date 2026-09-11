@@ -177,7 +177,7 @@ export default async function HomePage() {
           {categories.map((cat: any) => (
             <Link
               key={cat.id}
-              href={`/produk?category=${cat.slug}`}
+              href={`/kategori/${cat.slug}`}
               className="group relative overflow-hidden rounded-2xl border border-surface-200 bg-white p-4 transition-all duration-300 hover:shadow-soft-md hover:border-emerald-500"
             >
               <div className="flex items-center gap-3">
@@ -193,7 +193,7 @@ export default async function HomePage() {
                     {cat.name}
                   </h3>
                   <span className="text-[11px] text-slate-400 flex items-center gap-0.5 mt-0.5">
-                    Jelajahi Produk &rarr;
+                    Jelajahi Kategori &rarr;
                   </span>
                 </div>
               </div>
@@ -234,8 +234,10 @@ export default async function HomePage() {
                 description={product.description}
                 price={product.price}
                 stock={product.stock}
+                unit={product.unit}
                 images={images}
                 categoryName={product.category?.name}
+                categorySlug={product.category?.slug}
                 usages={usages}
                 tags={tags}
               />

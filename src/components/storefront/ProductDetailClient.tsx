@@ -30,6 +30,8 @@ export interface ProductDetailClientProps {
     description: string;
     price: number;
     stock: number;
+    unit?: string;
+    minStock?: number;
     images: string[];
     tags: string[];
     category?: { id: string; name: string; slug: string };
@@ -55,6 +57,7 @@ export function ProductDetailClient({
   const [copied, setCopied] = useState(false);
   const [isRfqOpen, setIsRfqOpen] = useState(false);
 
+  const unit = product.unit || 'kg';
   const isOutOfStock = product.stock <= 0;
   const usages = product.usages?.map((u) => u.usage?.name || '').filter(Boolean) || [];
 
@@ -67,6 +70,7 @@ export function ProductDetailClient({
       price: product.price,
       image: images[0],
       stock: product.stock,
+      unit,
       qty,
     });
 
@@ -83,6 +87,7 @@ export function ProductDetailClient({
       price: product.price,
       image: images[0],
       stock: product.stock,
+      unit,
       qty,
     });
     router.push('/keranjang');
@@ -114,7 +119,7 @@ export function ProductDetailClient({
           <>
             <span>/</span>
             <Link
-              href={`/produk?kategori=${product.category.slug}`}
+              href={`/kategori/${product.category.slug}`}
               className="hover:text-emerald-600 transition-colors"
             >
               {product.category.name}
@@ -205,6 +210,7 @@ export function ProductDetailClient({
                 </span>
                 <span className="text-2xl sm:text-3xl font-black text-slate-900">
                   {formatRupiah(product.price)}
+                  <span className="text-sm font-normal text-slate-500 ml-1">/{unit}</span>
                 </span>
               </div>
 
@@ -217,7 +223,7 @@ export function ProductDetailClient({
                 ) : (
                   <span className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-50 border border-emerald-200 px-3 py-1 text-xs font-bold text-emerald-700">
                     <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                    Tersedia ({product.stock} unit)
+                    Tersedia ({product.stock} {unit})
                   </span>
                 )}
               </div>
@@ -250,7 +256,7 @@ export function ProductDetailClient({
             {/* Quantity Selector */}
             <div className="flex items-center gap-4">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                Jumlah Pesanan:
+                Jumlah ({unit}):
               </span>
               <div className="flex items-center rounded-xl border border-surface-300 bg-white">
                 <button

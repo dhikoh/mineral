@@ -39,3 +39,7 @@ next-env.d.ts
 # uploads directory keep structure
 /public/uploads/*
 !/public/uploads/.gitkeep
+
+# local runtime store
+.local-store.json
+

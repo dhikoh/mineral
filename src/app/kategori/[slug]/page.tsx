@@ -216,8 +216,10 @@ export default async function CategoryDetailPage({
                 description={product.description}
                 price={product.price}
                 stock={product.stock}
+                unit={product.unit}
                 images={images}
                 categoryName={product.category?.name || category.name}
+                categorySlug={category.slug}
                 usages={productUsages}
                 tags={tags}
               />

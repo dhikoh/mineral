@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db';
 import { slugify, generateOrderCode } from '@/lib/utils';
 import { sanitize } from '@/lib/sanitize';
+import bcrypt from 'bcryptjs';
 import fs from 'fs';
 import path from 'path';
 
@@ -38,6 +39,8 @@ export interface ProductItem {
   description: string;
   price: number;
   stock: number;
+  unit?: string; // kg, ton, sak 25kg, jumbo bag 1 ton, ingot, dll
+  minStock?: number; // ambang peringatan stok tipis
   images: string[];
   tags: string[];
   categoryId: string;
@@ -59,6 +62,7 @@ export interface OrderItemData {
     name: string;
     slug: string;
     images: string[];
+    unit?: string;
   };
 }
 
@@ -119,6 +123,7 @@ export interface SiteSettingsData {
   address: string;
   bankAccounts: BankAccount[];
   footerText?: string | null;
+  lowStockAlertThreshold?: number | null;
 }
 
 export interface ContentBlockItem {
@@ -271,6 +276,28 @@ export const DEFAULT_SITE_SETTINGS: SiteSettingsData = {
   footerText: '© 2026 MineralHub Indonesia. All rights reserved.',
 };
 
+export interface UserItem {
+  id: string;
+  name: string;
+  email: string;
+  role: 'SUPERADMIN' | 'ADMIN';
+  createdAt: string;
+}
+
+export interface UserItemStored extends UserItem {
+  password?: string;
+}
+
+export const DEFAULT_USERS: UserItemStored[] = [
+  {
+    id: 'seed-admin-01',
+    name: 'Super Admin MineralHub',
+    email: 'admin@mineralhub.com',
+    role: 'SUPERADMIN',
+    createdAt: new Date().toISOString(),
+  },
+];
+
 interface LocalStoreData {
   categories: CategoryItem[];
   usages: UsageItem[];
@@ -281,6 +308,7 @@ interface LocalStoreData {
   contentBlocks: ContentBlockItem[];
   faqs: FAQItem[];
   customers: CustomerItem[];
+  users?: UserItemStored[];
 }
 
 const DEFAULT_CATEGORIES: CategoryItem[] = [
@@ -317,6 +345,8 @@ const DEFAULT_PRODUCTS: ProductItem[] = [
     description: 'Zeolite alam murni berpori aktif dengan KTK tinggi untuk perbaikan kesuburan tanah, campuran pupuk slow-release, dan media filter air bersih.',
     price: 45000,
     stock: 500,
+    unit: 'sak (25 kg)',
+    minStock: 50,
     images: ['https://images.unsplash.com/photo-1578749556568-bc2c40e68b61?auto=format&fit=crop&w=800&q=80'],
     tags: ['zeolite', 'mineralalam', 'penyaringair', 'pupukorganik'],
     categoryId: 'cat-1',
@@ -337,6 +367,8 @@ const DEFAULT_PRODUCTS: ProductItem[] = [
     description: 'Bentonite sodium swelling tinggi untuk lumpur pemboran (drilling mud), pembuatan pelet pakan ternak, dan penjernih limbah cair.',
     price: 65000,
     stock: 350,
+    unit: 'sak (25 kg)',
+    minStock: 50,
     images: ['https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&w=800&q=80'],
     tags: ['bentonite', 'clay', 'drillingmud', 'catlitter'],
     categoryId: 'cat-1',
@@ -357,6 +389,8 @@ const DEFAULT_PRODUCTS: ProductItem[] = [
     description: 'Ingot balok timah murni kadar 99.9% berstandar LME untuk industri manufaktur elektronik solder presisi dan pelapis plat baja.',
     price: 485000,
     stock: 120,
+    unit: 'batang/ingot',
+    minStock: 20,
     images: ['https://images.unsplash.com/photo-1535813547-99c456a41d4a?auto=format&fit=crop&w=800&q=80'],
     tags: ['timah', 'tin', 'logam', 'ekspor'],
     categoryId: 'cat-1',
@@ -376,6 +410,8 @@ const DEFAULT_PRODUCTS: ProductItem[] = [
     description: 'Potongan kayu gaharu alami berkualitas grade super dengan aroma manis hangat tahan lama untuk bahan dupa aromaterapi dan parfum atsiri.',
     price: 1250000,
     stock: 45,
+    unit: 'kg',
+    minStock: 10,
     images: ['https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&w=800&q=80'],
     tags: ['gaharu', 'agarwood', 'parfum', 'dupa'],
     categoryId: 'cat-2',
@@ -561,6 +597,7 @@ function readLocalStore(): LocalStoreData {
       if (!parsed.contentBlocks) parsed.contentBlocks = DEFAULT_CONTENT_BLOCKS;
       if (!parsed.faqs) parsed.faqs = DEFAULT_FAQS;
       if (!parsed.customers) parsed.customers = DEFAULT_CUSTOMERS;
+      if (!parsed.users) parsed.users = DEFAULT_USERS;
       return parsed;
     }
   } catch (e) {
@@ -577,6 +614,7 @@ function readLocalStore(): LocalStoreData {
     contentBlocks: DEFAULT_CONTENT_BLOCKS,
     faqs: DEFAULT_FAQS,
     customers: DEFAULT_CUSTOMERS,
+    users: DEFAULT_USERS,
   };
 
   try {
@@ -697,9 +735,22 @@ export async function updateCategory(id: string, data: { name: string; image?: s
 
 export async function deleteCategory(id: string) {
   try {
+    const productCount = await prisma.product.count({ where: { categoryId: id } });
+    if (productCount > 0) {
+      throw new Error(`Kategori tidak dapat dihapus karena masih digunakan oleh ${productCount} produk komoditas.`);
+    }
     return await prisma.category.delete({ where: { id } });
-  } catch {
+  } catch (err: any) {
+    if (err?.message?.includes('tidak dapat dihapus karena masih digunakan')) {
+      throw err;
+    }
+    handleDbFallback('deleteCategory', err);
+
     const store = readLocalStore();
+    const productCount = (store.products || []).filter((p) => p.categoryId === id || p.category?.id === id).length;
+    if (productCount > 0) {
+      throw new Error(`Kategori tidak dapat dihapus karena masih digunakan oleh ${productCount} produk komoditas.`);
+    }
     store.categories = store.categories.filter((c) => c.id !== id);
     writeLocalStore(store);
     return { success: true };
@@ -764,9 +815,24 @@ export async function updateUsage(id: string, data: { name: string }) {
 
 export async function deleteUsage(id: string) {
   try {
+    const usageProductsCount = await prisma.productUsage.count({ where: { usageId: id } });
+    if (usageProductsCount > 0) {
+      throw new Error(`Peruntukan tidak dapat dihapus karena masih dikaitkan dengan ${usageProductsCount} produk komoditas.`);
+    }
     return await prisma.usage.delete({ where: { id } });
-  } catch {
+  } catch (err: any) {
+    if (err?.message?.includes('tidak dapat dihapus karena masih dikaitkan')) {
+      throw err;
+    }
+    handleDbFallback('deleteUsage', err);
+
     const store = readLocalStore();
+    const usageProductsCount = (store.products || []).filter(
+      (p) => p.usageIds?.includes(id) || p.usages?.some((u: any) => u.usageId === id || u.id === id)
+    ).length;
+    if (usageProductsCount > 0) {
+      throw new Error(`Peruntukan tidak dapat dihapus karena masih dikaitkan dengan ${usageProductsCount} produk komoditas.`);
+    }
     store.usages = store.usages.filter((u) => u.id !== id);
     writeLocalStore(store);
     return { success: true };
@@ -906,7 +972,11 @@ export async function getProducts(options?: GetProductsOptions) {
       );
     }
 
-    return prods;
+    return prods.map((p) => ({
+      ...p,
+      unit: p.unit || 'kg',
+      minStock: p.minStock ?? 50,
+    }));
   }
 }
 
@@ -945,6 +1015,8 @@ export async function createProduct(data: {
   description: string;
   price: number;
   stock: number;
+  unit?: string;
+  minStock?: number;
   images: string[];
   tags: string[];
   categoryId: string;
@@ -962,6 +1034,8 @@ export async function createProduct(data: {
         description: data.description,
         price: data.price,
         stock: data.stock,
+        unit: data.unit || 'kg',
+        minStock: data.minStock ?? 50,
         images: data.images,
         tags: data.tags,
         categoryId: data.categoryId,
@@ -992,6 +1066,8 @@ export async function createProduct(data: {
       description: data.description,
       price: data.price,
       stock: data.stock,
+      unit: data.unit || 'kg',
+      minStock: data.minStock ?? 50,
       images: data.images,
       tags: data.tags,
       categoryId: data.categoryId,
@@ -1015,6 +1091,8 @@ export async function updateProduct(
     description: string;
     price: number;
     stock: number;
+    unit?: string;
+    minStock?: number;
     images: string[];
     tags: string[];
     categoryId: string;
@@ -1032,6 +1110,8 @@ export async function updateProduct(
         description: data.description,
         price: data.price,
         stock: data.stock,
+        unit: data.unit || 'kg',
+        minStock: data.minStock ?? 50,
         images: data.images,
         tags: data.tags,
         categoryId: data.categoryId,
@@ -1063,6 +1143,8 @@ export async function updateProduct(
         description: data.description,
         price: data.price,
         stock: data.stock,
+        unit: data.unit || store.products[idx].unit || 'kg',
+        minStock: data.minStock ?? store.products[idx].minStock ?? 50,
         images: data.images,
         tags: data.tags,
         categoryId: data.categoryId,
@@ -1081,9 +1163,33 @@ export async function updateProduct(
 
 export async function deleteProduct(id: string) {
   try {
+    // Cek apakah produk pernah dipesan dalam OrderItem
+    const orderCount = await prisma.orderItem.count({ where: { productId: id } });
+    if (orderCount > 0) {
+      throw new Error(
+        `Produk tidak dapat dihapus permanen karena tercatat dalam ${orderCount} riwayat transaksi pesanan. Silakan nonaktifkan status produk (edit -> nonaktifkan) agar tidak tampil di katalog.`
+      );
+    }
     return await prisma.product.delete({ where: { id } });
-  } catch {
+  } catch (err: any) {
+    if (err?.message?.includes('tidak dapat dihapus permanen')) {
+      throw err;
+    }
+    handleDbFallback('deleteProduct', err);
+
     const store = readLocalStore();
+    let orderCount = 0;
+    for (const ord of store.orders || []) {
+      if (ord.items?.some((it) => it.productId === id)) {
+        orderCount++;
+      }
+    }
+    if (orderCount > 0) {
+      throw new Error(
+        `Produk tidak dapat dihapus permanen karena tercatat dalam ${orderCount} riwayat pesanan. Silakan nonaktifkan status produk agar tidak tampil di katalog.`
+      );
+    }
+
     store.products = store.products.filter((p) => p.id !== id);
     writeLocalStore(store);
     return { success: true };
@@ -1182,7 +1288,19 @@ export async function createOrder(data: {
   notes?: string;
   items: { productId: string; qty: number }[];
 }) {
-  const orderCode = generateOrderCode();
+  if (!data.items || !Array.isArray(data.items) || data.items.length === 0) {
+    throw new Error('Item pesanan tidak boleh kosong.');
+  }
+
+  // P0: Validasi ketat kuantitas produk > 0 dan bilangan bulat
+  for (const item of data.items) {
+    if (!item.productId || typeof item.productId !== 'string') {
+      throw new Error('ID produk tidak valid.');
+    }
+    if (!Number.isInteger(item.qty) || item.qty <= 0) {
+      throw new Error('Kuantitas pesanan harus berupa bilangan bulat positif minimal 1.');
+    }
+  }
 
   // Resolve items with current products & prices
   const allProducts = await getProducts();
@@ -1201,58 +1319,85 @@ export async function createOrder(data: {
         name: p.name,
         slug: p.slug,
         images: Array.isArray(p.images) ? (p.images as string[]) : [],
+        unit: p.unit || 'kg',
       },
     };
   });
 
   const total = resolvedItems.reduce((acc, curr) => acc + curr.price * curr.qty, 0);
+  let finalOrderCode = '';
+  let order: any = null;
+  const maxRetries = 5;
 
   try {
-    const order = await prisma.$transaction(async (tx) => {
-      // 1. Potong stok secara atomik & kondisional untuk cegah race condition / overselling (R-6)
-      for (const item of resolvedItems) {
-        const updateRes = await tx.product.updateMany({
-          where: {
-            id: item.productId,
-            stock: { gte: item.qty },
-          },
-          data: {
-            stock: { decrement: item.qty },
-          },
+    // P0: Retry loop jika terjadi tabrakan unik pada orderCode
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      const orderCode = generateOrderCode();
+      try {
+        order = await prisma.$transaction(async (tx) => {
+          // 1. Potong stok secara atomik & kondisional untuk cegah race condition / overselling (R-6)
+          for (const item of resolvedItems) {
+            const updateRes = await tx.product.updateMany({
+              where: {
+                id: item.productId,
+                stock: { gte: item.qty },
+              },
+              data: {
+                stock: { decrement: item.qty },
+              },
+            });
+
+            if (updateRes.count === 0) {
+              throw new Error(
+                `Stok komoditas "${item.product.name}" tidak mencukupi untuk jumlah pesanan ${item.qty}.`
+              );
+            }
+          }
+
+          // 2. Buat record Order beserta OrderItem dalam transaksi yang sama
+          return await tx.order.create({
+            data: {
+              orderCode,
+              buyerName: data.buyerName,
+              buyerPhone: data.buyerPhone,
+              buyerEmail: data.buyerEmail || null,
+              buyerAddress: data.buyerAddress,
+              notes: data.notes || null,
+              total,
+              status: 'PENDING_PAYMENT',
+              items: {
+                create: resolvedItems.map((item) => ({
+                  productId: item.productId,
+                  qty: item.qty,
+                  price: item.price,
+                })),
+              },
+            },
+            include: {
+              items: true,
+              proof: true,
+            },
+          });
         });
 
-        if (updateRes.count === 0) {
-          throw new Error(
-            `Stok komoditas "${item.product.name}" tidak mencukupi untuk jumlah pesanan ${item.qty}.`
-          );
+        finalOrderCode = orderCode;
+        break; // Berhasil!
+      } catch (err: any) {
+        if (
+          err?.code === 'P2002' &&
+          (err.meta?.target?.includes('orderCode') || JSON.stringify(err.meta || '').includes('orderCode')) &&
+          attempt < maxRetries - 1
+        ) {
+          console.warn(`[createOrder] Collision on orderCode ${orderCode}, retrying (${attempt + 1}/${maxRetries})...`);
+          continue;
         }
+        throw err;
       }
+    }
 
-      // 2. Buat record Order beserta OrderItem dalam transaksi yang sama
-      return await tx.order.create({
-        data: {
-          orderCode,
-          buyerName: data.buyerName,
-          buyerPhone: data.buyerPhone,
-          buyerEmail: data.buyerEmail || null,
-          buyerAddress: data.buyerAddress,
-          notes: data.notes || null,
-          total,
-          status: 'PENDING_PAYMENT',
-          items: {
-            create: resolvedItems.map((item) => ({
-              productId: item.productId,
-              qty: item.qty,
-              price: item.price,
-            })),
-          },
-        },
-        include: {
-          items: true,
-          proof: true,
-        },
-      });
-    });
+    if (!order) {
+      throw new Error('Gagal membuat pesanan setelah beberapa percobaan.');
+    }
 
     // 3. Catat calon pembeli sebagai prospek (R-7: belum DEAL, LTV/totalOrders belum bertambah)
     await recordLeadFromCheckout({
@@ -1264,7 +1409,7 @@ export async function createOrder(data: {
 
     return {
       ...order,
-      items: order.items.map((it) => {
+      items: order.items.map((it: any) => {
         const prod = resolvedItems.find((ri) => ri.productId === it.productId);
         return {
           ...it,
@@ -1298,6 +1443,8 @@ export async function createOrder(data: {
         store.products[pIdx].stock = Math.max(0, store.products[pIdx].stock - item.qty);
       }
     }
+
+    const orderCode = finalOrderCode || generateOrderCode();
 
     const newOrder: OrderData = {
       id: `ord-${Date.now()}`,
@@ -1354,7 +1501,9 @@ export async function getOrderByCode(orderCode: string) {
           const prod = allProds.find((p) => p.id === it.productId);
           return {
             ...it,
-            product: prod ? { id: prod.id, name: prod.name, slug: prod.slug, images: prod.images } : undefined,
+            product: prod
+              ? { id: prod.id, name: prod.name, slug: prod.slug, images: prod.images, unit: prod.unit || 'kg' }
+              : { id: it.productId, name: '[Komoditas Diarsipkan]', slug: '#', images: [], unit: 'kg' },
           };
         }),
       };
@@ -1372,7 +1521,9 @@ export async function getOrderByCode(orderCode: string) {
       const p = store.products.find((prod) => prod.id === it.productId);
       return {
         ...it,
-        product: p ? { id: p.id, name: p.name, slug: p.slug, images: p.images } : undefined,
+        product: p
+          ? { id: p.id, name: p.name, slug: p.slug, images: p.images, unit: p.unit || 'kg' }
+          : { id: it.productId, name: '[Komoditas Diarsipkan]', slug: '#', images: [], unit: 'kg' },
       };
     }),
   };
@@ -1395,7 +1546,9 @@ export async function getOrderById(id: string) {
           const prod = allProds.find((p) => p.id === it.productId);
           return {
             ...it,
-            product: prod ? { id: prod.id, name: prod.name, slug: prod.slug, images: prod.images } : undefined,
+            product: prod
+              ? { id: prod.id, name: prod.name, slug: prod.slug, images: prod.images, unit: prod.unit || 'kg' }
+              : { id: it.productId, name: '[Komoditas Diarsipkan]', slug: '#', images: [], unit: 'kg' },
           };
         }),
       };
@@ -1413,7 +1566,9 @@ export async function getOrderById(id: string) {
       const p = store.products.find((prod) => prod.id === it.productId);
       return {
         ...it,
-        product: p ? { id: p.id, name: p.name, slug: p.slug, images: p.images } : undefined,
+        product: p
+          ? { id: p.id, name: p.name, slug: p.slug, images: p.images, unit: p.unit || 'kg' }
+          : { id: it.productId, name: '[Komoditas Diarsipkan]', slug: '#', images: [], unit: 'kg' },
       };
     }),
   };
@@ -1447,7 +1602,9 @@ export async function getOrders(options?: { status?: string; q?: string }) {
         const prod = allProds.find((p) => p.id === it.productId);
         return {
           ...it,
-          product: prod ? { id: prod.id, name: prod.name, slug: prod.slug, images: prod.images } : undefined,
+          product: prod
+            ? { id: prod.id, name: prod.name, slug: prod.slug, images: prod.images, unit: prod.unit || 'kg' }
+            : { id: it.productId, name: '[Komoditas Diarsipkan]', slug: '#', images: [], unit: 'kg' },
         };
       }),
     }));
@@ -1482,6 +1639,23 @@ export async function submitPaymentProof(
   }
 ) {
   try {
+    // P0: Status Gate — hanya izinkan jika PENDING_PAYMENT, PENDING_VERIFICATION, atau REJECTED
+    const currentOrder = await prisma.order.findUnique({
+      where: { id: orderId },
+    });
+
+    if (!currentOrder) {
+      throw new Error('Pesanan tidak ditemukan.');
+    }
+
+    if (['PAID', 'PROCESSING', 'SHIPPED', 'COMPLETED'].includes(currentOrder.status)) {
+      throw new Error('Pesanan ini sudah lunas atau dalam proses pengiriman. Bukti pembayaran tidak dapat diubah.');
+    }
+
+    if (currentOrder.status === 'CANCELLED') {
+      throw new Error('Pesanan ini telah dibatalkan.');
+    }
+
     await prisma.paymentProof.upsert({
       where: { orderId },
       create: {
@@ -1510,10 +1684,29 @@ export async function submitPaymentProof(
       data: { status: 'PENDING_VERIFICATION' },
       include: { proof: true, items: true },
     });
-  } catch {
+  } catch (err: any) {
+    if (
+      err?.message?.includes('sudah lunas atau dalam proses') ||
+      err?.message?.includes('telah dibatalkan') ||
+      err?.message?.includes('tidak ditemukan')
+    ) {
+      throw err;
+    }
+
+    handleDbFallback('submitPaymentProof', err);
+
     const store = readLocalStore();
     const oIdx = (store.orders || []).findIndex((o) => o.id === orderId || o.orderCode === orderId);
     if (oIdx === -1) throw new Error('Pesanan tidak ditemukan');
+
+    const ord = store.orders[oIdx];
+    if (['PAID', 'PROCESSING', 'SHIPPED', 'COMPLETED'].includes(ord.status)) {
+      throw new Error('Pesanan ini sudah lunas atau dalam proses pengiriman. Bukti pembayaran tidak dapat diubah.');
+    }
+
+    if (ord.status === 'CANCELLED') {
+      throw new Error('Pesanan ini telah dibatalkan.');
+    }
 
     const proof: PaymentProofData = {
       id: `proof-${Date.now()}`,
@@ -1545,6 +1738,14 @@ export async function verifyPaymentProof(
   const orderStatus = isApproved ? 'PAID' : 'PENDING_PAYMENT';
 
   try {
+    const existingOrder = await prisma.order.findUnique({
+      where: { id: orderId },
+    });
+
+    if (!existingOrder) throw new Error('Pesanan tidak ditemukan');
+
+    const wasAlreadyPaid = ['PAID', 'PROCESSING', 'SHIPPED', 'COMPLETED'].includes(existingOrder.status);
+
     await prisma.paymentProof.update({
       where: { orderId },
       data: {
@@ -1561,8 +1762,8 @@ export async function verifyPaymentProof(
       include: { proof: true, items: true },
     });
 
-    // R-7: Jika pembayaran disetujui (PAID), catat status DEAL & akumulasi LTV di database CRM
-    if (isApproved) {
+    // R-7: Jika pembayaran disetujui (PAID) dan SEBELUMNYA BELUM PAID, catat status DEAL & akumulasi LTV di database CRM
+    if (isApproved && !wasAlreadyPaid) {
       await recordCustomerDealFromPaidOrder(orderId).catch((err) =>
         console.error('Error recording CRM deal after payment verification:', err)
       );
@@ -1576,6 +1777,8 @@ export async function verifyPaymentProof(
     const oIdx = (store.orders || []).findIndex((o) => o.id === orderId || o.orderCode === orderId);
     if (oIdx === -1) throw new Error('Pesanan tidak ditemukan');
 
+    const wasAlreadyPaid = ['PAID', 'PROCESSING', 'SHIPPED', 'COMPLETED'].includes(store.orders[oIdx].status);
+
     if (store.orders[oIdx].proof) {
       store.orders[oIdx].proof!.status = proofStatus;
       store.orders[oIdx].proof!.rejectionReason = isApproved ? null : notes || 'Bukti pembayaran tidak valid';
@@ -1586,8 +1789,8 @@ export async function verifyPaymentProof(
     store.orders[oIdx].status = orderStatus as any;
     writeLocalStore(store);
 
-    // R-7: Catat deal CRM pada fallback lokal
-    if (isApproved) {
+    // R-7: Catat deal CRM pada fallback lokal hanya jika sebelumnya belum PAID
+    if (isApproved && !wasAlreadyPaid) {
       await recordCustomerDealFromPaidOrder(orderId).catch((e) =>
         console.error('Error recording CRM deal in local fallback:', e)
       );
@@ -2128,11 +2331,12 @@ export async function deleteFAQ(id: string): Promise<{ success: boolean }> {
 
 // --- DASHBOARD STATS METHODS ---
 export async function getAdminDashboardStats() {
-  const [orders, products, articles, customers] = await Promise.all([
+  const [orders, products, articles, customers, settings] = await Promise.all([
     getOrders(),
     getProducts(),
     getArticles(),
     getCustomers(),
+    getSiteSettings(),
   ]);
 
   const paidStatuses = ['PAID', 'PROCESSING', 'SHIPPED', 'COMPLETED'];
@@ -2153,13 +2357,17 @@ export async function getAdminDashboardStats() {
   const totalProspectsCount = customers.filter((c) => c.type === 'PROSPECT').length;
   const totalLeadsCount = customers.length;
 
+  const defaultThreshold = settings.lowStockAlertThreshold ?? 50;
+
   const lowStockProducts = products
-    .filter((p) => p.stock < 500)
+    .filter((p) => p.stock < (p.minStock !== undefined ? p.minStock : defaultThreshold))
     .map((p) => ({
       id: p.id,
       name: p.name,
       slug: p.slug,
       stock: p.stock,
+      unit: p.unit || 'kg',
+      minStock: p.minStock ?? defaultThreshold,
       price: p.price,
       image: Array.isArray(p.images) && p.images.length > 0 ? (p.images[0] as string) : null,
     }));
@@ -2579,6 +2787,20 @@ export async function recordCustomerDealFromPaidOrder(orderId: string): Promise<
     });
 
     if (existing) {
+      // P0: Idempotency check — jangan gandakan LTV jika order ini sudah pernah dicatat
+      const orderAlreadyCounted =
+        existing.notes &&
+        existing.notes.includes(`Pembayaran pesanan ${order.orderCode} diverifikasi lunas`);
+
+      if (orderAlreadyCounted) {
+        return {
+          ...existing,
+          lastContactAt: existing.lastContactAt ? existing.lastContactAt.toISOString() : null,
+          createdAt: existing.createdAt.toISOString(),
+          updatedAt: existing.updatedAt.toISOString(),
+        } as CustomerItem;
+      }
+
       const updated = await prisma.customer.update({
         where: { id: existing.id },
         data: {
@@ -2632,6 +2854,11 @@ export async function recordCustomerDealFromPaidOrder(orderId: string): Promise<
 
     if (idx !== -1) {
       const c = store.customers[idx];
+      const orderAlreadyCounted =
+        c.notes && c.notes.includes(`Pembayaran pesanan ${order.orderCode} diverifikasi lunas`);
+      if (orderAlreadyCounted) {
+        return c;
+      }
       store.customers[idx] = {
         ...c,
         name: c.name || order.buyerName,
@@ -2942,5 +3169,204 @@ export async function createOrUpdateLead(data: {
   }
 }
 
+export async function getAdminUsers(): Promise<UserItem[]> {
+  try {
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+    return users.map((u) => ({
+      ...u,
+      role: u.role as 'SUPERADMIN' | 'ADMIN',
+      createdAt: u.createdAt.toISOString(),
+    }));
+  } catch (err: any) {
+    handleDbFallback('getAdminUsers', err);
+    const store = readLocalStore();
+    return (store.users || DEFAULT_USERS).map((u) => ({
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      role: u.role,
+      createdAt: u.createdAt,
+    }));
+  }
+}
 
+export async function createAdminUser(data: {
+  name: string;
+  email: string;
+  password: string;
+  role: 'SUPERADMIN' | 'ADMIN';
+}): Promise<UserItem> {
+  const cleanName = sanitize(data.name).trim();
+  const cleanEmail = data.email.toLowerCase().trim();
+  const cleanRole = data.role === 'ADMIN' ? 'ADMIN' : 'SUPERADMIN';
 
+  if (!cleanName || !cleanEmail || !data.password) {
+    throw new Error('Nama, email, dan kata sandi wajib diisi.');
+  }
+
+  if (data.password.length < 8) {
+    throw new Error('Kata sandi minimal 8 karakter.');
+  }
+
+  const hashedPassword = await bcrypt.hash(data.password, 10);
+
+  try {
+    const created = await prisma.user.create({
+      data: {
+        name: cleanName,
+        email: cleanEmail,
+        password: hashedPassword,
+        role: cleanRole,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        createdAt: true,
+      },
+    });
+    return {
+      ...created,
+      role: created.role as 'SUPERADMIN' | 'ADMIN',
+      createdAt: created.createdAt.toISOString(),
+    };
+  } catch (err: any) {
+    handleDbFallback('createAdminUser', err);
+    const store = readLocalStore();
+    if (!store.users) store.users = [...DEFAULT_USERS];
+    if (store.users.some((u) => u.email.toLowerCase() === cleanEmail)) {
+      throw new Error(`Email ${cleanEmail} sudah terdaftar.`);
+    }
+
+    const newUser: UserItemStored = {
+      id: `user-${Date.now()}`,
+      name: cleanName,
+      email: cleanEmail,
+      role: cleanRole,
+      password: hashedPassword,
+      createdAt: new Date().toISOString(),
+    };
+
+    store.users.push(newUser);
+    writeLocalStore(store);
+
+    return {
+      id: newUser.id,
+      name: newUser.name,
+      email: newUser.email,
+      role: newUser.role,
+      createdAt: newUser.createdAt,
+    };
+  }
+}
+
+export async function updateAdminUser(
+  id: string,
+  data: {
+    name?: string;
+    email?: string;
+    password?: string;
+    role?: 'SUPERADMIN' | 'ADMIN';
+  },
+  currentUserId: string
+): Promise<UserItem> {
+  const updatePayload: any = {};
+  if (data.name) updatePayload.name = sanitize(data.name).trim();
+  if (data.email) updatePayload.email = data.email.toLowerCase().trim();
+  if (data.role) {
+    if (id === currentUserId && data.role !== 'SUPERADMIN') {
+      throw new Error('Anda tidak dapat menurunkan role akun Anda sendiri.');
+    }
+    updatePayload.role = data.role;
+  }
+  if (data.password) {
+    if (data.password.length < 8) {
+      throw new Error('Kata sandi minimal 8 karakter.');
+    }
+    updatePayload.password = await bcrypt.hash(data.password, 10);
+  }
+
+  try {
+    const updated = await prisma.user.update({
+      where: { id },
+      data: updatePayload,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        createdAt: true,
+      },
+    });
+    return {
+      ...updated,
+      role: updated.role as 'SUPERADMIN' | 'ADMIN',
+      createdAt: updated.createdAt.toISOString(),
+    };
+  } catch (err: any) {
+    handleDbFallback('updateAdminUser', err);
+    const store = readLocalStore();
+    if (!store.users) store.users = [...DEFAULT_USERS];
+    const idx = store.users.findIndex((u) => u.id === id);
+    if (idx === -1) throw new Error('Pengguna admin tidak ditemukan.');
+
+    if (updatePayload.name) store.users[idx].name = updatePayload.name;
+    if (updatePayload.email) store.users[idx].email = updatePayload.email;
+    if (updatePayload.role) store.users[idx].role = updatePayload.role;
+    if (updatePayload.password) store.users[idx].password = updatePayload.password;
+
+    writeLocalStore(store);
+    return {
+      id: store.users[idx].id,
+      name: store.users[idx].name,
+      email: store.users[idx].email,
+      role: store.users[idx].role,
+      createdAt: store.users[idx].createdAt,
+    };
+  }
+}
+
+export async function deleteAdminUser(id: string, currentUserId: string): Promise<void> {
+  if (id === currentUserId) {
+    throw new Error('Keamanan: Anda tidak dapat menghapus akun Anda sendiri.');
+  }
+
+  try {
+    // Pastikan tidak menghapus jika hanya tersisa 1 SUPERADMIN
+    const superAdminCount = await prisma.user.count({
+      where: { role: 'SUPERADMIN' },
+    });
+    const targetUser = await prisma.user.findUnique({ where: { id } });
+    if (targetUser?.role === 'SUPERADMIN' && superAdminCount <= 1) {
+      throw new Error('Tidak dapat menghapus satu-satunya akun SUPERADMIN sistem.');
+    }
+
+    await prisma.user.delete({ where: { id } });
+  } catch (err: any) {
+    if (err.message?.includes('SUPERADMIN') || err.message?.includes('sendiri')) {
+      throw err;
+    }
+    handleDbFallback('deleteAdminUser', err);
+    const store = readLocalStore();
+    if (!store.users) store.users = [...DEFAULT_USERS];
+
+    const targetUser = store.users.find((u) => u.id === id);
+    const superAdmins = store.users.filter((u) => u.role === 'SUPERADMIN');
+    if (targetUser?.role === 'SUPERADMIN' && superAdmins.length <= 1) {
+      throw new Error('Tidak dapat menghapus satu-satunya akun SUPERADMIN sistem.');
+    }
+
+    store.users = store.users.filter((u) => u.id !== id);
+    writeLocalStore(store);
+  }
+}

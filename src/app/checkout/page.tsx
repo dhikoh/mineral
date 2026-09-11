@@ -321,7 +321,7 @@ export default function CheckoutPage() {
                   <div className="flex-1 min-w-0">
                     <h3 className="text-xs font-bold text-slate-800 line-clamp-1">{it.name}</h3>
                     <div className="text-[11px] text-slate-400 mt-0.5">
-                      {it.qty} unit × {formatRupiah(it.price)}
+                      {it.qty} {it.unit || 'unit'} × {formatRupiah(it.price)}
                     </div>
                     <div className="text-xs font-bold text-emerald-600 mt-1">
                       {formatRupiah(it.price * it.qty)}

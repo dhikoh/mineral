@@ -61,4 +61,25 @@ export async function clearAdminSessionCookie() {
   cookieStore.delete(COOKIE_NAME);
 }
 
+export function isSuperAdmin(session: AdminSessionPayload | null): boolean {
+  return session?.role === 'SUPERADMIN';
+}
+
+export function isAdmin(session: AdminSessionPayload | null): boolean {
+  return session?.role === 'ADMIN' || session?.role === 'SUPERADMIN';
+}
+
+export async function requireAdminSession(): Promise<AdminSessionPayload | null> {
+  const session = await getAdminSession();
+  if (!session || !isAdmin(session)) return null;
+  return session;
+}
+
+export async function requireSuperAdminSession(): Promise<AdminSessionPayload | null> {
+  const session = await getAdminSession();
+  if (!session || !isSuperAdmin(session)) return null;
+  return session;
+}
+
 export { COOKIE_NAME };
+

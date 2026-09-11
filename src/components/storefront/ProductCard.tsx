@@ -10,8 +10,10 @@ export interface ProductCardProps {
   description?: string;
   price: number;
   stock: number;
+  unit?: string;
   images: string[];
   categoryName?: string;
+  categorySlug?: string;
   usages?: string[];
   tags?: string[];
 }
@@ -21,8 +23,10 @@ export function ProductCard({
   slug,
   price,
   stock,
+  unit = 'kg',
   images,
   categoryName,
+  categorySlug,
   usages = [],
   tags = [],
 }: ProductCardProps) {
@@ -35,24 +39,36 @@ export function ProductCard({
   return (
     <div className="group flex flex-col overflow-hidden rounded-2xl border border-surface-200 bg-white shadow-soft-sm transition-all duration-300 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-soft-lg">
       {/* Image Thumbnail & Floating Badges */}
-      <Link href={`/produk/${slug}`} className="relative aspect-[4/3] w-full overflow-hidden bg-surface-100">
-        <Image
-          src={displayImage}
-          alt={name}
-          fill
-          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
-          className="object-cover transition-transform duration-500 group-hover:scale-105"
-        />
-        {/* Category Pill Top-Left */}
+      <div className="relative aspect-[4/3] w-full overflow-hidden bg-surface-100">
+        <Link href={`/produk/${slug}`} className="block h-full w-full">
+          <Image
+            src={displayImage}
+            alt={name}
+            fill
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
+            className="object-cover transition-transform duration-500 group-hover:scale-105"
+          />
+        </Link>
+
+        {/* Category Pill Top-Left (Internal Link ke /kategori/[slug]) */}
         {categoryName && (
-          <span className="absolute top-2.5 left-2.5 rounded-full bg-slate-900/80 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-sm shadow-sm">
-            {categoryName}
-          </span>
+          categorySlug ? (
+            <Link
+              href={`/kategori/${categorySlug}`}
+              className="absolute top-2.5 left-2.5 z-10 rounded-full bg-slate-900/80 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-sm shadow-sm transition-colors hover:bg-emerald-600"
+            >
+              {categoryName}
+            </Link>
+          ) : (
+            <span className="absolute top-2.5 left-2.5 z-10 rounded-full bg-slate-900/80 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-sm shadow-sm">
+              {categoryName}
+            </span>
+          )
         )}
 
         {/* Stock Badge Top-Right */}
         <span
-          className={`absolute top-2.5 right-2.5 flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold shadow-sm backdrop-blur-sm ${
+          className={`absolute top-2.5 right-2.5 z-10 flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold shadow-sm backdrop-blur-sm ${
             isOutOfStock
               ? 'bg-rose-600/90 text-white'
               : 'bg-emerald-600/90 text-white'
@@ -64,11 +80,11 @@ export function ProductCard({
             </>
           ) : (
             <>
-              <CheckCircle2 className="h-3 w-3" /> Stok: {stock}
+              <CheckCircle2 className="h-3 w-3" /> Stok: {stock} {unit}
             </>
           )}
         </span>
-      </Link>
+      </div>
 
       {/* Content Area */}
       <div className="flex flex-1 flex-col p-4">
@@ -117,7 +133,7 @@ export function ProductCard({
         <div className="mt-auto pt-4 flex items-center justify-between border-t border-surface-100">
           <div>
             <span className="block text-[10px] uppercase font-bold tracking-wider text-slate-400">
-              Harga
+              Harga / {unit}
             </span>
             <span className="text-base font-extrabold text-slate-900">
               {formatRupiah(price)}

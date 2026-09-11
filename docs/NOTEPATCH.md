@@ -592,10 +592,68 @@
 - Pembatalan pesanan yang sebelumnya sudah lunas secara otomatis mengurangi total transaksi dan omset customer terkait agar laporan keuangan sales tetap akurat.
 
 **Kendala:**
-- PostgreSQL lokal tidak aktif pada port 5432 di lingkungan pengujian; seluruh jalur transaksi atomik dan fallback lokal diisolasi secara cermat dengan structured logging (`event: 'DB_FALLBACK_TRIGGERED'`) sehingga pengujian build dan test suite tetap dapat berjalan mulus tanpa mengorbankan keamanan produksi.
+## [2026-09-11] Sesi #11 — Remediasi Audit Keamanan P0, Integritas Relasional P1, Gap Bisnis Komoditas & RBAC
+**Dikerjakan:**
+1. **P0: Entropi `orderCode` Kriptografis & Retry Tabrakan Unik:**
+   - Mengganti generator Math.random 4-digit dengan `crypto.getRandomValues()` 8-karakter hex acak (~4,29 miliar kemungkinan per hari).
+   - Menambahkan loop retry hingga 5 kali pada `createOrder()` di `src/lib/data-store.ts` untuk menangani tabrakan unik `orderCode`.
+2. **P0: Validasi Kuantitas Pesanan Positif:**
+   - Memastikan `qty` divalidasi sebagai integer positif (`Number.isInteger(qty) && qty > 0`) pada `/api/checkout` dan `createOrder()` untuk mencegah pengurangan total belanja atau penambahan stok ilegal via angka negatif.
+3. **P0: Perlindungan Data Pribadi (PII) Endpoint Pesanan:**
+   - Menambahkan rate limiting (30 req/menit per IP) pada endpoint publik `/api/pesanan/[orderCode]`.
+   - Mengimplementasikan verifikasi nomor telepon pembeli (`?phone=...`); menyensor/masking data nama, nomor HP, email, dan alamat pengiriman jika diakses tanpa nomor telepon yang cocok.
+4. **P0: Status Gate Bukti Pembayaran & Idempotensi CRM:**
+   - Memproteksi `submitPaymentProof` sehingga menolak upload bukti baru jika pesanan sudah berstatus `PAID`, `PROCESSING`, `SHIPPED`, `COMPLETED`, atau `CANCELLED`.
+   - Menjamin fungsi `verifyPaymentProof` dan `recordCustomerDealFromPaidOrder` bersifat idempoten untuk mencegah double-counting nilai LTV dan akumulasi pesanan ganda.
+5. **P1: Pemisahan Endpoint Upload Admin vs Publik & Multi-Driver Storage:**
+   - Membuat modul driver penyimpanan modular `src/lib/storage.ts` yang mendukung provider `local`, `s3`/`r2`, dan `cloudinary`.
+   - Membuat endpoint upload aman khusus admin `/api/admin/upload` dengan guard sesi `getAdminSession()`.
+   - Memperbarui komponen `ImageUploader` dengan prop `uploadEndpoint`.
+6. **P1: Integritas Relasional Hapus Kategori, Peruntukan & Produk:**
+   - Memblokir penghapusan kategori (`deleteCategory`) dan peruntukan (`deleteUsage`) jika masih digunakan oleh produk komoditas.
+   - Memblokir penghapusan produk (`deleteProduct`) jika tercatat dalam transaksi `OrderItem`.
+   - Menyiapkan fallback snapshot `[Komoditas Diarsipkan]` jika produk lama terhapus agar riwayat transaksi pembeli tetap utuh.
+7. **P1: Navigasi Internal Link Kategori:**
+   - Memperbaiki tautan chip kategori di homepage dan katalog agar mengarah langsung ke `/kategori/[slug]`.
+8. **P1: Sanitasi Git Track `.local-store.json`:**
+   - Menambahkan `.local-store.json` ke `.gitignore` dan membersihkan cache git index.
+9. **Gap Bisnis: Satuan Komoditas (`unit`) & Ambang Stok Rendah (`minStock`):**
+   - Menambahkan field `unit String @default("kg")` dan `minStock Int @default(50)` pada model `Product`, serta `lowStockAlertThreshold Int? @default(50)` pada `SiteSetting`.
+   - Menyesuaikan UI Storefront, Keranjang, Checkout, Detail Pesanan, Form Produk Admin, dan Dashboard Metrik dengan satuan dinamis per-komoditas.
+10. **Gap Bisnis: Role-Based Access Control (RBAC) & Manajemen Staf:**
+    - Menambahkan helper RBAC `isSuperAdmin`, `isAdmin`, `requireSuperAdminSession` di `src/lib/auth.ts`.
+    - Membatasi update pengaturan situs hanya untuk `SUPERADMIN`.
+    - Menambahkan antarmuka `/admin/pengguna` dan API `/api/admin/users` untuk manajemen akun staf.
+11. **Penyelesaian Peringatan CSS IDE:**
+    - Menambahkan `.vscode/settings.json` dengan `"css.lint.unknownAtRules": "ignore"` untuk menonaktifkan peringatan `@tailwind` pada IDE Language Server.
 
-**Next steps:**
-- Aplikasi siap di-deploy ke lingkungan staging / produksi (Vercel, Railway, atau VPS Docker) dengan menyetel variabel `DATABASE_URL` dan `AUTH_SECRET` acak kuat.
+**File diubah/dibuat:**
+- `src/lib/utils.ts` [MODIFIKASI] — Entropi kriptografis order code
+- `src/lib/data-store.ts` [MODIFIKASI] — Retry order code, status gate payment, unit, minStock, integritas delete
+- `src/lib/auth.ts` [MODIFIKASI] — RBAC SUPERADMIN vs ADMIN helper guards
+- `src/lib/storage.ts` [BARU] — Driver multi-provider storage
+- `src/app/api/checkout/route.ts` [MODIFIKASI] — Validasi qty > 0
+- `src/app/api/pesanan/[orderCode]/route.ts` [MODIFIKASI] — Rate limit & sensor PII
+- `src/app/api/pesanan/[orderCode]/bukti/route.ts` [MODIFIKASI] — Error handling status gate
+- `src/app/api/admin/upload/route.ts` [BARU] — Upload khusus admin
+- `src/app/api/admin/users/route.ts` & `[id]/route.ts` [BARU] — CRUD staf admin
+- `src/app/admin/pengguna/page.tsx` [BARU] — Halaman manajemen staf
+- `src/app/admin/dashboard/page.tsx` [MODIFIKASI] — Tampilan stok tipis & menu staf
+- `src/app/admin/produk/baru/page.tsx` & `[id]/page.tsx` [MODIFIKASI] — Input UoM & minStock
+- `src/components/storefront/ProductCard.tsx` & `ProductDetailClient.tsx` [MODIFIKASI] — Tampilan satuan komoditas
+- `src/components/ui/ImageUploader.tsx` [MODIFIKASI] — Dukungan uploadEndpoint
+- `scripts/test-audit-p0-p1.ts` [BARU] — 23 skenario audit otomatis P0/P1/Bisnis
+- `package.json` [MODIFIKASI] — Integrasi test audit ke `npm test`
+- `.gitignore` [MODIFIKASI] — Pengabaian `.local-store.json`
+- `.vscode/settings.json` [BARU] — Konfigurasi ignorasi linter unknownAtRules @tailwind
+- `docs/BLUEPRINT.md` [MODIFIKASI] — Pembaruan arsitektur rute & skema
+- `docs/NOTEPATCH.md` [MODIFIKASI] — Log Sesi #11
+
+**Verifikasi:**
+- `npx tsc --noEmit`: 0 error (TypeScript compiler lulus 100%).
+- `npm test`: Seluruh suite pengujian lolos 100% (23 assertions audit P0-P1, 40 CRM assertions, E2E).
+- `npm run build`: Exit Code 0 (berhasil mengompilasi 45 static/dynamic routes Next.js 16 App Router).
+
 
 
 

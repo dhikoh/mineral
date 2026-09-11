@@ -45,9 +45,10 @@ model SiteSetting {
   address            String?
   bankAccounts       Json     // [{ bank: "BCA", noRekening: "1234567890", atasNama: "PT Mineral Alam Indonesia" }]
   footerText         String?
-  metaTitle          String?
-  metaDesc           String?
-  updatedAt          DateTime @updatedAt
+  metaTitle              String?
+  metaDesc               String?
+  lowStockAlertThreshold Int?     @default(50)
+  updatedAt              DateTime @updatedAt
 }
 
 model ContentBlock {
@@ -88,6 +89,8 @@ model Product {
   description String         @db.Text
   price       Int
   stock       Int            @default(0)
+  unit        String         @default("kg") // kg, ton, sak 25kg, jumbo bag 1 ton, ingot, dll
+  minStock    Int            @default(50)   // ambang batas peringatan stok tipis
   images      Json           // array string URL: ["/uploads/..."]
   tags        Json           // array string hashtag: ["zeolite","pupuk-organik"]
   categoryId  String

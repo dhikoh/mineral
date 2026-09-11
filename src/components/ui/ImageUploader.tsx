@@ -20,15 +20,17 @@ interface ImageUploaderProps {
   value?: string; // Untuk mode single
   values?: string[]; // Untuk mode multiple (galeri produk)
   multiple?: boolean;
+  uploadEndpoint?: string; // default '/api/admin/upload'
   onChange: (value: any) => void;
 }
 
 export function ImageUploader({
   label = 'Gambar',
-  helperText = 'Format JPG, PNG, WEBP, atau SVG. Maksimal 5 MB.',
+  helperText = 'Format JPG, PNG, WEBP, atau PDF. Maksimal 5 MB.',
   value = '',
   values = [],
   multiple = false,
+  uploadEndpoint = '/api/admin/upload',
   onChange,
 }: ImageUploaderProps) {
   const [activeTab, setActiveTab] = useState<'upload' | 'url'>('upload');
@@ -50,7 +52,7 @@ export function ImageUploader({
       const formData = new FormData();
       formData.append('file', file);
 
-      const res = await fetch('/api/upload', {
+      const res = await fetch(uploadEndpoint, {
         method: 'POST',
         body: formData,
       });
@@ -89,7 +91,7 @@ export function ImageUploader({
     setLoading(true);
 
     try {
-      const res = await fetch('/api/upload', {
+      const res = await fetch(uploadEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: urlInput.trim() }),
