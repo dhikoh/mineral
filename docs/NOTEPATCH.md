@@ -739,3 +739,53 @@ Menindaklanjuti instruksi pemilik proyek untuk merombak seluruh narasi, copywrit
 - `npm test`: 102/102 assertions lulus 100% (Phase 7 E2E 39/39, CRM 40/40, Audit P0/P1/Bisnis 23/23).
 - `npm run build`: Exit Code 0 (Kompilasi bersih pada seluruh 45 rute statis dan dinamis Next.js 16).
 - Audit Kata Kunci: Grep pencarian menyeluruh terhadap `IUP`, `COA`, `armada darat kami`, `Sucofindo`, `Geoservices`, `tangan pertama`, `konsesi`, dan `AMDAL` terkonfirmasi 0 overclaim pada seluruh kode sumber.
+
+---
+
+## [2026-09-11] - Sesi #14: Rebranding Global — MineralHub ? Adably
+
+**Tujuan Sesi:**
+Mengganti seluruh identitas merek **MineralHub** / **MineralHub Indonesia** / **PT MineralHub Indonesia** menjadi **Adably** di seluruh kode sumber frontend (src/) dan prisma/ yang tampil ke publik. Nama domain dably.id telah aktif digunakan sebagai domain produksi aplikasi ini.
+
+**Keputusan Desain:**
+- Nama resmi brand: **Adably** (tanpa sufiks PT atau Indonesia — bukan badan hukum PT).
+- Tagline: tetap **"Pusat Komoditas Mineral Tambang & Hasil Alam Berkualitas"**.
+- Email CS (cs@adably.id) dan rekening bank dapat diubah langsung via **Admin CMS Panel** setelah deploy — tidak perlu perubahan kode.
+- Fallback URL di seluruh file dikorreksikan ke https://adably.id (huruf kecil, sesuai standar domain).
+- Email/kredensial admin system (dmin@mineralhub.com) tidak diubah — ini bukan teks publik; dapat diubah langsung di database Coolify.
+
+**Metode:**
+Penggantian massal menggunakan PowerShell [System.IO.File]::ReadAllText / WriteAllText dengan 3 pola berurutan:
+1. 'PT MineralHub Indonesia' ? 'Adably'
+2. 'MineralHub Indonesia' ? 'Adably'
+3. 'MineralHub' ? 'Adably'
+
+Diikuti koreksi casing domain URL:
+4. 'https://Adably.id' ? 'https://adably.id'
+5. 'cs@Adably.id' ? 'cs@adably.id'
+
+**File yang Diubah (32 Berkas src/ + prisma/):**
+- src/app/layout.tsx, src/app/manifest.ts, src/app/sitemap.ts, src/app/robots.ts
+- src/app/page.tsx, src/app/faq/page.tsx, src/app/tentang-kami/page.tsx
+- src/app/kontak/page.tsx, src/app/syarat-ketentuan/page.tsx, src/app/keranjang/layout.tsx
+- src/app/checkout/layout.tsx, src/app/lacak-pesanan/page.tsx, src/app/lacak-pesanan/OrderTrackingClient.tsx
+- src/app/pesanan/[orderCode]/OrderDetailClient.tsx, src/app/pesanan/[orderCode]/layout.tsx
+- src/app/produk/page.tsx, src/app/produk/[slug]/page.tsx
+- src/app/artikel/page.tsx, src/app/artikel/[slug]/page.tsx
+- src/app/kategori/[slug]/page.tsx
+- src/app/api/leads/route.ts, src/app/api/admin/auth/login/route.ts
+- src/app/admin/dashboard/page.tsx, src/app/admin/pengaturan/page.tsx
+- src/app/admin/pelanggan/page.tsx, src/app/admin/pesanan/[id]/AdminOrderDetailClient.tsx
+- src/components/layout/Navbar.tsx, src/components/layout/Footer.tsx, src/components/layout/BottomNav.tsx
+- src/components/common/WhatsAppButton.tsx, src/components/common/PwaPrompt.tsx
+- src/components/storefront/RfqModal.tsx, src/components/storefront/ProductDetailClient.tsx
+- src/lib/data-store.ts, src/lib/storage.ts
+- prisma/seed.ts
+- docs/BLUEPRINT.md [MODIFIKASI] — Update header terakhir diupdate ke Sesi #14
+- docs/NOTEPATCH.md [MODIFIKASI] — Pencatatan Sesi #14
+
+**Verifikasi Kualitas & Integritas:**
+- Grep MineralHub pada seluruh src/ + prisma/: **0 hasil** (bersih total).
+- Grep Adably.id (huruf kapital A): **0 hasil** (seluruh URL/domain sudah lowercase dably.id).
+- 
+px tsc --noEmit: **0 error** (TypeScript strict typecheck lolos 100%).

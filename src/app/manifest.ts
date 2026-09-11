@@ -2,8 +2,8 @@ import type { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'MineralHub Indonesia — Marketplace Komoditas Tambang & Hasil Alam',
-    short_name: 'MineralHub',
+    name: 'Adably — Marketplace Komoditas Tambang & Hasil Alam',
+    short_name: 'Adably',
     description:
       'Platform B2B & Retail Terpercaya Komoditas Tambang Indonesia: Zeolite, Bentonite, Timah murni, serta Gaharu super.',
     start_url: '/',

@@ -101,7 +101,7 @@ export function ProductDetailClient({
     }
   };
 
-  const whatsappMessage = `Halo CS MineralHub, saya tertarik dengan produk ${product.name} (Rp ${product.price.toLocaleString('id-ID')}). Mohon info ketersediaan spesifikasi dan logistik pengiriman.`;
+  const whatsappMessage = `Halo CS Adably, saya tertarik dengan produk ${product.name} (Rp ${product.price.toLocaleString('id-ID')}). Mohon info ketersediaan spesifikasi dan logistik pengiriman.`;
   const whatsappUrl = `https://wa.me/${csWhatsapp}?text=${encodeURIComponent(whatsappMessage)}`;
 
   return (

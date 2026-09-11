@@ -26,7 +26,7 @@ export async function generateMetadata({
   if (q) {
     title = `Hasil Pencarian "${q}" — Katalog Komoditas Mineral`;
   } else if (kategori) {
-    title = `Komoditas Kategori ${kategori} — MineralHub`;
+    title = `Komoditas Kategori ${kategori} — Adably`;
   }
 
   return {
@@ -70,7 +70,7 @@ export default async function KatalogProdukPage({
     getUsages(),
   ]);
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://mineralhub.id';
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://adably.id';
   const breadcrumbSchema = {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',

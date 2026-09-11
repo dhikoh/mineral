@@ -1,5 +1,5 @@
 # BLUEPRINT — Web Marketplace Single-Seller + CMS Artikel + Template Reusable
-Terakhir diupdate: 2026-09-09 (Sesi #10 — Remediasi Produksi-Grade, Hardening Keamanan P0, Logika Stok/CRM P1 & Sinkronisasi Total Blueprint)
+Terakhir diupdate: 2026-09-11 (Sesi #14 — Rebranding Global: MineralHub → Adably, Penyelarasan URL & Domain adably.id)
 
 ---
 

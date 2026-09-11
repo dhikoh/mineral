@@ -417,7 +417,7 @@ export default function AdminPenggunaPage() {
                 <input
                   type="email"
                   required
-                  placeholder="budi@mineralhub.com"
+                  placeholder="budi@Adably.com"
                   value={formEmail}
                   onChange={(e) => setFormEmail(e.target.value)}
                   className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3.5 py-2 text-xs text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none"

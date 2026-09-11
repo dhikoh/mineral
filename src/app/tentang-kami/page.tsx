@@ -14,9 +14,9 @@ import { getContentBlockByKey, getSiteSettings } from '@/lib/data-store';
 import { sanitize } from '@/lib/sanitize';
 
 export const metadata: Metadata = {
-  title: 'Tentang Kami — MineralHub Indonesia',
+  title: 'Tentang Kami — Adably',
   description:
-    'Profil MineralHub Indonesia sebagai mitra penyedia komoditas mineral tambang dan bahan baku industri dengan spesifikasi transparan dan layanan profesional.',
+    'Profil Adably sebagai mitra penyedia komoditas mineral tambang dan bahan baku industri dengan spesifikasi transparan dan layanan profesional.',
 };
 
 export default async function TentangKamiPage() {
@@ -54,7 +54,7 @@ export default async function TentangKamiPage() {
               <span>Integritas Rantai Pasok Tambang & Alam</span>
             </div>
             <h1 className="text-3xl font-black tracking-tight sm:text-4xl lg:text-5xl">
-              {aboutBlock?.title || 'Tentang MineralHub Indonesia'}
+              {aboutBlock?.title || 'Tentang Adably'}
             </h1>
             <p className="text-xs sm:text-sm text-slate-300 leading-relaxed pt-2">
               Menghubungkan sektor industri manufaktur, agrikultur modern, dan pelaku usaha dengan pasokan komoditas mineral nusantara secara profesional, transparan, dan terpercaya.
@@ -88,7 +88,7 @@ export default async function TentangKamiPage() {
               dangerouslySetInnerHTML={{
                 __html: sanitize(
                   aboutBlock?.content ||
-                    'MineralHub Indonesia berdedikasi menyediakan komoditas mineral dan hasil hutan non-kayu berkualitas tinggi dengan standar transparansi tertinggi.'
+                    'Adably berdedikasi menyediakan komoditas mineral dan hasil hutan non-kayu berkualitas tinggi dengan standar transparansi tertinggi.'
                 ),
               }}
             />

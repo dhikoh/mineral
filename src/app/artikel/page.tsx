@@ -8,13 +8,13 @@ import { FileText, Clock, ArrowRight, BookOpen, Sparkles } from 'lucide-react';
 export const dynamic = 'force-dynamic';
 
 export async function generateMetadata(): Promise<Metadata> {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://mineralhub.id';
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://adably.id';
   return {
     title: 'Artikel & Riset Komoditas Mineral',
     description:
       'Panduan teknis, spesifikasi industri, analisis laboratorium, dan edukasi aplikasi mineral aktif serta hasil alam bernilai tinggi.',
     openGraph: {
-      title: 'Artikel & Riset Komoditas Mineral — MineralHub Indonesia',
+      title: 'Artikel & Riset Komoditas Mineral — Adably',
       description:
         'Panduan teknis, spesifikasi industri, dan analisis aplikasi komoditas mineral Indonesia.',
       url: `${baseUrl}/artikel`,
@@ -32,7 +32,7 @@ function estimateReadingTime(html: string): string {
 
 export default async function ArtikelListingPage() {
   const articles = await getArticles({ publishedOnly: true });
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://mineralhub.id';
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://adably.id';
 
   const breadcrumbSchema = {
     '@context': 'https://schema.org',

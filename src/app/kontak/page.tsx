@@ -14,9 +14,9 @@ import {
 import { getSiteSettings } from '@/lib/data-store';
 
 export const metadata: Metadata = {
-  title: 'Hubungi Kami — MineralHub Indonesia',
+  title: 'Hubungi Kami — Adably',
   description:
-    'Kontak resmi WhatsApp Customer Service, email, alamat kantor pergudangan, dan rekening transfer resmi MineralHub Indonesia.',
+    'Kontak resmi WhatsApp Customer Service, email, alamat kantor pergudangan, dan rekening transfer resmi Adably.',
 };
 
 export default async function KontakPage() {
@@ -158,7 +158,7 @@ export default async function KontakPage() {
               <h3>Rekening Bank Transfer Resmi</h3>
             </div>
             <p className="text-xs text-slate-500 leading-relaxed">
-              Pastikan seluruh pembayaran hanya dialihkan ke nomor rekening resmi terdaftar di bawah ini a.n PT MineralHub Indonesia:
+              Pastikan seluruh pembayaran hanya dialihkan ke nomor rekening resmi terdaftar di bawah ini a.n Adably:
             </p>
 
             <div className="space-y-3">

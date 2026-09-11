@@ -53,7 +53,7 @@ async function uploadToS3Compatible(
 ): Promise<UploadResult> {
   const endpoint = process.env.S3_ENDPOINT; // e.g. https://<accountid>.r2.cloudflarestorage.com
   const bucket = process.env.S3_BUCKET_NAME;
-  const publicBaseUrl = process.env.S3_PUBLIC_URL; // e.g. https://cdn.mineralhub.id
+  const publicBaseUrl = process.env.S3_PUBLIC_URL; // e.g. https://cdn.adably.id
   const accessKeyId = process.env.S3_ACCESS_KEY_ID;
   const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY;
 

@@ -74,7 +74,7 @@ export function PwaPrompt() {
 
   return (
     <aside
-      aria-label="Prompt PWA MineralHub"
+      aria-label="Prompt PWA Adably"
       className="fixed bottom-20 left-4 right-4 z-50 mx-auto max-w-md animate-in fade-in slide-in-from-bottom-5 duration-300 md:bottom-6 md:right-6 md:left-auto"
     >
       <div className="relative flex items-center justify-between gap-3.5 rounded-2xl border border-emerald-500/30 bg-slate-900/95 p-3.5 text-white shadow-2xl backdrop-blur-md">
@@ -83,7 +83,7 @@ export function PwaPrompt() {
             <Sparkles className="h-5 w-5 text-white" />
           </div>
           <div>
-            <h4 className="text-sm font-semibold tracking-tight text-white">Pasang Aplikasi MineralHub</h4>
+            <h4 className="text-sm font-semibold tracking-tight text-white">Pasang Aplikasi Adably</h4>
             <p className="text-xs text-slate-300">Akses cepat & katalog luring di layar HP Anda</p>
           </div>
         </div>

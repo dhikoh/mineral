@@ -5,7 +5,7 @@ import { OrderTrackingClient } from './OrderTrackingClient';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'Lacak Pesanan Komoditas — MineralHub Indonesia',
+  title: 'Lacak Pesanan Komoditas — Adably',
   description:
     'Lacak status pengiriman dan kargo pesanan komoditas mineral Anda secara real-time dengan kode pesanan dan nomor WhatsApp.',
 };

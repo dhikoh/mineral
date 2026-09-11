@@ -2,7 +2,7 @@ import type { MetadataRoute } from 'next';
 import { getProducts, getCategories, getArticles } from '@/lib/data-store';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://mineralhub.id';
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://adably.id';
   const currentDate = new Date();
 
   // 1. Static Pages

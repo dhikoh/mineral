@@ -107,7 +107,7 @@ export function OrderDetailClient({
 
   const waNumber = csWhatsapp ? csWhatsapp.replace(/[^0-9]/g, '') : '6281234567890';
   const waMessage = encodeURIComponent(
-    `Halo Admin MineralHub Indonesia, saya ingin konfirmasi pesanan:\n` +
+    `Halo Admin Adably, saya ingin konfirmasi pesanan:\n` +
       `• Kode Pesanan: ${order.orderCode}\n` +
       `• Nama: ${order.buyerName}\n` +
       `• Total: ${formatRupiah(order.total)}\n` +
@@ -190,7 +190,7 @@ export function OrderDetailClient({
             <div className="space-y-1">
               <h3 className="text-sm font-bold">Pesanan Telah Selesai</h3>
               <p className="text-xs text-emerald-800 leading-relaxed">
-                Pengadaan komoditas ini telah selesai diterima di lokasi tujuan. Terima kasih telah mempercayakan kebutuhan mineral Anda kepada MineralHub.
+                Pengadaan komoditas ini telah selesai diterima di lokasi tujuan. Terima kasih telah mempercayakan kebutuhan mineral Anda kepada Adably.
               </p>
             </div>
           </div>

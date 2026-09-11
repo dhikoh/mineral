@@ -362,7 +362,7 @@ export function OrderTrackingClient({ csWhatsapp }: { csWhatsapp: string }) {
 
             <a
               href={`https://wa.me/${waNumber}?text=${encodeURIComponent(
-                `Halo Admin MineralHub, saya ingin menanyakan status pesanan saya: ${order.orderCode}`
+                `Halo Admin Adably, saya ingin menanyakan status pesanan saya: ${order.orderCode}`
               )}`}
               target="_blank"
               rel="noopener noreferrer"

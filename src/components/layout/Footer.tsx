@@ -12,16 +12,16 @@ interface FooterProps {
 }
 
 export function Footer({
-  siteName = 'MineralHub Indonesia',
+  siteName = 'Adably',
   tagline = 'Pusat Komoditas Mineral Tambang & Hasil Alam Berkualitas Ekspor',
   address = 'Kawasan Pergudangan & Industri Logistik Blok M-9, Jakarta Barat',
   csWhatsapp = '6281234567890',
   csOperationalHours = 'Senin - Sabtu, 08.00 - 17.00 WIB',
   bankAccounts = [
-    { bank: 'BCA', noRekening: '8001234567', atasNama: 'PT MineralHub Indonesia' },
-    { bank: 'Mandiri', noRekening: '1230009876543', atasNama: 'PT MineralHub Indonesia' },
+    { bank: 'BCA', noRekening: '8001234567', atasNama: 'Adably' },
+    { bank: 'Mandiri', noRekening: '1230009876543', atasNama: 'Adably' },
   ],
-  footerText = '© 2026 MineralHub Indonesia. All rights reserved.',
+  footerText = '© 2026 Adably. All rights reserved.',
 }: FooterProps) {
   return (
     <footer className="border-t border-surface-200 bg-white pt-12 pb-24 text-slate-600 md:pb-12">
@@ -134,7 +134,7 @@ export function Footer({
             </p>
             <div className="mt-4">
               <a
-                href={`https://wa.me/${csWhatsapp}?text=${encodeURIComponent('Halo CS MineralHub')}`}
+                href={`https://wa.me/${csWhatsapp}?text=${encodeURIComponent('Halo CS Adably')}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 rounded-xl bg-surface-100 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 border border-surface-200 px-3.5 py-2 text-xs font-semibold text-slate-700 transition-all"

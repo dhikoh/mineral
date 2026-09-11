@@ -34,7 +34,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       success: true,
       message: result.isNew
-        ? 'Permintaan penawaran resmi berhasil dikirim. Tim spesialis MineralHub akan segera menghubungi WhatsApp Anda.'
+        ? 'Permintaan penawaran resmi berhasil dikirim. Tim spesialis Adably akan segera menghubungi WhatsApp Anda.'
         : 'Permintaan penawaran tambahan berhasil dicatat. Tim sales kami akan segera menindaklanjuti kebutuhan terbaru Anda.',
       data: result.customer,
     });

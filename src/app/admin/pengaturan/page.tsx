@@ -49,19 +49,19 @@ export default function AdminPengaturanPage() {
   const [errorMsg, setErrorMsg] = useState('');
 
   // Form states
-  const [siteName, setSiteName] = useState('MineralHub Indonesia');
+  const [siteName, setSiteName] = useState('Adably');
   const [tagline, setTagline] = useState('Pusat Komoditas Mineral Tambang & Hasil Alam Berkualitas Ekspor');
   const [logoUrl, setLogoUrl] = useState('');
   const [faviconUrl, setFaviconUrl] = useState('');
   const [primaryColor, setPrimaryColor] = useState('#059669');
   const [csWhatsapp, setCsWhatsapp] = useState('6281234567890');
-  const [csEmail, setCsEmail] = useState('cs@mineralhub.id');
+  const [csEmail, setCsEmail] = useState('cs@adably.id');
   const [csOperationalHours, setCsOperationalHours] = useState('Senin - Sabtu, 08.00 - 17.00 WIB');
   const [address, setAddress] = useState('Kawasan Pergudangan & Industri Logistik Blok M-9, Jakarta Barat');
-  const [footerText, setFooterText] = useState('© 2026 MineralHub Indonesia. All rights reserved.');
+  const [footerText, setFooterText] = useState('© 2026 Adably. All rights reserved.');
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([
-    { bank: 'BCA', noRekening: '8001234567', atasNama: 'PT MineralHub Indonesia' },
-    { bank: 'Mandiri', noRekening: '1230009876543', atasNama: 'PT MineralHub Indonesia' },
+    { bank: 'BCA', noRekening: '8001234567', atasNama: 'Adably' },
+    { bank: 'Mandiri', noRekening: '1230009876543', atasNama: 'Adably' },
   ]);
 
   const router = useRouter();
@@ -104,7 +104,7 @@ export default function AdminPengaturanPage() {
   const handleAddBank = () => {
     setBankAccounts((prev) => [
       ...prev,
-      { bank: 'BCA', noRekening: '', atasNama: 'PT MineralHub Indonesia' },
+      { bank: 'BCA', noRekening: '', atasNama: 'Adably' },
     ]);
   };
 
@@ -294,7 +294,7 @@ export default function AdminPengaturanPage() {
                     required
                     value={siteName}
                     onChange={(e) => setSiteName(e.target.value)}
-                    placeholder="MineralHub Indonesia"
+                    placeholder="Adably"
                     className="w-full rounded-xl border border-surface-200 bg-surface-50/50 px-3.5 py-2.5 text-xs text-slate-900 focus:border-emerald-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
                   />
                 </div>
@@ -368,7 +368,7 @@ export default function AdminPengaturanPage() {
                   type="text"
                   value={footerText || ''}
                   onChange={(e) => setFooterText(e.target.value)}
-                  placeholder="© 2026 MineralHub Indonesia. All rights reserved."
+                  placeholder="© 2026 Adably. All rights reserved."
                   className="w-full rounded-xl border border-surface-200 bg-surface-50/50 px-3.5 py-2.5 text-xs text-slate-900 focus:border-emerald-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
                 />
               </div>
@@ -413,7 +413,7 @@ export default function AdminPengaturanPage() {
                     type="email"
                     value={csEmail}
                     onChange={(e) => setCsEmail(e.target.value)}
-                    placeholder="cs@mineralhub.id"
+                    placeholder="cs@adably.id"
                     className="w-full rounded-xl border border-surface-200 bg-surface-50/50 px-3.5 py-2.5 text-xs text-slate-900 focus:border-emerald-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
                   />
                 </div>
@@ -525,7 +525,7 @@ export default function AdminPengaturanPage() {
                           required
                           value={b.atasNama}
                           onChange={(e) => handleBankChange(idx, 'atasNama', e.target.value)}
-                          placeholder="PT MineralHub Indonesia"
+                          placeholder="Adably"
                           className="w-full rounded-xl border border-surface-200 bg-white px-3 py-2 text-xs font-bold text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
                         />
                       </div>

@@ -16,10 +16,10 @@ export const viewport: Viewport = {
 };
 
 export async function generateMetadata(): Promise<Metadata> {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://mineralhub.id';
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://adably.id';
   try {
     const setting = await getSiteSettings();
-    const siteTitle = setting.siteName || 'MineralHub Indonesia';
+    const siteTitle = setting.siteName || 'Adably';
     const siteTagline = setting.tagline || 'Pusat Komoditas Mineral Tambang & Hasil Alam';
     const siteDescription =
       'Platform B2B & Retail Terpercaya Penyedia Komoditas Tambang Indonesia: Zeolite, Bentonite, Timah murni, serta Gaharu super untuk industri, agrikultur, dan ekspor.';
@@ -89,13 +89,13 @@ export async function generateMetadata(): Promise<Metadata> {
       appleWebApp: {
         capable: true,
         statusBarStyle: 'default',
-        title: 'MineralHub',
+        title: 'Adably',
       },
     };
   } catch {
     return {
       metadataBase: new URL(baseUrl),
-      title: 'MineralHub Indonesia — Pusat Komoditas Tambang',
+      title: 'Adably — Pusat Komoditas Tambang',
       description: 'Penyedia komoditas mineral tambang berkualitas.',
     };
   }
@@ -108,7 +108,7 @@ export default async function RootLayout({
 }>) {
   const siteSetting = await getSiteSettings();
 
-  const siteName = siteSetting.siteName || 'MineralHub Indonesia';
+  const siteName = siteSetting.siteName || 'Adably';
   const csWhatsapp = siteSetting.csWhatsapp || '6281234567890';
   const tagline = siteSetting.tagline || 'Pusat Komoditas Mineral Tambang & Hasil Alam Berkualitas Ekspor';
   const address = siteSetting.address || 'Kawasan Pergudangan & Industri Logistik Blok M-9, Jakarta Barat';
@@ -116,10 +116,10 @@ export default async function RootLayout({
   const bankAccounts = Array.isArray(siteSetting.bankAccounts)
     ? siteSetting.bankAccounts
     : [
-        { bank: 'BCA', noRekening: '8001234567', atasNama: 'PT MineralHub Indonesia' },
-        { bank: 'Mandiri', noRekening: '1230009876543', atasNama: 'PT MineralHub Indonesia' },
+        { bank: 'BCA', noRekening: '8001234567', atasNama: 'Adably' },
+        { bank: 'Mandiri', noRekening: '1230009876543', atasNama: 'Adably' },
       ];
-  const footerText = siteSetting.footerText || '© 2026 MineralHub Indonesia. All rights reserved.';
+  const footerText = siteSetting.footerText || '© 2026 Adably. All rights reserved.';
 
   return (
     <html lang="id" className="scroll-smooth">

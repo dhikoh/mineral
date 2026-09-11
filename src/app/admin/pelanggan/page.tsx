@@ -297,8 +297,8 @@ export default function AdminPelangganPage() {
     let clean = customer.phone.replace(/[^0-9]/g, '');
     if (clean.startsWith('0')) clean = '62' + clean.slice(1);
     const greeting = customer.company
-      ? `Halo Bapak/Ibu ${customer.name} (${customer.company}), salam hangat dari Tim MineralHub Indonesia.`
-      : `Halo Bapak/Ibu ${customer.name}, salam hangat dari Tim MineralHub Indonesia.`;
+      ? `Halo Bapak/Ibu ${customer.name} (${customer.company}), salam hangat dari Tim Adably.`
+      : `Halo Bapak/Ibu ${customer.name}, salam hangat dari Tim Adably.`;
 
     const topic = customer.preferredCommodity
       ? ` Kami ingin menindaklanjuti perihal pengadaan komoditas ${customer.preferredCommodity}. Apakah spesifikasi & kuotasinya sudah sesuai kebutuhan pabrik Anda?`

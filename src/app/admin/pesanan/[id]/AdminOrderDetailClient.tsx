@@ -95,7 +95,7 @@ export function AdminOrderDetailClient({ initialOrder }: { initialOrder: any }) 
 
   const buyerCleanPhone = order.buyerPhone ? order.buyerPhone.replace(/\D/g, '') : '';
   const waUrl = `https://wa.me/${buyerCleanPhone}?text=${encodeURIComponent(
-    `Halo ${order.buyerName}, kami dari Admin MineralHub mengonfirmasi pesanan Anda dengan nomor ${order.orderCode}.`
+    `Halo ${order.buyerName}, kami dari Admin Adably mengonfirmasi pesanan Anda dengan nomor ${order.orderCode}.`
   )}`;
 
   return (

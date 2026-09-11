@@ -21,7 +21,7 @@ interface NavbarProps {
 }
 
 export function Navbar({
-  siteName = 'MineralHub',
+  siteName = 'Adably',
   csWhatsapp = '6281234567890',
   cartCount,
 }: NavbarProps) {
@@ -38,7 +38,7 @@ export function Navbar({
   };
 
   const whatsappUrl = `https://wa.me/${csWhatsapp}?text=${encodeURIComponent(
-    'Halo CS MineralHub, saya ingin konsultasi mengenai produk mineral dan komoditas.'
+    'Halo CS Adably, saya ingin konsultasi mengenai produk mineral dan komoditas.'
   )}`;
 
   return (

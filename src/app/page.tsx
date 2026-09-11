@@ -40,12 +40,12 @@ export default async function HomePage() {
     `Halo ${settings.siteName}, saya ingin berdiskusi kontrak pasokan komoditas skala tonase / kontainer industri...`
   )}`;
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://mineralhub.id';
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://adably.id';
 
   const organizationSchema = {
     '@context': 'https://schema.org',
     '@type': 'Organization',
-    name: settings.siteName || 'MineralHub Indonesia',
+    name: settings.siteName || 'Adably',
     url: baseUrl,
     logo: `${baseUrl}/icons/icon-512.png`,
     description: settings.tagline || 'Pusat Komoditas Mineral Tambang & Hasil Alam Berkualitas Ekspor',
@@ -69,7 +69,7 @@ export default async function HomePage() {
   const websiteSchema = {
     '@context': 'https://schema.org',
     '@type': 'WebSite',
-    name: settings.siteName || 'MineralHub Indonesia',
+    name: settings.siteName || 'Adably',
     url: baseUrl,
     potentialAction: {
       '@type': 'SearchAction',

@@ -106,15 +106,15 @@ export async function POST(req: NextRequest) {
         process.env.NODE_ENV === 'development' &&
         process.env.ALLOW_DEV_FALLBACK_LOGIN === 'true';
 
-      if (isDevFallbackAllowed && normalizedEmail === 'admin@mineralhub.com') {
+      if (isDevFallbackAllowed && normalizedEmail === 'admin@Adably.com') {
         if (password === 'admin123456') {
           console.warn(
             '[SECURITY WARNING] Dev-mode fallback login used. This MUST be disabled in production.'
           );
           user = {
             id: 'seed-admin-01',
-            name: 'Super Admin MineralHub (Dev Fallback)',
-            email: 'admin@mineralhub.com',
+            name: 'Super Admin Adably (Dev Fallback)',
+            email: 'admin@Adably.com',
             role: 'SUPERADMIN',
           };
           isMatch = true;

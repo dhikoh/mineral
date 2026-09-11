@@ -44,7 +44,7 @@ export function BottomNav({ cartCount, csWhatsapp = '6281234567890' }: BottomNav
   ];
 
   const whatsappUrl = `https://wa.me/${csWhatsapp}?text=${encodeURIComponent(
-    'Halo CS MineralHub, saya membutuhkan bantuan informasi produk/pesanan.'
+    'Halo CS Adably, saya membutuhkan bantuan informasi produk/pesanan.'
   )}`;
 
   return (

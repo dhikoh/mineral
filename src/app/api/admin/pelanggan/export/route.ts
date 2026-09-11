@@ -63,7 +63,7 @@ export async function GET(req: Request) {
     const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
 
     const todayStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const filename = `mineralhub-database-pelanggan-${todayStr}.csv`;
+    const filename = `Adably-database-pelanggan-${todayStr}.csv`;
 
     return new Response(csvContent, {
       status: 200,

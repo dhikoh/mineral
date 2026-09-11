@@ -4,16 +4,16 @@ import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('--- Mulai Seeding Data Default MineralHub ---');
+  console.log('--- Mulai Seeding Data Default Adably ---');
 
   // 1. Akun Superadmin
   const hashedPassword = await bcrypt.hash('admin123456', 10);
   const admin = await prisma.user.upsert({
-    where: { email: 'admin@mineralhub.com' },
+    where: { email: 'admin@Adably.com' },
     update: {},
     create: {
-      email: 'admin@mineralhub.com',
-      name: 'Super Admin MineralHub',
+      email: 'admin@Adably.com',
+      name: 'Super Admin Adably',
       password: hashedPassword,
       role: Role.SUPERADMIN,
     },
@@ -26,29 +26,29 @@ async function main() {
     update: {},
     create: {
       id: 'default-setting',
-      siteName: 'MineralHub Indonesia',
+      siteName: 'Adably',
       tagline: 'Pusat Komoditas Mineral Tambang & Hasil Alam Berkualitas',
       logoUrl: '',
       faviconUrl: '',
       primaryColor: '#059669',
       csWhatsapp: '6281234567890',
-      csEmail: 'cs@mineralhub.id',
+      csEmail: 'cs@adably.id',
       csOperationalHours: 'Senin - Sabtu, 08.00 - 17.00 WIB',
       address: 'Kawasan Pergudangan & Industri Logistik Blok M-9, Jakarta Barat',
       bankAccounts: [
         {
           bank: 'BCA',
           noRekening: '8001234567',
-          atasNama: 'PT MineralHub Indonesia',
+          atasNama: 'Adably',
         },
         {
           bank: 'Mandiri',
           noRekening: '1230009876543',
-          atasNama: 'PT MineralHub Indonesia',
+          atasNama: 'Adably',
         },
       ],
-      footerText: '© 2026 MineralHub Indonesia. Solusi pengadaan komoditas mineral & hasil alam terpercaya.',
-      metaTitle: 'MineralHub Indonesia — Marketplace Komoditas Mineral & Hasil Alam',
+      footerText: '© 2026 Adably. Solusi pengadaan komoditas mineral & hasil alam terpercaya.',
+      metaTitle: 'Adably — Marketplace Komoditas Mineral & Hasil Alam',
       metaDesc: 'Jual beli komoditas mineral tambang berkualitas: Zeolite, Bentonite, Timah murni, serta Gaharu super untuk industri, agrikultur, dan ekspor.',
     },
   });
@@ -63,12 +63,12 @@ async function main() {
     },
     {
       key: 'about_us',
-      title: 'Tentang MineralHub Indonesia',
-      content: '<p>MineralHub Indonesia adalah platform pengadaan mineral dan hasil alam terintegrasi. Kami melayani kebutuhan pelaku industri kimia, pertanian, konstruksi, dan manufaktur melalui kemitraan rantai pasok terpercaya dengan komitmen transparansi spesifikasi fisik dan uji sampel.</p>',
+      title: 'Tentang Adably',
+      content: '<p>Adably adalah platform pengadaan mineral dan hasil alam terintegrasi. Kami melayani kebutuhan pelaku industri kimia, pertanian, konstruksi, dan manufaktur melalui kemitraan rantai pasok terpercaya dengan komitmen transparansi spesifikasi fisik dan uji sampel.</p>',
     },
     {
       key: 'why_us',
-      title: 'Mengapa Memilih MineralHub?',
+      title: 'Mengapa Memilih Adably?',
       content: '<ul><li><strong>Legalitas Usaha Terverifikasi:</strong> Kemitraan niaga resmi dengan transparansi dokumen pengiriman.</li><li><strong>Kesesuaian Spesifikasi:</strong> Data fisik disajikan transparan dengan dukungan uji sampel sebelum transaksi.</li><li><strong>Skema Grosir Kompetitif:</strong> Struktur harga rasional yang disesuaikan untuk skala volume industri.</li><li><strong>Pengiriman Fleksibel:</strong> Opsi pengambilan mandiri (Loco/FOB) maupun koordinasi ekspedisi kargo terpercaya.</li></ul>',
     },
     {
@@ -100,7 +100,7 @@ async function main() {
   // 4. FAQs
   const faqs = [
     {
-      question: 'Bagaimana alur pemesanan di MineralHub?',
+      question: 'Bagaimana alur pemesanan di Adably?',
       answer: 'Pilih produk di katalog, tentukan jumlah kuantitas yang dibutuhkan, lalu klik Checkout. Masukkan data penerima dan alamat pengiriman. Sistem akan menerbitkan Kode Pesanan unik dan detail rekening bank untuk transfer.',
       order: 1,
       isActive: true,

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Checkout Pesanan Komoditas — MineralHub Indonesia',
+  title: 'Checkout Pesanan Komoditas — Adably',
   description:
     'Lengkapi alamat pengiriman dan konfirmasi pesanan komoditas mineral tambang Anda dengan aman.',
   robots: {

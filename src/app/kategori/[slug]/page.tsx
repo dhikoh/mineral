@@ -14,15 +14,15 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const category = await getCategoryBySlug(slug);
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://mineralhub.id';
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://adably.id';
 
   if (!category) {
     return {
-      title: 'Kategori Tidak Ditemukan — MineralHub Indonesia',
+      title: 'Kategori Tidak Ditemukan — Adably',
     };
   }
 
-  const title = `Komoditas ${category.name} — MineralHub Indonesia`;
+  const title = `Komoditas ${category.name} — Adably`;
   const description = `Katalog lengkap produk komoditas mineral kategori ${category.name}. Pasokan langsung dari sentra tambang bergaransi uji lab terstandarisasi.`;
 
   return {
@@ -32,7 +32,7 @@ export async function generateMetadata({
       title,
       description,
       url: `${baseUrl}/kategori/${category.slug}`,
-      siteName: 'MineralHub Indonesia',
+      siteName: 'Adably',
       type: 'website',
       images: category.image ? [{ url: category.image }] : ['/icons/icon-512.png'],
     },
@@ -61,7 +61,7 @@ export default async function CategoryDetailPage({
     notFound();
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://mineralhub.id';
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://adably.id';
 
   const breadcrumbSchema = {
     '@context': 'https://schema.org',

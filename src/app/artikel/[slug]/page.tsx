@@ -25,15 +25,15 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const article = await getArticleBySlug(slug);
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://mineralhub.id';
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://adably.id';
 
   if (!article || !article.isPublished) {
     return {
-      title: 'Artikel Tidak Ditemukan — MineralHub Indonesia',
+      title: 'Artikel Tidak Ditemukan — Adably',
     };
   }
 
-  const title = `${article.title} — Riset MineralHub`;
+  const title = `${article.title} — Riset Adably`;
   const description = article.metaDesc || article.title;
   const mainImage = article.thumbnail || `${baseUrl}/icons/icon-512.png`;
 
@@ -44,7 +44,7 @@ export async function generateMetadata({
       title,
       description,
       url: `${baseUrl}/artikel/${article.slug}`,
-      siteName: 'MineralHub Indonesia',
+      siteName: 'Adably',
       type: 'article',
       publishedTime: article.publishedAt
         ? new Date(article.publishedAt).toISOString()
@@ -102,10 +102,10 @@ export default async function ArtikelDetailPage({
   const finalRelated = relatedProducts.length > 0 ? relatedProducts : allProducts.slice(0, 3);
 
   const shareText = encodeURIComponent(
-    `Baca artikel menarik: "${article.title}" di MineralHub Indonesia.\n`
+    `Baca artikel menarik: "${article.title}" di Adably.\n`
   );
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://mineralhub.id';
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://adably.id';
 
   const articleSchema = {
     '@context': 'https://schema.org',
@@ -120,12 +120,12 @@ export default async function ArtikelDetailPage({
       : new Date(article.createdAt).toISOString(),
     author: {
       '@type': 'Organization',
-      name: 'Tim Riset MineralHub Indonesia',
+      name: 'Tim Riset Adably',
       url: baseUrl,
     },
     publisher: {
       '@type': 'Organization',
-      name: 'MineralHub Indonesia',
+      name: 'Adably',
       logo: {
         '@type': 'ImageObject',
         url: `${baseUrl}/icons/icon-512.png`,
@@ -221,7 +221,7 @@ export default async function ArtikelDetailPage({
               MH
             </div>
             <div>
-              <div className="font-bold text-slate-900">Tim Riset &amp; Pengadaan MineralHub</div>
+              <div className="font-bold text-slate-900">Tim Riset &amp; Pengadaan Adably</div>
               <div className="text-[11px] text-slate-400">Spesialis Komoditas Mineral Tambang</div>
             </div>
           </div>

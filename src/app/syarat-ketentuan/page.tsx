@@ -5,9 +5,9 @@ import { getContentBlockByKey } from '@/lib/data-store';
 import { sanitize } from '@/lib/sanitize';
 
 export const metadata: Metadata = {
-  title: 'Syarat & Ketentuan — MineralHub Indonesia',
+  title: 'Syarat & Ketentuan — Adably',
   description:
-    'Syarat, ketentuan pemesanan, kebijakan pengiriman logistik, dan inspeksi komoditas mineral di MineralHub Indonesia.',
+    'Syarat, ketentuan pemesanan, kebijakan pengiriman logistik, dan inspeksi komoditas mineral di Adably.',
 };
 
 export default async function SyaratKetentuanPage() {

@@ -3,7 +3,7 @@ import { getFAQs, getSiteSettings } from '@/lib/data-store';
 import { FAQClient } from './FAQClient';
 
 export const metadata: Metadata = {
-  title: 'Tanya Jawab (FAQ) — MineralHub Indonesia',
+  title: 'Tanya Jawab (FAQ) — Adably',
   description:
     'Pertanyaan yang sering diajukan mengenai pemesanan komoditas mineral, kesesuaian spesifikasi, sampel produk, prosedur pengiriman, dan ketentuan niaga.',
 };

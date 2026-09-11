@@ -252,28 +252,28 @@ export const DEFAULT_CUSTOMERS: CustomerItem[] = [
 ];
 
 export const DEFAULT_SITE_SETTINGS: SiteSettingsData = {
-  siteName: 'MineralHub Indonesia',
+  siteName: 'Adably',
   tagline: 'Pusat Komoditas Mineral Tambang & Hasil Alam Berkualitas Ekspor',
   logoUrl: '',
   faviconUrl: '',
   primaryColor: '#059669',
   csWhatsapp: '6281234567890',
-  csEmail: 'cs@mineralhub.id',
+  csEmail: 'cs@adably.id',
   csOperationalHours: 'Senin - Sabtu, 08.00 - 17.00 WIB',
   address: 'Kawasan Pergudangan & Industri Logistik Blok M-9, Jakarta Barat',
   bankAccounts: [
     {
       bank: 'BCA',
       noRekening: '8001234567',
-      atasNama: 'PT MineralHub Indonesia',
+      atasNama: 'Adably',
     },
     {
       bank: 'Mandiri',
       noRekening: '1230009876543',
-      atasNama: 'PT MineralHub Indonesia',
+      atasNama: 'Adably',
     },
   ],
-  footerText: '© 2026 MineralHub Indonesia. All rights reserved.',
+  footerText: '© 2026 Adably. All rights reserved.',
 };
 
 export interface UserItem {
@@ -291,8 +291,8 @@ export interface UserItemStored extends UserItem {
 export const DEFAULT_USERS: UserItemStored[] = [
   {
     id: 'seed-admin-01',
-    name: 'Super Admin MineralHub',
-    email: 'admin@mineralhub.com',
+    name: 'Super Admin Adably',
+    email: 'admin@Adably.com',
     role: 'SUPERADMIN',
     createdAt: new Date().toISOString(),
   },
@@ -483,14 +483,14 @@ export const DEFAULT_CONTENT_BLOCKS: ContentBlockItem[] = [
   {
     id: 'block-about',
     key: 'about_us',
-    title: 'Tentang MineralHub Indonesia',
-    content: 'PT MineralHub Indonesia adalah platform penyedia komoditas mineral industri dan hasil alam berkualitas di Indonesia. Didirikan dengan komitmen transparansi dan keandalan suplai, kami melayani kebutuhan bahan baku industri manufaktur, agrikultur, pengolahan air (water treatment), dan eksportir melalui rantai pasok terpercaya.\n\nSetiap komoditas disajikan dengan data spesifikasi fisik yang jelas serta opsi verifikasi sampel sebelum transaksi. Kami siap melayani pengadaan berkala maupun partai besar dengan dukungan koordinasi logistik kargo terpercaya ke berbagai wilayah di Indonesia.',
+    title: 'Tentang Adably',
+    content: 'Adably adalah platform penyedia komoditas mineral industri dan hasil alam berkualitas di Indonesia. Didirikan dengan komitmen transparansi dan keandalan suplai, kami melayani kebutuhan bahan baku industri manufaktur, agrikultur, pengolahan air (water treatment), dan eksportir melalui rantai pasok terpercaya.\n\nSetiap komoditas disajikan dengan data spesifikasi fisik yang jelas serta opsi verifikasi sampel sebelum transaksi. Kami siap melayani pengadaan berkala maupun partai besar dengan dukungan koordinasi logistik kargo terpercaya ke berbagai wilayah di Indonesia.',
     updatedAt: new Date().toISOString(),
   },
   {
     id: 'block-why',
     key: 'why_us',
-    title: 'Mengapa Memilih MineralHub Indonesia?',
+    title: 'Mengapa Memilih Adably?',
     content: '1. Legalitas Usaha & Kemitraan Terverifikasi: Menjalankan aktivitas niaga melalui badan usaha resmi dengan rantai pasok yang jelas, mengutamakan keterbukaan dokumen pengiriman dan kepatuhan terhadap ketentuan perdagangan yang berlaku.\n2. Kesesuaian Spesifikasi & Uji Sampel: Informasi kadar kemurnian, mesh, dan parameter fisik disajikan sesuai data fisik komoditas. Kami mendukung pengiriman sampel fisik dan penyediaan dokumen uji teknis sesuai ketersediaan pada masing-masing komoditas.\n3. Fleksibilitas Pengambilan & Ekspedisi: Mendukung opsi pengambilan mandiri di sentra/gudang penyimpanan (Loco/FOB) maupun koordinasi pengiriman dengan mitra jasa ekspedisi kargo independen sesuai kuantitas pesanan Anda.\n4. Skema Grosir & Harga Kompetitif: Penawaran harga yang rasional dan transparan dengan penyesuaian khusus untuk pembelian partai besar, kebutuhan kontinuitas industri, maupun pemesanan berkala.',
     updatedAt: new Date().toISOString(),
   },
@@ -505,14 +505,14 @@ export const DEFAULT_CONTENT_BLOCKS: ContentBlockItem[] = [
     id: 'block-terms',
     key: 'terms',
     title: 'Syarat & Ketentuan Pemesanan Komoditas',
-    content: '1. Pemesanan & Kontrak: Pembelian dapat dilakukan secara langsung melalui platform atau melalui Purchase Order (PO) resmi untuk volume industri kontrak berkala.\n2. Minimum Order Quantity (MOQ): Setiap produk memiliki batas minimum pemesanan sesuai satuan kemasan (karung sak 25kg, jumbo bag 1 ton, atau batangan ingot).\n3. Verifikasi Pembayaran: Pembayaran wajib ditransfer ke rekening bank resmi atas nama perusahaan (PT MineralHub Indonesia). Bukti transfer akan diverifikasi oleh bagian keuangan maksimal 1x24 jam kerja.\n4. Inspeksi & Komplain: Pembeli berhak melakukan verifikasi fisik dan kesesuaian spesifikasi saat barang tiba di lokasi pembongkaran dengan toleransi susut standar logistik komoditas.',
+    content: '1. Pemesanan & Kontrak: Pembelian dapat dilakukan secara langsung melalui platform atau melalui Purchase Order (PO) resmi untuk volume industri kontrak berkala.\n2. Minimum Order Quantity (MOQ): Setiap produk memiliki batas minimum pemesanan sesuai satuan kemasan (karung sak 25kg, jumbo bag 1 ton, atau batangan ingot).\n3. Verifikasi Pembayaran: Pembayaran wajib ditransfer ke rekening bank resmi atas nama perusahaan (Adably). Bukti transfer akan diverifikasi oleh bagian keuangan maksimal 1x24 jam kerja.\n4. Inspeksi & Komplain: Pembeli berhak melakukan verifikasi fisik dan kesesuaian spesifikasi saat barang tiba di lokasi pembongkaran dengan toleransi susut standar logistik komoditas.',
     updatedAt: new Date().toISOString(),
   },
   {
     id: 'block-privacy',
     key: 'privacy_policy',
     title: 'Kebijakan Privasi & Perlindungan Data',
-    content: 'MineralHub Indonesia berkomitmen menjaga kerahasiaan data seluruh mitra dan pelanggan. Informasi nama, kontak WhatsApp, alamat pergudangan, dan rincian transaksi hanya digunakan untuk kepentingan pemrosesan pesanan, pengiriman logistik, dan konfirmasi pembayaran resmi. Kami tidak pernah membagikan atau memperjualbelikan data pelanggan kepada pihak ketiga mana pun tanpa persetujuan tertulis.',
+    content: 'Adably berkomitmen menjaga kerahasiaan data seluruh mitra dan pelanggan. Informasi nama, kontak WhatsApp, alamat pergudangan, dan rincian transaksi hanya digunakan untuk kepentingan pemrosesan pesanan, pengiriman logistik, dan konfirmasi pembayaran resmi. Kami tidak pernah membagikan atau memperjualbelikan data pelanggan kepada pihak ketiga mana pun tanpa persetujuan tertulis.',
     updatedAt: new Date().toISOString(),
   },
 ];
@@ -542,7 +542,7 @@ export const DEFAULT_FAQS: FAQItem[] = [
   {
     id: 'faq-4',
     question: 'Bagaimana alur pembayaran dan verifikasinya?',
-    answer: 'Pembayaran dilakukan melalui transfer bank manual ke rekening resmi perusahaan yang tertera di halaman instruksi pembayaran (BCA & Bank Mandiri a.n PT MineralHub Indonesia). Setelah mentransfer, unggah foto bukti transfer di halaman pesanan Anda. Tim keuangan kami akan memverifikasi bukti tersebut dalam waktu 15-30 menit pada jam kerja.',
+    answer: 'Pembayaran dilakukan melalui transfer bank manual ke rekening resmi perusahaan yang tertera di halaman instruksi pembayaran (BCA & Bank Mandiri a.n Adably). Setelah mentransfer, unggah foto bukti transfer di halaman pesanan Anda. Tim keuangan kami akan memverifikasi bukti tersebut dalam waktu 15-30 menit pada jam kerja.',
     order: 4,
     isActive: true,
   },

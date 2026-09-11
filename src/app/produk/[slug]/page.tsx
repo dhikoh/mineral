@@ -12,18 +12,18 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const product = await getProductBySlug(slug);
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://mineralhub.id';
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://adably.id';
 
   if (!product) {
     return {
-      title: 'Produk Tidak Ditemukan — MineralHub Indonesia',
+      title: 'Produk Tidak Ditemukan — Adably',
     };
   }
 
-  const title = `${product.name} — Pasokan Komoditas MineralHub`;
+  const title = `${product.name} — Pasokan Komoditas Adably`;
   const description =
     product.description ||
-    `Beli ${product.name} kualitas ekspor & industri dengan spesifikasi teruji lab dari MineralHub Indonesia.`;
+    `Beli ${product.name} kualitas ekspor & industri dengan spesifikasi teruji lab dari Adably.`;
   const images = Array.isArray(product.images) ? (product.images as string[]) : [];
   const mainImage = images[0] || `${baseUrl}/icons/icon-512.png`;
 
@@ -34,7 +34,7 @@ export async function generateMetadata({
       title,
       description,
       url: `${baseUrl}/produk/${product.slug}`,
-      siteName: 'MineralHub Indonesia',
+      siteName: 'Adably',
       type: 'website',
       images: [
         {
@@ -64,18 +64,18 @@ export default async function ProductDetailPage({
     notFound();
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://mineralhub.id';
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://adably.id';
 
   const productSchema = {
     '@context': 'https://schema.org',
     '@type': 'Product',
     name: product.name,
     image: Array.isArray(product.images) && product.images.length > 0 ? product.images : [`${baseUrl}/icons/icon-512.png`],
-    description: product.description || `Komoditas ${product.name} berkualitas tinggi dari MineralHub Indonesia.`,
+    description: product.description || `Komoditas ${product.name} berkualitas tinggi dari Adably.`,
     sku: product.id,
     brand: {
       '@type': 'Brand',
-      name: 'MineralHub Indonesia',
+      name: 'Adably',
     },
     category: product.category?.name || 'Mineral Tambang',
     offers: {
@@ -88,7 +88,7 @@ export default async function ProductDetailPage({
       availability: product.stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
       seller: {
         '@type': 'Organization',
-        name: 'MineralHub Indonesia',
+        name: 'Adably',
       },
     },
   };
