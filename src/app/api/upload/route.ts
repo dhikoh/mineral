@@ -1,38 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { uploadMedia } from '@/lib/storage';
-
-// R-14: Rate limiting per-IP untuk endpoint upload publik
-interface UploadAttemptRecord {
-  count: number;
-  firstAttemptTime: number;
-}
-
-const uploadRateLimitMap = new Map<string, UploadAttemptRecord>();
-const MAX_UPLOADS_PER_WINDOW = 10;
-const RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000; // 5 menit
-
-function checkUploadRateLimit(ip: string): { allowed: boolean; remainingMinutes: number } {
-  const now = Date.now();
-  const record = uploadRateLimitMap.get(ip);
-
-  if (!record) {
-    uploadRateLimitMap.set(ip, { count: 1, firstAttemptTime: now });
-    return { allowed: true, remainingMinutes: 5 };
-  }
-
-  if (now - record.firstAttemptTime > RATE_LIMIT_WINDOW_MS) {
-    uploadRateLimitMap.set(ip, { count: 1, firstAttemptTime: now });
-    return { allowed: true, remainingMinutes: 5 };
-  }
-
-  if (record.count >= MAX_UPLOADS_PER_WINDOW) {
-    const remainingMs = RATE_LIMIT_WINDOW_MS - (now - record.firstAttemptTime);
-    return { allowed: false, remainingMinutes: Math.max(1, Math.ceil(remainingMs / 60000)) };
-  }
-
-  record.count += 1;
-  return { allowed: true, remainingMinutes: 5 };
-}
+import { getClientIp, checkUploadRateLimit } from '@/lib/rate-limit';
 
 // R-14: Hapus image/svg+xml demi keamanan stored XSS pada upload publik
 const ALLOWED_TYPES = [
@@ -98,8 +66,7 @@ function detectFileTypeFromMagicBytes(buffer: Buffer): string | null {
 export async function POST(req: NextRequest) {
   try {
     // 1. Terapkan Rate Limiting berdasarkan IP klien
-    const forwarded = req.headers.get('x-forwarded-for');
-    const clientIp = forwarded ? forwarded.split(',')[0].trim() : '127.0.0.1';
+    const clientIp = getClientIp(req);
     const rateLimit = checkUploadRateLimit(clientIp);
 
     if (!rateLimit.allowed) {

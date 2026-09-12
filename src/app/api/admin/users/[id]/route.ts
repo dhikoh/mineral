@@ -18,6 +18,12 @@ export async function PATCH(
 
   try {
     const body = await req.json();
+    if (body.role && body.role !== 'ADMIN' && body.role !== 'SUPERADMIN') {
+      return NextResponse.json(
+        { error: 'Nilai role tidak valid. Pilihan yang sah: ADMIN atau SUPERADMIN.' },
+        { status: 400 }
+      );
+    }
     const updated = await updateAdminUser(id, body, session.id);
 
     return NextResponse.json({

@@ -1,6 +1,7 @@
-import { prisma } from '@/lib/db';
+import { prisma, markDbUnavailable } from '@/lib/db';
 import { slugify, generateOrderCode } from '@/lib/utils';
 import { sanitize } from '@/lib/sanitize';
+import { isValidOrderTransition } from '@/lib/order-security';
 import bcrypt from 'bcryptjs';
 import fs from 'fs';
 import path from 'path';
@@ -577,6 +578,15 @@ export function handleDbFallback(fnName: string, err: any): boolean {
       timestamp: new Date().toISOString(),
     })
   );
+
+  if (
+    allowFallback &&
+    (err?.code === 'P1001' ||
+      err?.message?.includes("Can't reach database server") ||
+      err?.message?.includes('ECONNREFUSED'))
+  ) {
+    markDbUnavailable();
+  }
 
   if (!allowFallback) {
     throw new Error(
@@ -1769,6 +1779,26 @@ export async function verifyPaymentProof(
       );
     }
 
+    // Koreksi kompensasi LTV jika pembayaran yang tadinya sudah lunas kini ditolak
+    if (!isApproved && wasAlreadyPaid) {
+      const normalizedPhone = normalizePhone(existingOrder.buyerPhone);
+      if (normalizedPhone) {
+        const cust = await prisma.customer.findUnique({ where: { phone: normalizedPhone } });
+        if (cust) {
+          await prisma.customer.update({
+            where: { id: cust.id },
+            data: {
+              totalOrders: Math.max(0, cust.totalOrders - 1),
+              totalSpent: Math.max(0, cust.totalSpent - Math.round(existingOrder.total)),
+              notes: cust.notes
+                ? `${cust.notes}\n[${new Date().toLocaleDateString('id-ID')}] Pembayaran pesanan ${existingOrder.orderCode} dibatalkan/ditolak (Koreksi LTV -Rp ${existingOrder.total.toLocaleString('id-ID')}).`
+                : `Pembayaran pesanan ${existingOrder.orderCode} ditolak.`,
+            },
+          }).catch((err) => console.error('Error compensating CRM deal:', err));
+        }
+      }
+    }
+
     return updated;
   } catch (err: any) {
     handleDbFallback('verifyPaymentProof', err);
@@ -1796,6 +1826,18 @@ export async function verifyPaymentProof(
       );
     }
 
+    // Koreksi kompensasi LTV pada fallback lokal jika pembayaran yang tadinya lunas kini ditolak
+    if (!isApproved && wasAlreadyPaid) {
+      const normalizedPhone = normalizePhone(store.orders[oIdx].buyerPhone);
+      if (normalizedPhone && store.customers) {
+        const cIdx = store.customers.findIndex((c) => normalizePhone(c.phone) === normalizedPhone);
+        if (cIdx !== -1) {
+          store.customers[cIdx].totalOrders = Math.max(0, (store.customers[cIdx].totalOrders || 0) - 1);
+          store.customers[cIdx].totalSpent = Math.max(0, (store.customers[cIdx].totalSpent || 0) - Math.round(store.orders[oIdx].total));
+        }
+      }
+    }
+
     return store.orders[oIdx];
   }
 }
@@ -1808,6 +1850,12 @@ export async function updateOrderStatus(
 ) {
   const currentOrder = await getOrderById(orderId);
   if (!currentOrder) throw new Error('Pesanan tidak ditemukan');
+
+  if (status !== undefined && status !== currentOrder.status) {
+    if (!isValidOrderTransition(currentOrder.status, status)) {
+      throw new Error(`Transisi status pesanan dari '${currentOrder.status}' ke '${status}' tidak diizinkan.`);
+    }
+  }
 
   const prevStatus = currentOrder.status;
   const isCancelling =
@@ -3207,7 +3255,11 @@ export async function createAdminUser(data: {
 }): Promise<UserItem> {
   const cleanName = sanitize(data.name).trim();
   const cleanEmail = data.email.toLowerCase().trim();
-  const cleanRole = data.role === 'ADMIN' ? 'ADMIN' : 'SUPERADMIN';
+
+  if (data.role && data.role !== 'ADMIN' && data.role !== 'SUPERADMIN') {
+    throw new Error('Role tidak valid. Pilihan yang sah: ADMIN atau SUPERADMIN.');
+  }
+  const cleanRole = data.role === 'SUPERADMIN' ? 'SUPERADMIN' : 'ADMIN';
 
   if (!cleanName || !cleanEmail || !data.password) {
     throw new Error('Nama, email, dan kata sandi wajib diisi.');
@@ -3284,6 +3336,9 @@ export async function updateAdminUser(
   if (data.name) updatePayload.name = sanitize(data.name).trim();
   if (data.email) updatePayload.email = data.email.toLowerCase().trim();
   if (data.role) {
+    if (data.role !== 'ADMIN' && data.role !== 'SUPERADMIN') {
+      throw new Error('Role tidak valid. Pilihan yang sah: ADMIN atau SUPERADMIN.');
+    }
     if (id === currentUserId && data.role !== 'SUPERADMIN') {
       throw new Error('Anda tidak dapat menurunkan role akun Anda sendiri.');
     }

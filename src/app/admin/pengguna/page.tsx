@@ -68,8 +68,8 @@ export default function AdminPenggunaPage() {
   };
 
   useEffect(() => {
-    // Check current session from dashboard api or auth
-    fetch('/api/admin/dashboard')
+    // Ambil sesi aktif pengguna dari endpoint resmi auth/me
+    fetch('/api/admin/auth/me')
       .then((res) => res.json())
       .then((data) => {
         if (data.user) {

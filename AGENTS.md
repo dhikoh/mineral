@@ -1,6 +1,6 @@
-# Panduan Pengembangan & Aturan Agen (MineralHub Indonesia)
+# Panduan Pengembangan & Aturan Agen (Adably)
 
-Dokumen ini adalah panduan resmi untuk developer dan coding agent yang bekerja pada repositori MineralHub Indonesia.
+Dokumen ini adalah panduan resmi untuk developer dan coding agent yang bekerja pada repositori Adably.
 
 ---
 

@@ -1,8 +1,21 @@
 import { NextResponse } from 'next/server';
 import { createOrUpdateLead } from '@/lib/data-store';
+import { getClientIp, checkLeadsRateLimit } from '@/lib/rate-limit';
 
 export async function POST(req: Request) {
   try {
+    // 1. Terapkan Rate Limiting anti-spam RFQ
+    const clientIp = getClientIp(req);
+    const rateLimit = checkLeadsRateLimit(clientIp);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        {
+          error: `Batas pengiriman penawaran terlampaui. Alamat IP Anda ditangguhkan sementara. Silakan coba dalam ${rateLimit.remainingMinutes} menit.`,
+        },
+        { status: 429 }
+      );
+    }
+
     const body = await req.json();
     const { name, phone, company, email, address, preferredCommodity, estimatedVolume, notes } = body;
 
@@ -31,12 +44,12 @@ export async function POST(req: Request) {
       notes: notes?.trim() || null,
     });
 
+    // 2. Cegah kebocoran data pelanggan (PII): jangan kembalikan objek customer penuh ke publik
     return NextResponse.json({
       success: true,
       message: result.isNew
         ? 'Permintaan penawaran resmi berhasil dikirim. Tim spesialis Adably akan segera menghubungi WhatsApp Anda.'
         : 'Permintaan penawaran tambahan berhasil dicatat. Tim sales kami akan segera menindaklanjuti kebutuhan terbaru Anda.',
-      data: result.customer,
     });
   } catch (error: any) {
     console.error('Error submitting RFQ lead:', error);

@@ -789,3 +789,58 @@ Diikuti koreksi casing domain URL:
 - Grep Adably.id (huruf kapital A): **0 hasil** (seluruh URL/domain sudah lowercase dably.id).
 - 
 px tsc --noEmit: **0 error** (TypeScript strict typecheck lolos 100%).
+
+
+---
+
+## [2026-09-12] - Sesi #15: Audit Total Final, Zero Orphan, Rate Limiting Terpusat, Proteksi PII, Transisi Status Pesanan Strict, & Hardening Menyeluruh
+
+**Fokus Utama:**
+Audit komprehensif penutupan seluruh temuan A–I, pemenuhan checklist 3.1–3.8, pencegahan brute-force/enumerasi, perlindungan data pribadi (PII), penguncian state machine pesanan, pembersihan residu penamaan lama (MineralHub -> Adably), dan verifikasi kesiapan rilis produksi.
+
+**Rincian Perubahan & Solusi Temuan:**
+1. **Temuan A & I: Rebranding Global Menyeluruh & Pembersihan Residu Identitas:**
+   - Menghapus residu 'MineralHub Indonesia' di public/offline.html, public/sw.js (bump cache version ke adably-cache-v1), README.md, AGENTS.md, dan test scripts.
+   - Mengubah COOKIE_NAME dari 'mineral_admin_token' ke 'adably_admin_token' di src/lib/auth.ts dan src/middleware.ts.
+   - Mengubah package name di package.json dari 'mineral-marketplace' ke 'adably'.
+   - Hasil audit grep 'mineralhub' di seluruh repositori: 0 hasil di kode aktif (hanya riwayat historis di NOTEPATCH).
+
+2. **Temuan B: Zero Orphan & Eliminasi Duplikasi Manifest:**
+   - Menghapus berkas statis redundan public/manifest.json.
+   - Manifest web dinamis disajikan secara native dan konsisten melalui src/app/manifest.ts pada /manifest.webmanifest.
+
+3. **Temuan C & D: RBAC, User Management, & Self-Delete Protection:**
+   - Memperbaiki src/app/admin/pengguna/page.tsx dengan memanggil /api/admin/auth/me untuk mendapatkan user sesi aktif (currentUser), sehingga badge 'Anda' aktif dan proteksi self-delete (disable button hapus akun sendiri) bekerja akurat di UI.
+   - Menegakkan validasi role eksplisit pada POST /api/admin/users dan PATCH /api/admin/users/[id] dengan default least privilege ke ADMIN.
+
+4. **Temuan E: Rate Limiting Terpusat & Proteksi PII:**
+   - Membuat modul src/lib/rate-limit.ts (in-memory rate limiter per IP dengan pembersihan memori otomatis/TTL dan preset keamanan).
+   - Membuat helper src/lib/order-security.ts (isPhoneMatch dengan toleransi format dan 8-digit suffix, maskOrderPII untuk menyensor nama, nomor telepon, dan alamat pembeli, serta validasi ALLOWED_ORDER_TRANSITIONS).
+   - Menerapkan rate limiting dan PII masking pada:
+     - /api/lacak-pesanan (30 req/menit per IP, validasi nomor HP fleksibel, output tersensor).
+     - /api/pesanan/[orderCode] (60 req/menit per IP, verifikasi nomor telepon pembeli, output tersensor).
+     - /api/checkout (10 req/5 menit per IP, validasi bilangan bulat positif, transaksi atomik).
+     - /api/leads (10 req/5 menit per IP, sanitasi data internal customer dari response publik).
+     - /api/upload (10 req/5 menit per IP, magic bytes detection, larangan format SVG).
+
+5. **Temuan F: State Machine Pesanan Strict & Koreksi LTV Bukti Pembayaran:**
+   - Mengunci status PAID agar hanya dapat dicapai melalui endpoint POST /api/admin/pesanan/[id]/verifikasi.
+   - Melarang mutasi langsung ke PAID via PATCH /api/admin/pesanan/[id] atau updateOrderStatus.
+   - Menyesuaikan dropdown status pada AdminOrderDetailClient.tsx agar opsi PAID disabled dengan petunjuk untuk menggunakan tombol verifikasi bukti transfer.
+   - Menambahkan kompensasi koreksi LTV pada verifyPaymentProof jika pesanan yang sebelumnya lunas (wasAlreadyPaid) kemudian ditolak/dibatalkan (!isApproved).
+   - Memasang circuit-breaker proxy pada src/lib/db.ts dan src/lib/data-store.ts agar query tidak hang ketika database lokal tidak aktif dalam sesi pengujian.
+
+6. **Temuan G: Auditabilitas Suite Test & Pelacakan Git:**
+   - Menghapus /scripts/ dari .gitignore sehingga seluruh test suite otomatis ikut terlacak dan dapat diaudit secara transparan di git.
+   - Memperbarui script 'test' di package.json untuk menjalankan seluruh rangkaian pengujian secara tegas:
+     tsx scripts/test-phase7-e2e.ts && tsx scripts/test-crm-module.ts && tsx scripts/test-crm-http.ts && tsx scripts/test-audit-p0-p1.ts.
+
+7. **Temuan H: Dokumentasi Variabel Lingkungan Storage:**
+   - Memperbarui .env.example dan docs/BLUEPRINT.md dengan dokumentasi lengkap opsi storage provider (local, s3/r2, cloudinary) beserta variabel pendukungnya (STORAGE_PROVIDER, S3_*, CLOUDINARY_*).
+
+**Hasil Verifikasi Kualitas:**
+- npx tsc --noEmit: Exit Code 0 (0 error, strict type checking).
+- npm test: 100% assertions lulus (40/40 test phase 7, 40/40 test CRM module, 23/23 test audit P0/P1).
+- npm run build: Exit Code 0 (45/45 halaman statis & dinamis ter-render sempurna via Turbopack).
+- Grep mineralhub (case-insensitive): 0 hasil di seluruh kode sumber aktif.
+- Single Source of Truth docs/BLUEPRINT.md tersinkronisasi 100%.

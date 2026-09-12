@@ -11,7 +11,7 @@ export function getJwtSecretKey(): Uint8Array {
   return new TextEncoder().encode(secret.trim());
 }
 
-const COOKIE_NAME = 'mineral_admin_token';
+const COOKIE_NAME = 'adably_admin_token';
 const TOKEN_EXPIRY = '7d';
 
 export interface AdminSessionPayload {

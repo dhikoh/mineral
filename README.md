@@ -1,6 +1,6 @@
-# MineralHub Indonesia — Single-Seller Marketplace, Mini-CRM B2B & CMS Template
+# Adably — Single-Seller Marketplace, Mini-CRM B2B & CMS Template
 
-MineralHub Indonesia adalah platform web marketplace *single-seller* modern untuk komoditas industri dan mineral tambang (Zeolite, Bentonite, Pasir Silika, Dolomite, Kaolin, dsb.). Proyek ini dirancang secara *config-driven* sebagai *reusable starter template* berstandar produksi yang dapat di-deploy ulang untuk berbagai unit bisnis komoditas dengan mengganti konfigurasi tanpa merombak arsitektur kode.
+Adably adalah platform web marketplace *single-seller* modern untuk komoditas industri dan mineral tambang (Zeolite, Bentonite, Pasir Silika, Dolomite, Kaolin, dsb.). Proyek ini dirancang secara *config-driven* sebagai *reusable starter template* berstandar produksi yang dapat di-deploy ulang untuk berbagai unit bisnis komoditas dengan mengganti konfigurasi tanpa merombak arsitektur kode.
 
 ---
 
@@ -50,8 +50,8 @@ MineralHub Indonesia adalah platform web marketplace *single-seller* modern untu
 
 ### 1. Kloning Repositori & Instal Dependensi
 ```bash
-git clone https://github.com/dhikoh/mineral.git
-cd mineral
+git clone https://github.com/dhikoh/adably.git
+cd adably
 npm install
 ```
 
@@ -63,7 +63,7 @@ cp .env.example .env
 Buka `.env` dan atur nilai yang sesuai:
 ```env
 # URL Koneksi PostgreSQL
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/mineral_db?schema=public"
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/adably_db?schema=public"
 
 # Kunci Rahasia Sesi Admin (Wajib diisi acak >= 32 karakter)
 AUTH_SECRET="kunci_rahasia_acak_minimal_32_karakter_produksi_anda_disini"
@@ -112,6 +112,7 @@ Perintah ini mengeksekusi secara berurutan:
 1. `test-phase7-e2e.ts`: Pengujian SEO, sitemap, robots, PWA manifest, service worker, sanitasi artikel, dan modul data store.
 2. `test-crm-module.ts`: Pengujian logika CRUD database pelanggan, siklus status lead, anti-duplikasi WhatsApp, dan kalkulasi LTV.
 3. `test-crm-http.ts`: Pengujian integrasi HTTP endpoint dengan verifikasi negatif (memastikan akses tanpa login mengembalikan `HTTP 401 Unauthorized`) dan verifikasi positif dengan sesi sah (`HTTP 200 OK`).
+4. `test-audit-p0-p1.ts`: Pengujian keamanan, verifikasi bukti bayar, restock stok pesanan batal, transisi status pesanan, dan RBAC.
 
 Untuk memvalidasi kompilasi produksi:
 ```bash
@@ -156,4 +157,4 @@ Proyek ini dibangun secara *config-driven* agar dapat dipakai ulang untuk entita
 ---
 
 ## 📄 Lisensi
-Hak Cipta © 2026 MineralHub Indonesia. Dilindungi Undang-Undang.
+Hak Cipta © 2026 Adably. Dilindungi Undang-Undang.

@@ -5,7 +5,6 @@
 
 # testing & audit scripts
 /coverage
-/scripts/
 *.test.ts
 *.spec.ts
 

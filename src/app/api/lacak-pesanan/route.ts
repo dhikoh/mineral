@@ -1,8 +1,22 @@
 import { NextResponse } from 'next/server';
 import { getOrderByCode } from '@/lib/data-store';
+import { getClientIp, checkTrackingRateLimit } from '@/lib/rate-limit';
+import { isPhoneMatch, maskOrderPII } from '@/lib/order-security';
 
 export async function POST(request: Request) {
   try {
+    // 1. Rate limiting perlindungan brute-force enumerasi nomor & kode pesanan
+    const clientIp = getClientIp(request);
+    const rateLimit = checkTrackingRateLimit(clientIp);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        {
+          error: `Terlalu banyak permintaan pelacakan. Alamat IP Anda ditangguhkan sementara. Silakan coba dalam ${rateLimit.remainingMinutes} menit.`,
+        },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json();
     const { orderCode, phone } = body;
 
@@ -13,7 +27,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const order = await getOrderByCode(orderCode.trim());
+    const order = await getOrderByCode(String(orderCode).trim());
 
     if (!order) {
       return NextResponse.json(
@@ -22,44 +36,20 @@ export async function POST(request: Request) {
       );
     }
 
-    // Match phone numbers by comparing only numeric digits
-    const cleanInputPhone = phone.replace(/\D/g, '');
-    const cleanBuyerPhone = order.buyerPhone.replace(/\D/g, '');
+    // 2. Pencocokan nomor kontak dengan helper terpusat
+    const matched = isPhoneMatch(phone, order.buyerPhone);
 
-    // Allow match if endsWith matches last 8 digits (handles 08 vs 628 prefixes)
-    const isPhoneMatch =
-      cleanInputPhone === cleanBuyerPhone ||
-      cleanBuyerPhone.endsWith(cleanInputPhone.slice(-8)) ||
-      cleanInputPhone.endsWith(cleanBuyerPhone.slice(-8));
-
-    if (!isPhoneMatch) {
+    if (!matched) {
       return NextResponse.json(
         { error: 'Nomor WhatsApp tidak cocok dengan nomor yang terdaftar pada pesanan ini.' },
         { status: 403 }
       );
     }
 
+    // 3. Kembalikan data pesanan terverifikasi dengan payload standar
     return NextResponse.json({
       success: true,
-      order: {
-        id: order.id,
-        orderCode: order.orderCode,
-        buyerName: order.buyerName,
-        buyerPhone: order.buyerPhone,
-        buyerAddress: order.buyerAddress,
-        status: order.status,
-        total: order.total,
-        trackingNumber: order.trackingNumber,
-        createdAt: order.createdAt,
-        items: order.items,
-        proof: order.proof
-          ? {
-              status: order.proof.status,
-              uploadedAt: order.proof.uploadedAt,
-              rejectionReason: order.proof.rejectionReason,
-            }
-          : null,
-      },
+      order: maskOrderPII(order, true),
     });
   } catch (error: any) {
     console.error('Error tracking order:', error);

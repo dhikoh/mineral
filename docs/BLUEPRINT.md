@@ -1,5 +1,5 @@
 # BLUEPRINT — Web Marketplace Single-Seller + CMS Artikel + Template Reusable
-Terakhir diupdate: 2026-09-11 (Sesi #14 — Rebranding Global: MineralHub → Adably, Penyelarasan URL & Domain adably.id)
+Terakhir diupdate: 2026-09-12 (Sesi #15 — Audit Total Final, Zero Orphan, Rate Limiting Terpusat, Proteksi PII, Transisi Status Pesanan Strict, & Storage Adapters)
 
 ---
 
@@ -33,7 +33,7 @@ Website marketplace **single-seller** yang dirancang untuk satu penjual/pemilik 
 
 ## 3. Struktur Folder Aktual
 ```text
-mineral/
+adably/
 ├── docs/
 │   ├── BLUEPRINT.md          # Single Source of Truth proyek (sinkron 100%)
 │   └── NOTEPATCH.md          # Log perubahan historis per sesi
@@ -50,7 +50,6 @@ mineral/
 │   │   └── .gitkeep
 │   ├── apple-touch-icon.png
 │   ├── favicon.svg
-│   ├── manifest.json
 │   ├── offline.html
 │   └── sw.js
 ├── scripts/
@@ -188,7 +187,9 @@ mineral/
 │   │   ├── auth.ts           # Token verification, JWT fail-fast, session helpers, RBAC (SUPERADMIN / ADMIN)
 │   │   ├── cart-context.tsx   # React context state keranjang
 │   │   ├── data-store.ts     # Data access layer (Prisma + local dev fallback, retry collision, status gate)
-│   │   ├── db.ts             # Prisma Client instance
+│   │   ├── db.ts             # Prisma Client instance & circuit-breaker proxy
+│   │   ├── order-security.ts # PII masking, pencocokan nomor HP fleksibel, validasi transisi status pesanan
+│   │   ├── rate-limit.ts     # In-memory rate limiting per-IP terpusat dengan preset endpoint
 │   │   ├── sanitize.ts       # HTML sanitizer
 │   │   ├── storage.ts        # Storage driver modular (local, s3/r2, cloudinary)
 │   │   └── utils.ts          # Format rupiah, slugify, generateOrderCode (kriptografis 8-char hex)
@@ -464,14 +465,14 @@ model Customer {
 
 | Method | Endpoint | Tipe Akses | Deskripsi & Proteksi |
 |---|---|---|---|
-| `POST` | `/api/checkout` | Publik | Formulir guest checkout (transaksi atomik potong stok & catat lead) |
-| `GET` | `/api/pesanan/[orderCode]` | Publik | Detail pesanan untuk verifikasi nomor rekening & upload bukti |
-| `POST` | `/api/pesanan/[orderCode]/bukti` | Publik | Simpan informasi bukti transfer pembayaran (dengan status gate) |
-| `POST` | `/api/lacak-pesanan` | Publik | Pelacakan pesanan publik (verifikasi orderCode + 4 digit no WA) |
-| `POST` | `/api/leads` | Publik | Penangkapan lead prospek dari formulir RFQ storefront |
-| `POST` | `/api/upload` | Publik | Upload media bukti bayar (Rate limited 10x/5m, Magic Bytes valid, no SVG, max 5MB) |
+| `POST` | `/api/checkout` | Publik | Formulir guest checkout (Rate limit 10x/5m, transaksi atomik potong stok & catat lead) |
+| `GET` | `/api/pesanan/[orderCode]` | Publik | Detail pesanan untuk upload bukti bayar (Rate limit 60x/1m, verifikasi no HP 8-digit, PII masking) |
+| `POST` | `/api/pesanan/[orderCode]/bukti` | Publik | Simpan informasi bukti transfer pembayaran (Rate limit 10x/5m, status gate) |
+| `POST` | `/api/lacak-pesanan` | Publik | Pelacakan pesanan publik (Rate limit 30x/1m, verifikasi orderCode + no HP fleksibel, PII masking) |
+| `POST` | `/api/leads` | Publik | Penangkapan lead prospek dari formulir RFQ storefront (Rate limit 10x/5m, proteksi kebocoran customer) |
+| `POST` | `/api/upload` | Publik | Upload media bukti bayar (Rate limit 10x/5m, Magic Bytes valid, no SVG, max 5MB) |
 | `POST` | `/api/admin/auth/login` | Publik (Admin) | Login superadmin/staf dengan rate limit brute-force & audit log |
-| `POST` | `/api/admin/auth/logout` | Publik / Admin | Menghapus session cookie admin (`mineral_admin_token`, bebas blokir expired token) |
+| `POST` | `/api/admin/auth/logout` | Publik / Admin | Menghapus session cookie admin (`adably_admin_token`, bebas blokir expired token) |
 | `GET` | `/api/admin/auth/me` | Admin Wajib | Cek profil sesi superadmin/staf yang sedang aktif |
 | `GET` | `/api/admin/dashboard/stats` | Admin Wajib | Statistik real-time omset, pesanan, peringatan stok rendah, dan ringkasan CRM |
 | `GET` | `/api/admin/kategori` | Admin Wajib | Ambil seluruh daftar kategori komoditas |
@@ -489,13 +490,13 @@ model Customer {
 | `DELETE` | `/api/admin/produk/[id]` | Admin Wajib | Hapus produk (dicek riwayat pesanan untuk mencegah orphan) |
 | `POST` | `/api/admin/upload` | Admin Wajib | Upload media CMS admin (10 MB, Magic Bytes fisik, rate limited, no SVG) |
 | `GET` | `/api/admin/users` | Admin Wajib (SUPERADMIN) | Ambil daftar akun staf & admin aktif |
-| `POST` | `/api/admin/users` | Admin Wajib (SUPERADMIN) | Buat akun staf/admin baru dengan enkripsi password bcrypt |
+| `POST` | `/api/admin/users` | Admin Wajib (SUPERADMIN) | Buat akun staf baru (validasi eksplisit role, least privilege default `ADMIN`, enkripsi bcrypt) |
 | `PATCH` | `/api/admin/users/[id]` | Admin Wajib (SUPERADMIN) | Perbarui role (ADMIN/SUPERADMIN), status aktif, atau reset password staf |
 | `DELETE` | `/api/admin/users/[id]` | Admin Wajib (SUPERADMIN) | Hapus akun staf (proteksi: dilarang menghapus akun sendiri) |
 | `GET` | `/api/admin/pesanan` | Admin Wajib | Daftar seluruh transaksi pesanan pembeli |
 | `GET` | `/api/admin/pesanan/[id]` | Admin Wajib | Detail pesanan spesifik beserta item & bukti bayar |
-| `PATCH` | `/api/admin/pesanan/[id]` | Admin Wajib | Update status pesanan (dengan restock otomatis jika dibatalkan/ditolak) |
-| `POST` | `/api/admin/pesanan/[id]/verifikasi` | Admin Wajib | Setujui bukti bayar (PAID + trigger DEAL CRM) / Tolak |
+| `PATCH` | `/api/admin/pesanan/[id]` | Admin Wajib | Update status pesanan (validasi transisi ketat, larang mutasi langsung PAID, restock otomatis jika batal/tolak) |
+| `POST` | `/api/admin/pesanan/[id]/verifikasi` | Admin Wajib | Setujui bukti bayar (PAID + trigger DEAL CRM atomik) / Tolak |
 | `GET` | `/api/admin/pelanggan` | Admin Wajib | Direktori CRM database kontak (prospek & customer) |
 | `POST` | `/api/admin/pelanggan` | Admin Wajib | Tambah data kontak pelanggan/prospek manual |
 | `GET` | `/api/admin/pelanggan/[id]` | Admin Wajib | Detail kontak pelanggan, riwayat transaksi & estimasi kebutuhan |
@@ -524,7 +525,7 @@ Daftar variabel lingkungan resmi (`.env.example`):
 
 ```env
 # Database PostgreSQL URL (Wajib diisi untuk lingkungan produksi)
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/mineral_db?schema=public"
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/adably_db?schema=public"
 
 # Auth Secret untuk signing JWT session Superadmin (WAJIB diisi acak >= 32 karakter)
 # Sistem akan fail-fast (menolak start) jika variabel ini tidak diset atau kurang dari 32 karakter.
@@ -533,8 +534,29 @@ AUTH_SECRET="kunci_rahasia_acak_minimal_32_karakter_produksi!"
 # Base URL Aplikasi
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
 
-# Opsi Development Resilience (HANYA untuk dev mode lokal tanpa PostgreSQL)
+# [MEDIA STORAGE PROVIDER]
+# Pilihan provider: "local" (default) | "s3" / "r2" | "cloudinary"
+STORAGE_PROVIDER="local"
+
+# --- Konfigurasi S3 / Cloudflare R2 (jika STORAGE_PROVIDER="s3" atau "r2") ---
+# S3_ENDPOINT="https://<accountid>.r2.cloudflarestorage.com"
+# S3_BUCKET_NAME="adably-uploads"
+# S3_PUBLIC_URL="https://cdn.adably.id"
+# S3_ACCESS_KEY_ID="your_access_key_id"
+# S3_SECRET_ACCESS_KEY="your_secret_access_key"
+
+# --- Konfigurasi Cloudinary (jika STORAGE_PROVIDER="cloudinary") ---
+# CLOUDINARY_CLOUD_NAME="your_cloud_name"
+# CLOUDINARY_API_KEY="your_cloudinary_api_key"
+# CLOUDINARY_API_SECRET="your_cloudinary_api_secret"
+# CLOUDINARY_UPLOAD_PRESET="adably_preset"
+
+# [PENGATURAN DEV & RESILIENCE KHUSUS - JANGAN AKTIFKAN DI PRODUKSI]
+# Izinkan fallback login admin saat PostgreSQL lokal mati (Hanya aktif jika NODE_ENV=development)
 ALLOW_DEV_FALLBACK_LOGIN="false"
+
+# Izinkan fallback penulisan data ke file lokal .local-store.json saat database offline.
+# Di lingkungan produksi (NODE_ENV=production), biarkan 'false' agar kegagalan database melempar error keras (fail-loud).
 ALLOW_LOCAL_FALLBACK="false"
 ```
 
@@ -558,3 +580,7 @@ ALLOW_LOCAL_FALLBACK="false"
    - Formulir checkout hanya mencatat kontak sebagai prospek (`PROSPECT`) dengan status `BARU` tanpa menaikkan akumulasi omset `totalSpent` atau `totalOrders`. Akumulasi LTV dan promosi status ke `CUSTOMER` / `DEAL` hanya terjadi saat pembayaran diverifikasi lunas (`PAID`).
 8. **Sanitasi Upload & Pencegahan Stored XSS**:
    - Format `image/svg+xml` dilarang untuk upload publik bukti transfer. Berkas diverifikasi berdasarkan Magic Bytes buffer biner sesungguhnya, dilengkapi pembatasan laju IP (10 upload per 5 menit).
+9. **Rate Limiting Terpusat & Anti-Brute Force**:
+   - Modul `src/lib/rate-limit.ts` memproteksi endpoint publik (`/api/lacak-pesanan`, `/api/pesanan/[orderCode]`, `/api/checkout`, `/api/leads`, `/api/upload`) dari serangan denial of service dan enumerasi nomor pesanan.
+10. **Proteksi PII & State Machine Pesanan Strict**:
+   - Endpoint pelacakan publik menerapkan sensor data PII (`maskOrderPII`) pada nama pembeli, nomor telepon, dan alamat. Mutasi status pesanan divalidasi ketat terhadap state machine (`ALLOWED_ORDER_TRANSITIONS`), dan status `PAID` hanya boleh dicapai secara eksklusif melalui `POST /api/admin/pesanan/[id]/verifikasi` demi integritas data keuangan dan CRM.

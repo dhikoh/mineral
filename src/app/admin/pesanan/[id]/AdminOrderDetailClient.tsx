@@ -336,13 +336,22 @@ export function AdminOrderDetailClient({ initialOrder }: { initialOrder: any }) 
                   >
                     <option value="PENDING_PAYMENT">Menunggu Pembayaran (PENDING_PAYMENT)</option>
                     <option value="PENDING_VERIFICATION">Menunggu Verifikasi (PENDING_VERIFICATION)</option>
-                    <option value="PAID">Pembayaran Lunas (PAID)</option>
+                    <option value="PAID" disabled={order.status !== 'PAID'}>
+                      {order.status === 'PAID'
+                        ? 'Pembayaran Lunas (PAID)'
+                        : 'Pembayaran Lunas (Gunakan tombol verifikasi bukti bayar)'}
+                    </option>
                     <option value="PROCESSING">Sedang Diproses Gudang (PROCESSING)</option>
                     <option value="SHIPPED">Sedang Dikirim (SHIPPED)</option>
                     <option value="COMPLETED">Pesanan Selesai (COMPLETED)</option>
                     <option value="REJECTED">Ditolak (REJECTED)</option>
                     <option value="CANCELLED">Dibatalkan (CANCELLED)</option>
                   </select>
+                  {order.status !== 'PAID' && (
+                    <p className="mt-1 text-[11px] text-slate-500">
+                      * Status <strong>PAID</strong> hanya dapat diaktifkan melalui tombol verifikasi bukti transfer bank di sebelah kiri.
+                    </p>
+                  )}
                 </div>
 
                 <div>

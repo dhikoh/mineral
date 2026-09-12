@@ -1,5 +1,5 @@
-// Service Worker MineralHub Indonesia PWA
-const CACHE_NAME = 'mineralhub-cache-v2';
+// Service Worker Adably PWA
+const CACHE_NAME = 'adably-cache-v1';
 const OFFLINE_URL = '/offline.html';
 
 const PRECACHE_ASSETS = [

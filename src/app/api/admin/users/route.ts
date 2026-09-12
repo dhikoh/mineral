@@ -50,11 +50,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (role && role !== 'ADMIN' && role !== 'SUPERADMIN') {
+      return NextResponse.json(
+        { error: 'Nilai role tidak valid. Pilihan yang sah: ADMIN atau SUPERADMIN.' },
+        { status: 400 }
+      );
+    }
+
+    const cleanRole = role === 'SUPERADMIN' ? 'SUPERADMIN' : 'ADMIN';
+
     const newUser = await createAdminUser({
       name,
       email,
       password,
-      role: role === 'ADMIN' ? 'ADMIN' : 'SUPERADMIN',
+      role: cleanRole,
     });
 
     return NextResponse.json(

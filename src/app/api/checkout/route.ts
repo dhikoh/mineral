@@ -1,8 +1,21 @@
 import { NextResponse } from 'next/server';
 import { createOrder } from '@/lib/data-store';
+import { getClientIp, checkCheckoutRateLimit } from '@/lib/rate-limit';
 
 export async function POST(request: Request) {
   try {
+    // 1. Terapkan Rate Limiting anti-spam pesanan fiktif
+    const clientIp = getClientIp(request);
+    const rateLimit = checkCheckoutRateLimit(clientIp);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        {
+          error: `Batas checkout terlampaui. Alamat IP Anda ditangguhkan sementara. Silakan coba kembali dalam ${rateLimit.remainingMinutes} menit.`,
+        },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json();
     const { customerName, customerPhone, customerEmail, shippingAddress, notes, items } = body;
 
