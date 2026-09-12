@@ -1,5 +1,5 @@
 # BLUEPRINT — Web Marketplace Single-Seller + CMS Artikel + Template Reusable
-Terakhir diupdate: 2026-09-12 (Sesi #18 — Audit Total Mandiri: Sinkronisasi BLUEPRINT 100%, AuditLog model, isActive+verifiedById schema, shared admin layout, 32 route, keputusan arsitektur eksplisit, env var fix)
+Terakhir diupdate: 2026-09-12 (Sesi #21 — Baseline Prisma Migration, Automated Seeder, Penguatan Modul CRM & Interaksi Pelanggan)
 
 ---
 
@@ -38,7 +38,11 @@ adably/
 │   ├── BLUEPRINT.md          # Single Source of Truth proyek (sinkron 100%)
 │   └── NOTEPATCH.md          # Log perubahan historis per sesi
 ├── prisma/
-│   ├── schema.prisma         # Definisi 14 model database & 4 enum
+│   ├── migrations/
+│   │   ├── 20260912000000_init/
+│   │   │   └── migration.sql # Baseline migration lengkap (14 tabel, 5 enum, index & relasi)
+│   │   └── migration_lock.toml
+│   ├── schema.prisma         # Definisi 14 model database & 5 enum
 │   └── seed.ts               # Data awal: superadmin, kategori, komoditas, settings, FAQ
 ├── public/
 │   ├── icons/                # Aset PWA Icons & Favicon
@@ -53,9 +57,10 @@ adably/
 │   ├── offline.html
 │   └── sw.js
 ├── scripts/
+│   ├── backfill-customer-order.ts # One-time backfill Order.customerId via nomor HP (Sesi #20)
 │   ├── test-audit-p0-p1.ts   # Pengujian 23 assertions kepatuhan P0, P1, dan gap bisnis
 │   ├── test-crm-http.ts      # Pengujian HTTP endpoint CRM & otorisasi admin (401 & 200)
-│   ├── test-crm-module.ts    # Pengujian modul CRM B2B & kalkulasi LTV
+│   ├── test-crm-module.ts    # Pengujian modul CRM B2B & kalkulasi LTV (42 assertions)
 │   └── test-phase7-e2e.ts    # Pengujian menyeluruh SEO, PWA, dan data store
 ├── src/
 │   ├── app/
@@ -70,7 +75,9 @@ adably/
 │   │   │   ├── kategori/page.tsx
 │   │   │   ├── konten/page.tsx
 │   │   │   ├── login/page.tsx
-│   │   │   ├── pelanggan/page.tsx
+│   │   │   ├── pelanggan/
+│   │   │   │   ├── [id]/page.tsx      # Detail CRM, LTV, PIC assignedTo, follow-up & timeline interaksi (Sesi #20)
+│   │   │   │   └── page.tsx
 │   │   │   ├── pengaturan/page.tsx
 │   │   │   ├── pengguna/page.tsx      # Manajemen Staf/Admin RBAC + toggle isActive (SUPERADMIN). RBAC page-level guard via useEffect: redirect non-SUPERADMIN ke /admin/dashboard (Sesi #19 Fix #3)
 │   │   │   ├── peruntukan/page.tsx
@@ -103,8 +110,13 @@ adably/
 │   │   │   │   │   └── route.ts
 │   │   │   │   ├── konten/route.ts
 │   │   │   │   ├── pelanggan/
-│   │   │   │   │   ├── [id]/route.ts
-│   │   │   │   │   ├── export/route.ts
+│   │   │   │   │   ├── [id]/
+│   │   │   │   │   │   ├── interaksi/
+│   │   │   │   │   │   │   ├── [interactionId]/route.ts # DELETE interaksi (RBAC/SYSTEM)
+│   │   │   │   │   │   │   └── route.ts                 # POST interaksi CRM manual
+│   │   │   │   │   │   └── route.ts                     # GET detail CRM pelanggan (orders+interactions)
+│   │   │   │   │   ├── export/route.ts                  # GET export CSV pelanggan
+│   │   │   │   │   ├── follow-up/route.ts               # GET kontak follow-up jatuh tempo (Sesi #20)
 │   │   │   │   │   └── route.ts
 │   │   │   │   ├── pengaturan/route.ts
 │   │   │   │   ├── peruntukan/
@@ -114,6 +126,7 @@ adably/
 │   │   │   │   │   ├── [id]/
 │   │   │   │   │   │   ├── verifikasi/route.ts
 │   │   │   │   │   │   └── route.ts
+│   │   │   │   │   ├── export/route.ts                  # GET export CSV pesanan terfilter (Sesi #19)
 │   │   │   │   │   └── route.ts
 │   │   │   │   ├── produk/
 │   │   │   │   │   ├── [id]/route.ts
@@ -496,7 +509,7 @@ model AuditLog {
 
 ---
 
-## 7. Matriks Endpoint API Lengkap (32 Route)
+## 7. Matriks Endpoint API Lengkap (36 Route)
 
 | Method | Endpoint | Tipe Akses | Deskripsi & Proteksi |
 |---|---|---|---|
@@ -533,11 +546,15 @@ model AuditLog {
 | `GET` | `/api/admin/pesanan/[id]` | Admin Wajib | Detail pesanan spesifik beserta item & bukti bayar |
 | `PATCH` | `/api/admin/pesanan/[id]` | Admin Wajib | Update status pesanan (validasi transisi ketat, larang mutasi langsung PAID, restock otomatis jika batal/tolak, audit log) |
 | `POST` | `/api/admin/pesanan/[id]/verifikasi` | Admin Wajib | Setujui/tolak bukti bayar (PAID + trigger DEAL CRM atomik via `prisma.$transaction`, catat `verifiedById`, audit log, sertakan `wa_message` siap-copy + `wa_phone` di JSON response — Sesi #19 Fix #4) |
+| `GET` | `/api/admin/pesanan/export` | Admin Wajib | Ekspor riwayat transaksi pesanan ke format CSV terfilter tanggal & status (Sesi #19) |
 | `GET` | `/api/admin/pelanggan` | Admin Wajib | Direktori CRM database kontak (prospek & customer) |
 | `POST` | `/api/admin/pelanggan` | Admin Wajib | Tambah data kontak pelanggan/prospek manual |
 | `GET` | `/api/admin/pelanggan/[id]` | Admin Wajib | Detail kontak pelanggan, riwayat transaksi & estimasi kebutuhan |
 | `PUT` | `/api/admin/pelanggan/[id]` | Admin Wajib | Perbarui kontak, status prospek (BARU, NEGOSIASI, DEAL, LOSS), & catatan |
 | `DELETE` | `/api/admin/pelanggan/[id]` | Admin Wajib | Hapus kontak dari database pelanggan |
+| `POST` | `/api/admin/pelanggan/[id]/interaksi` | Admin Wajib | Tambah catatan interaksi CRM manual (CALL, WA, EMAIL, MEETING, NOTE) (Sesi #20) |
+| `DELETE` | `/api/admin/pelanggan/[id]/interaksi/[interactionId]` | Admin Wajib | Hapus riwayat interaksi (RBAC: pembuat / SUPERADMIN; tipe SYSTEM terkunci) (Sesi #20) |
+| `GET` | `/api/admin/pelanggan/follow-up` | Admin Wajib | Ambil daftar prospek dengan jadwal follow-up jatuh tempo (Sesi #20) |
 | `GET` | `/api/admin/pelanggan/export` | Admin Wajib | Ekspor seluruh database kontak dalam format CSV |
 | `GET` | `/api/admin/artikel` | Admin Wajib | Ambil daftar artikel CMS |
 | `POST` | `/api/admin/artikel` | Admin Wajib | Buat artikel edukasi/berita baru |
@@ -653,4 +670,17 @@ ALLOW_LOCAL_FALLBACK="false"
 ### Business Logic
 - createOrder(): setelah recordLeadFromCheckout, link Order.customerId = customer.id
 - updateCustomer(): auto-create CustomerInteraction NOTE saat status berubah
-- erifyPaymentProof() & updateOrderStatus(): koreksi LTV kini dicatat sebagai CustomerInteraction SYSTEM (bukan string-append ke notes)
+- verifyPaymentProof() & updateOrderStatus(): koreksi LTV kini dicatat sebagai CustomerInteraction SYSTEM (bukan string-append ke notes)
+
+---
+
+## Sesi #21 Update — Baseline Prisma Migration & Automated Seeding
+
+### Baseline Migrasi Database
+- Menambahkan baseline migration resmi `prisma/migrations/20260912000000_init/migration.sql` dan `migration_lock.toml`.
+- Mencakup seluruh 14 model database (`User`, `SiteSetting`, `ContentBlock`, `FAQ`, `Category`, `Usage`, `Product`, `ProductUsage`, `Order`, `OrderItem`, `PaymentProof`, `Article`, `Customer`, `CustomerInteraction`, `AuditLog`) dan 5 enum (`Role`, `OrderStatus`, `CustomerType`, `LeadStatus`, `InteractionType`).
+- Menyediakan automated seeding via `package.json` (`prisma.seed = "tsx prisma/seed.ts"`).
+
+### Prosedur Sinkronisasi Lingkungan:
+1. **Fresh / Dev Reset**: `npx prisma migrate reset` (menghapus database dev, menerapkan migrasi awal secara bersih, dan menjalankan seeder otomatis).
+2. **Existing Database Baseline**: `npx prisma migrate resolve --applied 20260912000000_init` (menandai baseline migration sebagai sudah terpasang tanpa menghapus data).
