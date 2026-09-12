@@ -86,37 +86,37 @@ export function Footer({
             </h3>
             <ul className="mt-3 space-y-2 text-xs">
               <li>
-                <Link href="/produk" className="hover:text-emerald-600 transition-colors">
+                <Link href="/produk" prefetch={false} className="hover:text-emerald-600 transition-colors">
                   Katalog Seluruh Komoditas
                 </Link>
               </li>
               <li>
-                <Link href="/lacak-pesanan" className="hover:text-emerald-600 transition-colors">
+                <Link href="/lacak-pesanan" prefetch={false} className="hover:text-emerald-600 transition-colors">
                   Pelacakan Status Pesanan
                 </Link>
               </li>
               <li>
-                <Link href="/artikel" className="hover:text-emerald-600 transition-colors">
+                <Link href="/artikel" prefetch={false} className="hover:text-emerald-600 transition-colors">
                   Artikel & Analisis Mineral
                 </Link>
               </li>
               <li>
-                <Link href="/faq" className="hover:text-emerald-600 transition-colors">
+                <Link href="/faq" prefetch={false} className="hover:text-emerald-600 transition-colors">
                   Tanya Jawab (FAQ)
                 </Link>
               </li>
               <li>
-                <Link href="/tentang-kami" className="hover:text-emerald-600 transition-colors">
+                <Link href="/tentang-kami" prefetch={false} className="hover:text-emerald-600 transition-colors">
                   Tentang Perusahaan
                 </Link>
               </li>
               <li>
-                <Link href="/kontak" className="hover:text-emerald-600 transition-colors">
+                <Link href="/kontak" prefetch={false} className="hover:text-emerald-600 transition-colors">
                   Kontak & Gudang Logistik
                 </Link>
               </li>
               <li>
-                <Link href="/syarat-ketentuan" className="hover:text-emerald-600 transition-colors">
+                <Link href="/syarat-ketentuan" prefetch={false} className="hover:text-emerald-600 transition-colors">
                   Syarat & Ketentuan
                 </Link>
               </li>
@@ -150,15 +150,15 @@ export function Footer({
         <div className="mt-10 border-t border-surface-200 pt-6 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400 gap-4">
           <p>{footerText}</p>
           <div className="flex items-center gap-4">
-            <Link href="/syarat-ketentuan" className="hover:underline">
+            <Link href="/syarat-ketentuan" prefetch={false} className="hover:underline">
               Syarat & Ketentuan
             </Link>
             <span>•</span>
-            <Link href="/faq" className="hover:underline">
+            <Link href="/faq" prefetch={false} className="hover:underline">
               Bantuan
             </Link>
             <span>•</span>
-            <Link href="/admin/login" className="hover:text-slate-600">
+            <Link href="/admin/login" prefetch={false} className="hover:text-slate-600">
               Admin Login
             </Link>
           </div>

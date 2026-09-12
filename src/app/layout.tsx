@@ -3,6 +3,7 @@ import './globals.css';
 import { StorefrontShell } from '@/components/layout/StorefrontShell';
 import { getSiteSettings } from '@/lib/data-store';
 import { CartProvider } from '@/lib/cart-context';
+import { BrowserCompatibilityGuard } from '@/components/common/BrowserCompatibilityGuard';
 
 export const viewport: Viewport = {
   themeColor: '#059669',
@@ -120,6 +121,7 @@ export default async function RootLayout({
   return (
     <html lang="id" className="scroll-smooth">
       <body className="flex min-h-screen flex-col antialiased selection:bg-emerald-500 selection:text-white">
+        <BrowserCompatibilityGuard />
         <CartProvider>
           <StorefrontShell
             siteName={siteName}

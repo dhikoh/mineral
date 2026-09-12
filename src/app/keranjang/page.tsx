@@ -16,7 +16,26 @@ import { useCart } from '@/lib/cart-context';
 import { formatRupiah } from '@/lib/utils';
 
 export default function KeranjangPage() {
-  const { items, updateQty, removeItem, totalItems, totalPrice } = useCart();
+  const { items, updateQty, removeItem, totalItems, totalPrice, isLoaded } = useCart();
+
+  if (!isLoaded) {
+    return (
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:py-12 space-y-8">
+        <div className="flex items-center justify-between border-b border-surface-200 pb-4">
+          <div className="h-8 w-56 bg-slate-200 rounded-xl animate-pulse" />
+          <div className="h-6 w-36 bg-slate-100 rounded-lg animate-pulse" />
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          <div className="lg:col-span-8 space-y-3">
+            <div className="h-48 rounded-3xl bg-white border border-surface-200 p-6 animate-pulse" />
+          </div>
+          <div className="lg:col-span-4">
+            <div className="h-64 rounded-3xl bg-white border border-surface-200 p-6 animate-pulse" />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:py-12 space-y-8">

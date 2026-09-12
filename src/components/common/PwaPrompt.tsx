@@ -13,10 +13,14 @@ export function PwaPrompt() {
   const pathname = usePathname();
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isVisible, setIsVisible] = useState(false);
-  const [isDismissed, setIsDismissed] = useState(false);
 
-  // Jangan aktifkan prompt PWA atau service worker di area dashboard admin
+  // Jangan aktifkan prompt PWA di admin atau rute transaksi
   const isAdmin = pathname?.startsWith('/admin');
+  const isTransactionPage =
+    pathname?.startsWith('/keranjang') ||
+    pathname?.startsWith('/checkout') ||
+    pathname?.startsWith('/lacak-pesanan') ||
+    pathname?.startsWith('/pesanan');
 
   useEffect(() => {
     if (isAdmin) return;
@@ -25,27 +29,22 @@ export function PwaPrompt() {
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
       navigator.serviceWorker
         .register('/sw.js')
-        .then((reg) => {
-          console.log('[PWA] Service Worker registered with scope:', reg.scope);
-        })
         .catch((err) => {
           console.error('[PWA] Service Worker registration failed:', err);
         });
     }
 
-    // 2. Check if dismissed before in sessionStorage
-    const dismissedSession = sessionStorage.getItem('pwa_prompt_dismissed');
-    if (dismissedSession) {
-      setIsDismissed(true);
+    // Jangan cegat atau tampilkan banner jika di halaman transaksi atau sudah ditutup
+    const isDismissed = typeof window !== 'undefined' && sessionStorage.getItem('pwa_prompt_dismissed') === 'true';
+    if (isTransactionPage || isDismissed) {
+      return;
     }
 
-    // 3. Listen to beforeinstallprompt
+    // 2. Listen to beforeinstallprompt hanya jika siap menampilkan prompt kustom
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
-      if (!isDismissed) {
-        setIsVisible(true);
-      }
+      setIsVisible(true);
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -53,7 +52,7 @@ export function PwaPrompt() {
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     };
-  }, [isDismissed, isAdmin]);
+  }, [pathname, isAdmin, isTransactionPage]);
 
   const handleInstallClick = async () => {
     if (!deferredPrompt) return;
@@ -68,7 +67,6 @@ export function PwaPrompt() {
 
   const handleDismiss = () => {
     setIsVisible(false);
-    setIsDismissed(true);
     sessionStorage.setItem('pwa_prompt_dismissed', 'true');
   };
 

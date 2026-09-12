@@ -57,18 +57,21 @@ export function Navbar({
           <div className="flex items-center gap-4">
             <Link
               href="/tentang-kami"
+              prefetch={false}
               className="hover:text-white transition-colors"
             >
               Tentang Kami
             </Link>
             <Link
               href="/faq"
+              prefetch={false}
               className="hover:text-white transition-colors"
             >
               FAQ
             </Link>
             <Link
               href="/lacak-pesanan"
+              prefetch={false}
               className="flex items-center gap-1 hover:text-white transition-colors"
             >
               <Package className="h-3.5 w-3.5" />
@@ -76,6 +79,7 @@ export function Navbar({
             </Link>
             <Link
               href="/admin/login"
+              prefetch={false}
               className="flex items-center gap-1 hover:text-emerald-400 transition-colors text-slate-400"
             >
               <ShieldCheck className="h-3.5 w-3.5" />
@@ -131,6 +135,7 @@ export function Navbar({
 
           <Link
             href="/artikel"
+            prefetch={false}
             className="hidden items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-surface-100 lg:flex"
           >
             Artikel & Edukasi
@@ -139,6 +144,7 @@ export function Navbar({
           {/* Cart Button */}
           <Link
             href="/keranjang"
+            prefetch={false}
             className="relative flex h-10 w-10 items-center justify-center rounded-full border border-surface-200 bg-white text-slate-700 hover:border-emerald-600 hover:text-emerald-600 transition-colors shadow-soft-sm"
             aria-label="Keranjang Belanja"
           >

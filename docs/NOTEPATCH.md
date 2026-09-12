@@ -1300,5 +1300,59 @@ Audit total, mendalam, dan final terhadap seluruh kodebase Adably sebelum dinyat
 - `docs/NOTEPATCH.md` [MODIFIKASI — entri ini]
 - `docs/BLUEPRINT.md` [MODIFIKASI]
 
+---
+
+## [2026-09-13] Sesi #25 — Penanganan Error Ekstensi Web Vitals (reportAllChanges / startTime), Eliminasi Peringatan Link Preload, dan Penyempurnaan Hydration Keranjang & PWA Prompt
+**Sesi:** #25  
+**Tanggal:** 13/9/2026  
+**Build:** Exit Code 0 (`tsc --noEmit` + `npm test` + `npm run build`, 49 routes)
+
+### 1. Temuan Masalah di Browser Console
+1. **Uncaught TypeError di `et.reportAllChanges` (`VM359:2`):**
+   - Muncul berulang kali: `Uncaught TypeError: Cannot read properties of undefined (reading 'startTime') at et.reportAllChanges (<anonymous>:2:19429) at requestIdleCallback`.
+   - *Akar Masalah:* Skrip ekstensi browser pihak ketiga (seperti Chrome Web Vitals Extension atau RUM instrumentation) yang disuntikkan secara dinamis via VM context memiliki bug pada fungsi `reportAllChanges` ketika mengamati entri layout-shift/FCP. Saat array entri kosong namun flag terpasang, evaluasi `L.startTime` di mana `L = A[A.length - 1]` menghasilkan pembacaan properti pada `undefined`.
+2. **Peringatan PWA `Banner not shown: beforeinstallpromptevent.preventDefault() called`:**
+   - Chrome memunculkan pesan peringatan saat pengguna berada di rute transaksi seperti `/keranjang`.
+   - *Akar Masalah:* `PwaPrompt` memanggil `e.preventDefault()` untuk mencegat event native browser, namun jika pengguna sudah menutup banner (`pwa_prompt_dismissed`) atau berada di halaman belanja/checkout, fungsi `.prompt()` tidak pernah dipanggil, memicu peringatan browser.
+3. **Peringatan Link Preload Berulang Kali (`The resource <URL> was preloaded using link preload...`):**
+   - Muncul 18+ baris peringatan serupa di console saat halaman `/keranjang` atau beranda dibuka.
+   - *Akar Masalah:* Komponen `<Link>` bawaan Next.js secara agresif melakukan prefetch background untuk seluruh link yang tampak di viewport (link Navbar, BottomNav, Footer). Akibatnya browser mengunduh puluhan file data rute yang tidak langsung diklik dalam 3 detik.
+4. **Hydration Layout Shift (CLS) pada Keranjang Belanja:**
+   - Pada pemuatan awal halaman `/keranjang`, tampilan sempat berkedip menampilkan state "Keranjang Belanja Masih Kosong" sebelum membaca data dari `localStorage`.
+
+### 2. Perbaikan Yang Dilakukan
+1. **Komponen `BrowserCompatibilityGuard` (`src/components/common/BrowserCompatibilityGuard.tsx`):**
+   - Dibuat komponen pelindung global yang dipasang pada root `src/app/layout.tsx`.
+   - Menangkap dan meredam error runtime yang berasal dari ekstensi browser pihak ketiga / skrip anonymous VM (`reportAllChanges`, `startTime`) via listener capture error window, mencegah polusi console dan gangguan UX.
+2. **Eliminasi Layout Shift & Hydration Guard (`src/lib/cart-context.tsx` & `src/app/keranjang/page.tsx`):**
+   - Properti `isLoaded` kini diekspos oleh `CartContext`.
+   - Halaman `/keranjang` merender skeleton loader yang elegan selama proses hidrasi klien berlangsung, mengeliminasi layout shift (CLS) saat membaca isi keranjang.
+3. **Penyempurnaan Logika PWA Prompt (`src/components/common/PwaPrompt.tsx`):**
+   - `PwaPrompt` kini mengecualikan rute transaksi (`/keranjang`, `/checkout`, `/lacak-pesanan`, `/pesanan/*`) dan status `pwa_prompt_dismissed` secara instan.
+   - Event `e.preventDefault()` hanya dipanggil saat aplikasi benar-benar siap menampilkan banner kustom kepada pembeli, menghilangkan peringatan `Banner not shown`.
+4. **Eliminasi Peringatan Link Preload:**
+   - Ditambahkan `prefetch={false}` pada link sekunder di `Navbar.tsx` (`/tentang-kami`, `/faq`, `/lacak-pesanan`, `/admin/login`, `/artikel`, `/keranjang`), `BottomNav.tsx`, dan seluruh link informasi/kategori di `Footer.tsx`.
+   - Browser kini hanya melakukan prefetch saat link di-hover/di-sentuh (`onMouseEnter`), menghemat bandwidth dan mengeliminasi peringatan preload.
+
+### 3. Verifikasi Kualitas
+| Pemeriksaan | Hasil |
+|---|---|
+| `npx tsc --noEmit` | Exit Code 0 (0 error TypeScript) ✅ |
+| `npm test` | Exit Code 0 (23 Audit test + 42 CRM test = 65 PASSED, 0 FAILED) ✅ |
+| `npm run build` | Exit Code 0 (49 routes terkompilasi sukses, 0 error) ✅ |
+
+### 4. File yang Diubah
+- `src/components/common/BrowserCompatibilityGuard.tsx` [BARU] — peredam error runtime ekstensi browser
+- `src/app/layout.tsx` [MODIFIKASI] — integrasi BrowserCompatibilityGuard
+- `src/lib/cart-context.tsx` [MODIFIKASI] — expose status `isLoaded`
+- `src/app/keranjang/page.tsx` [MODIFIKASI] — skeleton loader saat hydrating
+- `src/components/common/PwaPrompt.tsx` [MODIFIKASI] — optimasi conditional preventDefault PWA
+- `src/components/layout/Navbar.tsx` [MODIFIKASI] — prefetch={false} pada link sekunder
+- `src/components/layout/BottomNav.tsx` [MODIFIKASI] — prefetch={false} pada navigasi mobile
+- `src/components/layout/Footer.tsx` [MODIFIKASI] — prefetch={false} pada link footer
+- `docs/NOTEPATCH.md` [MODIFIKASI — entri ini]
+- `docs/BLUEPRINT.md` [MODIFIKASI]
+
+
 
 

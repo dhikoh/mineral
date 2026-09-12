@@ -61,6 +61,7 @@ export function BottomNav({ cartCount, csWhatsapp = '6281234567890' }: BottomNav
             <Link
               key={item.href}
               href={item.href}
+              prefetch={false}
               className={`relative flex flex-col items-center justify-center py-1 px-3 rounded-2xl transition-all duration-200 active:scale-90 ${
                 item.active
                   ? 'text-emerald-700 font-bold'

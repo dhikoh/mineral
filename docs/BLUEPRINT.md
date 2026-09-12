@@ -1,5 +1,5 @@
 # BLUEPRINT — Web Marketplace Single-Seller + CMS Artikel + Template Reusable
-Terakhir diupdate: 2026-09-13 (Sesi #24 — Isolasi StorefrontShell & Eliminasi Tumpang Tindih (Overlap) Header UI/UX Panel Admin di Mode PWA/Mobile)
+Terakhir diupdate: 2026-09-13 (Sesi #25 — Penanganan Error Ekstensi Web Vitals, Eliminasi Peringatan Link Preload, dan Penyempurnaan Hydration Keranjang & PWA Prompt)
 
 ---
 
