@@ -49,8 +49,14 @@ export async function POST(req: NextRequest) {
     let isMatch = false;
 
     try {
-      user = await prisma.user.findUnique({
-        where: { email: normalizedEmail },
+      // Sesi #22: Gunakan pencarian case-insensitive agar cocok baik email di database berhuruf kapital maupun kecil
+      user = await prisma.user.findFirst({
+        where: {
+          email: {
+            equals: normalizedEmail,
+            mode: 'insensitive',
+          },
+        },
         select: { id: true, name: true, email: true, role: true, password: true, isActive: true },
       });
 

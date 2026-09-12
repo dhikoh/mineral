@@ -294,7 +294,7 @@ export const DEFAULT_USERS: UserItemStored[] = [
   {
     id: 'seed-admin-01',
     name: 'Super Admin Adably',
-    email: 'admin@Adably.com',
+    email: 'admin@adably.com',
     role: 'SUPERADMIN',
     isActive: true,
     createdAt: new Date().toISOString(),

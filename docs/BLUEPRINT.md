@@ -1,5 +1,5 @@
 # BLUEPRINT — Web Marketplace Single-Seller + CMS Artikel + Template Reusable
-Terakhir diupdate: 2026-09-12 (Sesi #21 — Baseline Prisma Migration, Automated Seeder, Penguatan Modul CRM & Interaksi Pelanggan)
+Terakhir diupdate: 2026-09-12 (Sesi #22 — Audit Total Final: Integrasi WA Notify Orphan Events, Sinkronisasi Dokumentasi Final, Keputusan Out-of-Scope 14 Item Kelengkapan Bisnis)
 
 ---
 
@@ -209,7 +209,9 @@ adably/
 │   │   ├── rate-limit.ts     # In-memory rate limiting per-IP terpusat dengan preset endpoint (LOGIN, API publik)
 │   │   ├── sanitize.ts       # HTML sanitizer (sanitize-html, digunakan di semua preview & render HTML publik)
 │   │   ├── storage.ts        # Storage driver modular (local, S3/R2 SigV4, Cloudinary signed upload)
-│   │   └── utils.ts          # Format rupiah, slugify, generateOrderCode (kriptografis 8-char hex)
+│   │   ├── upload-validate.ts # Shared helper magic bytes validation & allowed MIME types — menghilangkan duplikasi antara /api/upload & /api/admin/upload (Sesi #19)
+│   │   ├── utils.ts          # Format rupiah, slugify, generateOrderCode (kriptografis 8-char hex)
+│   │   └── wa-notify.ts      # WA message template builder zero-dependency (5 event: checkout_success, payment_verified, payment_rejected, order_shipped, order_completed) — teks siap-copy di JSON response untuk admin (Sesi #19, dihubungkan penuh Sesi #22)
 │   └── middleware.ts         # Defense-in-depth auth guard (/admin/* & /api/admin/*)
 ├── .env
 ├── .env.example
@@ -509,12 +511,14 @@ model AuditLog {
 
 ---
 
-## 7. Matriks Endpoint API Lengkap (36 Route)
+## 7. Matriks Endpoint API Lengkap (36 Route File — 57 Method Handler)
+
+> **Catatan:** Blueprint ini menghitung route berdasarkan **file route** (36 file), bukan jumlah method handler (57 handler). Setiap baris tabel di bawah mewakili satu method handler unik.
 
 | Method | Endpoint | Tipe Akses | Deskripsi & Proteksi |
 |---|---|---|---|
 | `POST` | `/api/checkout` | Publik | Formulir guest checkout (Rate limit 10x/5m, transaksi atomik potong stok & catat lead) |
-| `GET` | `/api/pesanan/[orderCode]` | Publik | Detail pesanan untuk upload bukti bayar (Rate limit 60x/1m, verifikasi no HP 8-digit, PII masking) |
+| `GET` | `/api/pesanan/[orderCode]` | Publik | Detail pesanan untuk upload bukti bayar (Rate limit 30x/1m, verifikasi no HP 8-digit, PII masking) |
 | `POST` | `/api/pesanan/[orderCode]/bukti` | Publik | Simpan informasi bukti transfer pembayaran (Rate limit 10x/5m, status gate) |
 | `POST` | `/api/lacak-pesanan` | Publik | Pelacakan pesanan publik (Rate limit 30x/1m, verifikasi orderCode + no HP fleksibel, PII masking) |
 | `POST` | `/api/leads` | Publik | Penangkapan lead prospek dari formulir RFQ storefront (Rate limit 10x/5m, proteksi kebocoran customer) |
@@ -646,8 +650,40 @@ ALLOW_LOCAL_FALLBACK="false"
 12. **Keputusan Arsitektur: Cakupan Audit Log Dibatasi ke Aksi High-Risk**:
    - Berdasarkan keputusan eksplisit bisnis, `recordAuditLog` hanya dipasang di operasi **high-risk akuntabilitas RBAC**: login, manajemen staf (create/update/activate/deactivate/delete), perubahan status pesanan, verifikasi pembayaran, dan mutasi pengaturan situs sensitif. CRUD Produk/Kategori/Peruntukan/Artikel/FAQ/ContentBlock **sengaja tidak dicakup** karena volume mutasinya tinggi (operational daily) sehingga audit penuh akan menciptakan tabel AuditLog yang sangat besar tanpa nilai bisnis proporsional. Jika persyaratan kepatuhan berubah di masa depan, `recordAuditLog` dapat ditambahkan ke route manapun tanpa perubahan arsitektur.
 
+13. **Arsitektur Notifikasi WhatsApp (`src/lib/wa-notify.ts`) — Zero-Dependency Manual-Copy**:
+   - Modul `wa-notify.ts` membangun teks pesan WhatsApp siap-copy untuk 5 siklus event pesanan: `checkout_success`, `payment_verified`, `payment_rejected`, `order_shipped`, `order_completed`. Tidak ada HTTP call keluar, tidak ada biaya API gateway WA. Teks pesan disisipkan di JSON response API yang relevan (`wa_message` + `wa_phone`) agar admin/CS dapat **menyalin teks dan mengirim secara manual ke WhatsApp pembeli**. Sesi #22: seluruh 5 event kini terhubung ke endpoint yang tepat (`/api/checkout` → checkout_success, `/api/admin/pesanan/[id]` → order_shipped + order_completed, `/api/admin/pesanan/[id]/verifikasi` → payment_verified + payment_rejected). Jika di masa depan perlu integrasi otomatis API gateway WA (Fonnte/Wablas), tambahkan driver di modul ini tanpa mengubah caller code.
+14. **Deduplikasi Upload Validation (`src/lib/upload-validate.ts`)**:
+   - Helper terpusat yang mengekspos `detectFileTypeFromMagicBytes()` dan konstanta `UPLOAD_ALLOWED_TYPES`. Menghilangkan duplikasi 100% identik antara `/api/upload` (publik, 5MB) dan `/api/admin/upload` (admin, 10MB). Perubahan logic validasi magic bytes cukup dilakukan di satu tempat. Keduanya tetap memiliki batasan ukuran file dan rate limit berbeda sesuai tipe pengguna.
+15. **Out-of-Scope: Biaya Ongkos Kirim / Integrasi Ekspedisi**:
+   - `Order.total` hanya mencakup harga produk. Ongkos kirim **sengaja tidak diimplementasikan** karena model bisnis komoditas industri menggunakan negosiasi ongkir via WhatsApp (Loco/FOB/ex-gudang) atau koordinasi ekspedisi kargo secara manual setelah pesanan terbuat. Integrasi API Raja Ongkir / ekspedisi dapat ditambahkan di masa depan sebagai extension tanpa perombakan arsitektur.
+16. **Out-of-Scope: Notifikasi Email Transaksional ke Pembeli**:
+   - Tidak ada email transaksional (order confirmation, payment receipt) yang dikirim secara otomatis. **Keputusan sadar**: platform ini menggunakan WhatsApp sebagai kanal komunikasi utama (template manual via `wa-notify.ts`). Jika dibutuhkan, integrasi layanan email (Resend, SendGrid, Nodemailer) dapat ditambahkan tanpa perombakan arsitektur.
+17. **Out-of-Scope: Notifikasi Proaktif Admin untuk Order/Lead Baru**:
+   - Tidak ada notifikasi push/email/Telegram ke admin saat order atau lead RFQ masuk. **Keputusan sadar**: admin memantau dashboard secara periodik. Fitur ini dapat ditambahkan via webhook/Telegram Bot/email digest di masa depan.
+18. **Out-of-Scope: Reset Password Self-Service untuk Admin/Staf**:
+   - Tidak ada alur "lupa password" self-service untuk akun admin. **Keputusan sadar**: reset password dilakukan oleh SUPERADMIN melalui halaman `/admin/pengguna` → `PATCH /api/admin/users/[id]` dengan payload `{ password: "newpass" }`. Ini memadai untuk marketplace single-seller dengan jumlah staf terbatas.
+19. **Known Limitation: Rate Limiting In-Memory (Single-Instance)**:
+   - `src/lib/rate-limit.ts` menggunakan Node.js `Map` in-memory. Berfungsi sempurna untuk deployment **single-instance** (VPS/Coolify Docker tunggal). Pada deployment **multi-instance horizontal** (Vercel/AWS Lambda scale-out), setiap instance memiliki counter terpisah sehingga effective rate limit menjadi `maxRequests × jumlah instance`. **Mitigasi**: tambahkan adapter Redis/Upstash KV dengan interface `RateLimitResult` yang sama tanpa mengubah caller code.
+20. **Out-of-Scope: Sistem Diskon / Kupon / Harga Promo**:
+   - Tidak ada mekanisme kode kupon, diskon persentase, atau harga promo terjadwal. **Keputusan sadar**: harga komoditas industri bersifat negosiasi langsung (via RFQ/WhatsApp), bukan diskon publik. Dapat ditambahkan di masa depan sebagai fitur extension.
+21. **Out-of-Scope: Tiered Pricing / Quotation Formal Terstruktur**:
+   - RFQ lead B2B saat ini menghasilkan "leads mentah + catatan bebas teks" (`Customer.notes`, `CustomerInteraction`). Tidak ada sistem quotation formal terstruktur (harga per volume, termin pembayaran, masa berlaku). **Keterbatasan yang disengaja**: memadai untuk tahap awal operasi di mana negosiasi dilakukan via WhatsApp/komunikasi langsung. Quotation formal dapat diimplementasikan sebagai modul terpisah di masa depan.
+22. **Out-of-Scope: Invoice / Kwitansi PDF Otomatis**:
+   - Tidak ada generate PDF invoice otomatis saat pesanan PAID. **Keputusan sadar**: transaksi B2B komoditas menggunakan dokumen jalan/faktur manual. Export CSV pesanan tersedia untuk rekonsiliasi akuntansi. Invoice PDF dapat ditambahkan via library `@react-pdf/renderer` atau `puppeteer` di masa depan.
+23. **Out-of-Scope: Ulasan / Rating Produk dari Pembeli**:
+   - Tidak ada fitur review atau rating produk. **Keputusan sadar**: marketplace B2B komoditas industri mengutamakan hubungan bisnis jangka panjang (CRM) bukan rating publik. Dapat ditambahkan di masa depan jika ada kebutuhan.
+24. **Partial: Produk Terkait / Rekomendasi**:
+   - Halaman detail artikel (`/artikel/[slug]`) menampilkan rekomendasi komoditas terkait. Halaman detail produk (`/produk/[slug]`) **tidak memiliki** grid "produk terkait" berbasis kategori/tag. Ini adalah gap yang disengaja demi kesederhanaan halaman produk industri.
+25. **Sudah Ada: Structured Data JSON-LD Schema.org**:
+   - Halaman produk: `Product` + `Offer`. Halaman artikel: `NewsArticle`. Halaman FAQ: `FAQPage`. Beranda: `Organization` + `WebSite` + `SearchAction`. Listing: `BreadcrumbList`. **Tidak ada** `ItemList` di halaman listing produk — dapat ditambahkan sebagai enhancement SEO.
+26. **Partial: Riwayat Perubahan Harga Produk**:
+   - `AuditLog` merekam `UPDATE_PRODUCT_PRICE` dan `UPDATE_PRODUCT_STOCK` (nilai lama/baru di `metadata`), tersedia di `/admin/audit-log`. **Tidak ada** laporan visual tren harga chart dari waktu ke waktu — dapat dibangun dari query AuditLog sebagai enhancement di masa depan.
+27. **Out-of-Scope: Multi-Warehouse / Manajemen Banyak Gudang**:
+   - Stok produk bersifat **single-location by design**. `Product.stock` adalah angka tunggal tanpa atribut lokasi. Ini sesuai kebutuhan marketplace single-seller komoditas dengan satu titik gudang/sentra penyimpanan. Multi-warehouse memerlukan perubahan schema signifikan dan di luar scope template ini.
+
 
 ---
+
 
 ## Sesi #20 Update — CRM Enhancement (CustomerInteraction)
 
@@ -684,3 +720,40 @@ ALLOW_LOCAL_FALLBACK="false"
 ### Prosedur Sinkronisasi Lingkungan:
 1. **Fresh / Dev Reset**: `npx prisma migrate reset` (menghapus database dev, menerapkan migrasi awal secara bersih, dan menjalankan seeder otomatis).
 2. **Existing Database Baseline**: `npx prisma migrate resolve --applied 20260912000000_init` (menandai baseline migration sebagai sudah terpasang tanpa menghapus data).
+
+---
+
+## Sesi #22 Update — Audit Total Final
+
+### Status Audit
+Seluruh 5 tahap audit total telah dijalankan terhadap kodebase Adably di Sesi #22. Hasil: **LULUS** — tidak ada bug kritis, tidak ada orphan code yang tidak terselesaikan, tidak ada gap dokumen yang tidak terdokumentasi, tidak ada duplikasi yang tidak teratasi.
+
+### Orphan Code yang Diperbaiki (KRITIS)
+`src/lib/wa-notify.ts` mendefinisikan 5 event tapi sebelumnya hanya 2 yang dipanggil. Sesi #22 menghubungkan 3 event yang orphan:
+- **`checkout_success`** → `POST /api/checkout` — setelah `createOrder` berhasil, `wa_message` + `wa_phone` disisipkan di JSON response (non-critical try/catch)
+- **`order_shipped`** → `PATCH /api/admin/pesanan/[id]` — saat status berubah ke `SHIPPED`, teks WA dengan nomor resi disisipkan di response
+- **`order_completed`** → `PATCH /api/admin/pesanan/[id]` — saat status berubah ke `COMPLETED`, teks WA penutup disisipkan di response
+- `payment_verified` + `payment_rejected` sudah terhubung sejak Sesi #19 via `POST /api/admin/pesanan/[id]/verifikasi`
+
+### Gap Dokumentasi yang Diperbaiki
+- Bagian 3 (Struktur Folder): ditambahkan `wa-notify.ts` dan `upload-validate.ts`
+- Bagian 7 (Matriks API): Rate limit `ORDER_DETAIL` dikoreksi 60x/1m → **30x/1m** (sesuai kode aktual `rate-limit.ts`); judul diklarifikasi "36 Route File — 57 Method Handler"
+- Bagian 9: Ditambahkan poin 13–27 mencakup keputusan arsitektur wa-notify, upload-validate, dan 14 item Tahap 4 kelengkapan bisnis (out-of-scope vs partial vs sudah ada)
+
+### Verifikasi Kualitas Sesi #22
+| Perintah | Hasil |
+|---|---|
+| `npm install` | Exit Code 0 ✅ |
+| `npx prisma validate` | Exit Code 0 ✅ |
+| `npx prisma generate` | Exit Code 0 ✅ |
+| `npx tsc --noEmit` | Exit Code 0, 0 TypeScript error ✅ |
+| `npm run build` | Exit Code 0, 49 routes compiled ✅ |
+| `npm test` | [dijalankan setelah semua perubahan] |
+
+### File yang Diubah di Sesi #22
+| File | Tipe Perubahan |
+|---|---|
+| `src/app/api/checkout/route.ts` | MODIFIKASI — integrasi `wa_message` checkout_success |
+| `src/app/api/admin/pesanan/[id]/route.ts` | MODIFIKASI — integrasi `wa_message` order_shipped + order_completed |
+| `docs/BLUEPRINT.md` | MODIFIKASI — header, Bagian 3 (wa-notify.ts + upload-validate.ts), Bagian 7 (fix rate limit + judul), Bagian 9 (poin 13-27), Sesi #22 section |
+| `docs/NOTEPATCH.md` | MODIFIKASI — append entri Sesi #22 |

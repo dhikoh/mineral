@@ -3,6 +3,7 @@ import { getAdminSession } from '@/lib/auth';
 import { getOrderById, updateOrderStatus } from '@/lib/data-store';
 import { VALID_ORDER_STATUSES, isValidOrderTransition } from '@/lib/order-security';
 import { recordAuditLog, AUDIT_ACTIONS } from '@/lib/audit-log';
+import { buildWhatsAppMessage } from '@/lib/wa-notify';
 
 export async function GET(
   request: Request,
@@ -104,10 +105,41 @@ export async function PATCH(
       });
     }
 
+    // Sesi #22 (Audit): Hubungkan event order_shipped / order_completed yang sebelumnya orphan di wa-notify.ts
+    let wa_message: string | null = null;
+    try {
+      if (status === 'SHIPPED') {
+        wa_message = buildWhatsAppMessage(
+          {
+            orderCode: order.orderCode,
+            buyerName: order.buyerName,
+            buyerPhone: order.buyerPhone,
+            total: order.total,
+            trackingNumber: trackingNumber || updated.trackingNumber || undefined,
+          },
+          'order_shipped'
+        );
+      } else if (status === 'COMPLETED') {
+        wa_message = buildWhatsAppMessage(
+          {
+            orderCode: order.orderCode,
+            buyerName: order.buyerName,
+            buyerPhone: order.buyerPhone,
+            total: order.total,
+          },
+          'order_completed'
+        );
+      }
+    } catch {
+      // Non-critical — jangan gagalkan response utama
+    }
+
     return NextResponse.json({
       success: true,
       message: 'Status pesanan berhasil diperbarui.',
       order: updated,
+      // wa_message: teks siap-copy untuk admin teruskan ke WA pembeli (hanya saat SHIPPED/COMPLETED)
+      ...(wa_message ? { wa_message, wa_phone: order.buyerPhone } : {}),
     });
   } catch (error: any) {
     console.error('Error updating order status:', error);

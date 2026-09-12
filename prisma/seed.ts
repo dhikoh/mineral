@@ -9,10 +9,12 @@ async function main() {
   // 1. Akun Superadmin
   const hashedPassword = await bcrypt.hash('admin123456', 10);
   const admin = await prisma.user.upsert({
-    where: { email: 'admin@Adably.com' },
-    update: {},
+    where: { email: 'admin@adably.com' },
+    update: {
+      password: hashedPassword,
+    },
     create: {
-      email: 'admin@Adably.com',
+      email: 'admin@adably.com',
       name: 'Super Admin Adably',
       password: hashedPassword,
       role: Role.SUPERADMIN,

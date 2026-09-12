@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import { createOrder } from '@/lib/data-store';
+import { createOrder, OrderItemData } from '@/lib/data-store';
 import { getClientIp, checkCheckoutRateLimit } from '@/lib/rate-limit';
+import { buildWhatsAppMessage } from '@/lib/wa-notify';
 
 export async function POST(request: Request) {
   try {
@@ -74,10 +75,35 @@ export async function POST(request: Request) {
       items: orderItems,
     });
 
+    // Sesi #22 (Audit): Hubungkan event checkout_success yang sebelumnya orphan di wa-notify.ts
+    // wa_message disisipkan di response agar admin/sistem dapat meneruskan ke WA pembeli secara manual
+    let wa_message: string | null = null;
+    try {
+      wa_message = buildWhatsAppMessage(
+        {
+          orderCode: order.orderCode,
+          buyerName: order.buyerName,
+          buyerPhone: order.buyerPhone,
+          total: order.total,
+          items: order.items?.map((i: OrderItemData) => ({
+            name: String(i.product?.name || i.productId),
+            qty: i.qty,
+            unit: i.product?.unit || 'kg',
+          })),
+        },
+        'checkout_success'
+      );
+    } catch {
+      // Non-critical — jangan gagalkan response utama
+    }
+
     return NextResponse.json({
       success: true,
       orderCode: order.orderCode,
       total: order.total,
+      // wa_message: teks siap-copy untuk admin/CS teruskan ke WA pembeli setelah checkout
+      wa_message,
+      wa_phone: order.buyerPhone,
     });
   } catch (error: any) {
     console.error('Error creating order:', error);
