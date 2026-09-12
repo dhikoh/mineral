@@ -46,7 +46,7 @@ export default function AdminPesananPage() {
       const res = await fetch(`/api/admin/pesanan?${params.toString()}`);
       if (res.ok) {
         const data = await res.json();
-        setOrders(data);
+        setOrders(Array.isArray(data) ? data : (data?.data || []));
       }
     } catch (e) {
       console.error('Failed to fetch orders:', e);

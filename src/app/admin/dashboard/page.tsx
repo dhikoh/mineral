@@ -86,7 +86,12 @@ export default function AdminDashboardPage() {
     ])
       .then(([authData, statsData]) => {
         setUser(authData.user);
-        setStats(statsData.stats);
+        const s = statsData?.stats || {};
+        setStats({
+          ...s,
+          lowStockProducts: Array.isArray(s.lowStockProducts) ? s.lowStockProducts : [],
+          recentOrders: Array.isArray(s.recentOrders) ? s.recentOrders : [],
+        });
         setLoading(false);
       })
       .catch(() => {
@@ -95,7 +100,7 @@ export default function AdminDashboardPage() {
     // Sesi #20: load follow-ups (fail-soft)
     fetch('/api/admin/pelanggan/follow-up')
       .then((r) => r.ok ? r.json() : { data: [] })
-      .then((d) => setFollowUps(d.data || []))
+      .then((d) => setFollowUps(Array.isArray(d?.data) ? d.data : []))
       .catch(() => {});
   }, [router]);
 

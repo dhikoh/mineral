@@ -1172,6 +1172,12 @@ Audit total, mendalam, dan final terhadap seluruh kodebase Adably sebelum dinyat
 - `src/app/admin/login/page.tsx` [MODIFIKASI] — standarisasi email input default ke lowercase `admin@adably.com`
 - `src/lib/data-store.ts` [MODIFIKASI] — standarisasi DEFAULT_USERS email ke lowercase
 - `prisma/seed.ts` [MODIFIKASI] — standarisasi seed email ke lowercase `admin@adably.com` & password update
+- `src/app/admin/pesanan/page.tsx` [MODIFIKASI] — fix parsing respons paginated { data: [...] } agar orders.map tidak error
+- `src/app/admin/artikel/page.tsx` [MODIFIKASI] — fix parsing respons paginated { data: [...] } agar articles.map tidak error
+- `src/app/admin/dashboard/page.tsx` [MODIFIKASI] — defensive array sanitization untuk stats.lowStockProducts, stats.recentOrders, followUps
+- `src/app/admin/pelanggan/[id]/page.tsx` [MODIFIKASI] — guard fallback array untuk customer.orders.map dan customer.interactions.map
+- `src/app/pesanan/[orderCode]/OrderDetailClient.tsx` [MODIFIKASI] — guard fallback array untuk bankAccounts.map
+- `src/app/kontak/page.tsx` [MODIFIKASI] — guard fallback array untuk settings.bankAccounts.map
 - `docs/BLUEPRINT.md` [MODIFIKASI]
 - `docs/NOTEPATCH.md` [MODIFIKASI — entri ini]
 

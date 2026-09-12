@@ -33,7 +33,7 @@ export default function AdminArtikelPage() {
       const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
-        setArticles(data);
+        setArticles(Array.isArray(data) ? data : (data?.data || []));
       }
     } catch (e) {
       console.error('Failed to fetch articles:', e);

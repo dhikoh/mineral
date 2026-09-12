@@ -307,7 +307,7 @@ export function OrderDetailClient({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {bankAccounts.map((acc) => {
+              {(Array.isArray(bankAccounts) ? bankAccounts : []).map((acc) => {
                 const isCopied = copiedBank === acc.bank;
                 return (
                   <div

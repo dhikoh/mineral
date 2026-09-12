@@ -490,7 +490,7 @@ export default function CustomerDetailPage({
             </div>
           ) : (
             <div className="space-y-2">
-              {customer.orders.map(order => {
+              {(customer.orders || []).map(order => {
                 const oConf = ORDER_STATUS_CONFIG[order.status] || { label: order.status, bg: 'bg-gray-100', text: 'text-gray-700' };
                 return (
                   <Link
@@ -551,7 +551,7 @@ export default function CustomerDetailPage({
                   aria-label="Pilih pesanan terkait"
                 >
                   <option value="">— Tidak ada —</option>
-                  {customer.orders.map(o => (
+                  {(customer.orders || []).map(o => (
                     <option key={o.id} value={o.id}>{o.orderCode}</option>
                   ))}
                 </select>
@@ -587,14 +587,14 @@ export default function CustomerDetailPage({
           </form>
 
           {/* Timeline */}
-          {customer.interactions.length === 0 ? (
+          {(customer.interactions || []).length === 0 ? (
             <div className="text-center py-8 text-gray-400">
               <FileText className="w-7 h-7 mx-auto mb-2 opacity-40" />
               <p className="text-sm">Belum ada catatan interaksi. Tambahkan catatan pertama.</p>
             </div>
           ) : (
             <div className="relative space-y-3 before:absolute before:left-[18px] before:top-0 before:bottom-0 before:w-0.5 before:bg-gray-100">
-              {customer.interactions.map(interaction => {
+              {(customer.interactions || []).map(interaction => {
                 const isSystem = interaction.type === 'SYSTEM';
                 const canDelete = !isSystem && session && (session.role === 'SUPERADMIN' || session.id === interaction.actorId);
                 return (

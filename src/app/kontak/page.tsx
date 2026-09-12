@@ -162,7 +162,7 @@ export default async function KontakPage() {
             </p>
 
             <div className="space-y-3">
-              {settings.bankAccounts.map((b, idx) => (
+              {(Array.isArray(settings?.bankAccounts) ? settings.bankAccounts : []).map((b, idx) => (
                 <div
                   key={idx}
                   className="rounded-2xl border border-surface-200 bg-surface-50/70 p-4 flex items-center justify-between shadow-soft-xs"
