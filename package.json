@@ -10,6 +10,9 @@
     "test": "tsx scripts/test-phase7-e2e.ts && tsx scripts/test-crm-module.ts && tsx scripts/test-crm-http.ts && tsx scripts/test-audit-p0-p1.ts",
     "postinstall": "prisma generate"
   },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1131.0",
     "@prisma/client": "^6.19.3",

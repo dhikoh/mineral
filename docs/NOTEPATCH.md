@@ -1078,3 +1078,21 @@ px tsc --noEmit: **Exit Code 0** (0 error TypeScript)
 - admin/pelanggan/[id]/page.tsx [BARU]: detail+LTV+PIC+follow-up+timeline
 - admin/pelanggan/page.tsx: tambah tombol Detail
 - admin/dashboard/page.tsx: widget Follow-up Hari Ini
+
+---
+
+## Sesi #21 — Baseline Prisma Migration & Seed Automation
+**Tanggal:** 12/9/2026
+**Build:** Exit Code 0 (tsc + npm test + npm run build, 49 halaman)
+
+### Dikerjakan:
+- Menyiapkan baseline migration `prisma/migrations/20260912000000_init/migration.sql` dan `migration_lock.toml` untuk seluruh 14 model database + relasi + index + enum (termasuk `CustomerInteraction` dan field CRM Sesi #20).
+- Mengonfigurasi automated seeding di `package.json` (`prisma.seed = "tsx prisma/seed.ts"`).
+- Memverifikasi schema validity via `npx prisma validate` dan type check via `npx tsc --noEmit`.
+- Memverifikasi test suite `npm test` (42/42 CRM, 23/23 Audit P0/P1, 40/40 E2E) dan `npm run build` (Exit Code 0, 49 routes).
+
+### Instruksi Sinkronisasi Database Dev/Staging:
+- Jalankan `npx prisma migrate reset` pada terminal yang terhubung ke database PostgreSQL untuk menerapkan migrasi awal secara bersih dan menjalankan seeder otomatis.
+- Atau jika database sudah memiliki data yang ingin dipertahankan tanpa reset, tandai baseline migration sebagai sudah terpasang:
+  `npx prisma migrate resolve --applied 20260912000000_init`
+
