@@ -1343,7 +1343,9 @@ Audit total, mendalam, dan final terhadap seluruh kodebase Adably sebelum dinyat
 
 ### 4. File yang Diubah
 - `src/components/common/BrowserCompatibilityGuard.tsx` [BARU] — peredam error runtime ekstensi browser
-- `src/app/layout.tsx` [MODIFIKASI] — integrasi BrowserCompatibilityGuard
+- `src/app/layout.tsx` [MODIFIKASI] — synchronous early <head> error filter & integrasi BrowserCompatibilityGuard
+- `src/app/admin/dashboard/page.tsx` [MODIFIKASI] — prefetch={false} pada seluruh link modul & tindakan cepat dashboard
+- `src/components/storefront/ProductCard.tsx` [MODIFIKASI] — prefetch={false} pada gambar, kategori, dan judul kartu produk
 - `src/lib/cart-context.tsx` [MODIFIKASI] — expose status `isLoaded`
 - `src/app/keranjang/page.tsx` [MODIFIKASI] — skeleton loader saat hydrating
 - `src/components/common/PwaPrompt.tsx` [MODIFIKASI] — optimasi conditional preventDefault PWA

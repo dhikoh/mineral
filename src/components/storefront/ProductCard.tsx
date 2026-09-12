@@ -40,7 +40,7 @@ export function ProductCard({
     <div className="group flex flex-col overflow-hidden rounded-2xl border border-surface-200 bg-white shadow-soft-sm transition-all duration-300 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-soft-lg">
       {/* Image Thumbnail & Floating Badges */}
       <div className="relative aspect-[4/3] w-full overflow-hidden bg-surface-100">
-        <Link href={`/produk/${slug}`} className="block h-full w-full">
+        <Link href={`/produk/${slug}`} prefetch={false} className="block h-full w-full">
           <Image
             src={displayImage}
             alt={name}
@@ -55,6 +55,7 @@ export function ProductCard({
           categorySlug ? (
             <Link
               href={`/kategori/${categorySlug}`}
+              prefetch={false}
               className="absolute top-2.5 left-2.5 z-10 rounded-full bg-slate-900/80 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-sm shadow-sm transition-colors hover:bg-emerald-600"
             >
               {categoryName}
@@ -108,7 +109,7 @@ export function ProductCard({
         )}
 
         {/* Product Title */}
-        <Link href={`/produk/${slug}`}>
+        <Link href={`/produk/${slug}`} prefetch={false}>
           <h3 className="line-clamp-2 text-sm font-bold text-slate-900 group-hover:text-emerald-700 transition-colors">
             {name}
           </h3>

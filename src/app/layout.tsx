@@ -120,6 +120,13 @@ export default async function RootLayout({
 
   return (
     <html lang="id" className="scroll-smooth">
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){function s(m,f){var t=(m&&(typeof m==='string'?m:(m.message||'')))||'';return t.indexOf('startTime')!==-1||t.indexOf('reportAllChanges')!==-1||(f&&f.indexOf('VM')!==-1&&t.indexOf('TypeError')!==-1);}window.addEventListener('error',function(e){if(s(e.message||(e.error&&e.error.message),e.filename)){e.preventDefault();e.stopImmediatePropagation();return true;}},true);window.addEventListener('unhandledrejection',function(e){var r=e.reason?(e.reason.message||String(e.reason)):'';if(s(r,'')){e.preventDefault();e.stopImmediatePropagation();}},true);var o=console.error;console.error=function(){var a=Array.prototype.slice.call(arguments),f=a[0],t=(f&&(typeof f==='string'?f:(f.message||'')))||'';if(s(t,''))return;return o.apply(console,arguments);};})();`,
+          }}
+        />
+      </head>
       <body className="flex min-h-screen flex-col antialiased selection:bg-emerald-500 selection:text-white">
         <BrowserCompatibilityGuard />
         <CartProvider>

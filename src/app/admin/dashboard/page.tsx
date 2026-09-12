@@ -198,8 +198,7 @@ export default function AdminDashboardPage() {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
-            <Link
-              href="/"
+            <Link prefetch={false} href="/"
               target="_blank"
               className="inline-flex items-center gap-1.5 rounded-xl border border-surface-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-surface-50 transition-colors shadow-soft-xs"
             >
@@ -234,32 +233,27 @@ export default function AdminDashboardPage() {
           </div>
 
           <div className="mt-6 flex flex-wrap gap-2.5 relative z-10">
-            <Link
-              href="/admin/produk/baru"
+            <Link prefetch={false} href="/admin/produk/baru"
               className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3.5 py-2 text-xs font-bold text-white hover:bg-emerald-400 transition-all shadow-soft-sm"
             >
               <Plus className="h-4 w-4" /> Tambah Produk
             </Link>
-            <Link
-              href="/admin/pesanan?tab=PENDING_VERIFICATION"
+            <Link prefetch={false} href="/admin/pesanan?tab=PENDING_VERIFICATION"
               className="inline-flex items-center gap-1.5 rounded-xl bg-white/15 px-3.5 py-2 text-xs font-bold text-white hover:bg-white/25 transition-all backdrop-blur-md"
             >
               <CreditCard className="h-4 w-4" /> Verifikasi Pembayaran
             </Link>
-            <Link
-              href="/admin/artikel/baru"
+            <Link prefetch={false} href="/admin/artikel/baru"
               className="inline-flex items-center gap-1.5 rounded-xl bg-white/15 px-3.5 py-2 text-xs font-bold text-white hover:bg-white/25 transition-all backdrop-blur-md"
             >
               <FileText className="h-4 w-4" /> Tulis Artikel
             </Link>
-            <Link
-              href="/admin/pelanggan"
+            <Link prefetch={false} href="/admin/pelanggan"
               className="inline-flex items-center gap-1.5 rounded-xl bg-white/15 px-3.5 py-2 text-xs font-bold text-white hover:bg-white/25 transition-all backdrop-blur-md"
             >
               <Users className="h-4 w-4" /> Database CRM ({stats?.totalLeadsCount || 0})
             </Link>
-            <Link
-              href="/admin/pengaturan"
+            <Link prefetch={false} href="/admin/pengaturan"
               className="inline-flex items-center gap-1.5 rounded-xl bg-white/15 px-3.5 py-2 text-xs font-bold text-white hover:bg-white/25 transition-all backdrop-blur-md"
             >
               <Settings className="h-4 w-4" /> Pengaturan CS
@@ -306,8 +300,7 @@ export default function AdminDashboardPage() {
             </div>
             <div className="mt-2">
               {(stats?.pendingVerificationCount || 0) > 0 ? (
-                <Link
-                  href="/admin/pesanan?tab=PENDING_VERIFICATION"
+                <Link prefetch={false} href="/admin/pesanan?tab=PENDING_VERIFICATION"
                   className="text-[11px] font-bold text-amber-700 hover:underline inline-flex items-center gap-1"
                 >
                   Periksa Sekarang &rarr;
@@ -335,8 +328,7 @@ export default function AdminDashboardPage() {
               <span className="text-xs text-slate-500">produk siap kirim</span>
             </div>
             <div className="mt-2">
-              <Link
-                href="/admin/produk"
+              <Link prefetch={false} href="/admin/produk"
                 className="text-[11px] font-bold text-blue-700 hover:underline inline-flex items-center gap-1"
               >
                 Kelola Produk &rarr;
@@ -361,8 +353,7 @@ export default function AdminDashboardPage() {
               <span className="text-xs text-slate-500">artikel terbit publik</span>
             </div>
             <div className="mt-2">
-              <Link
-                href="/admin/artikel"
+              <Link prefetch={false} href="/admin/artikel"
                 className="text-[11px] font-bold text-purple-700 hover:underline inline-flex items-center gap-1"
               >
                 Buka CMS Artikel &rarr;
@@ -396,8 +387,7 @@ export default function AdminDashboardPage() {
                       Batas aman: {p.minStock ?? 50} {p.unit || 'kg'}
                     </p>
                   </div>
-                  <Link
-                    href={`/admin/produk/${p.id}`}
+                  <Link prefetch={false} href={`/admin/produk/${p.id}`}
                     className="shrink-0 rounded-lg bg-amber-100 px-2.5 py-1 text-[11px] font-bold text-amber-800 hover:bg-amber-200 transition-colors"
                   >
                     Ubah Stok
@@ -417,8 +407,7 @@ export default function AdminDashboardPage() {
                 Aktivitas pesanan terkini yang memerlukan tindakan pemrosesan atau pengiriman.
               </p>
             </div>
-            <Link
-              href="/admin/pesanan"
+            <Link prefetch={false} href="/admin/pesanan"
               className="text-xs font-bold text-emerald-700 hover:underline flex items-center gap-1"
             >
               Lihat Semua Pesanan &rarr;
@@ -467,8 +456,7 @@ export default function AdminDashboardPage() {
                           {formatTanggal(ord.createdAt)}
                         </td>
                         <td className="px-4 py-3.5 text-right">
-                          <Link
-                            href={`/admin/pesanan/${ord.id}`}
+                          <Link prefetch={false} href={`/admin/pesanan/${ord.id}`}
                             className="inline-flex items-center gap-1 rounded-lg border border-surface-200 bg-white px-2.5 py-1 text-xs font-bold text-slate-700 hover:border-emerald-500 hover:text-emerald-700 transition-all shadow-soft-xs"
                           >
                             <Eye className="h-3.5 w-3.5" /> Detail
@@ -496,8 +484,7 @@ export default function AdminDashboardPage() {
 
           <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {/* 1. Produk */}
-            <Link
-              href="/admin/produk"
+            <Link prefetch={false} href="/admin/produk"
               className="group rounded-2xl border border-surface-200 bg-white p-5 hover:border-emerald-500 hover:shadow-soft-md transition-all"
             >
               <div className="flex items-center justify-between">
@@ -513,8 +500,7 @@ export default function AdminDashboardPage() {
             </Link>
 
             {/* 2. Pesanan */}
-            <Link
-              href="/admin/pesanan"
+            <Link prefetch={false} href="/admin/pesanan"
               className="group rounded-2xl border border-surface-200 bg-white p-5 hover:border-emerald-500 hover:shadow-soft-md transition-all"
             >
               <div className="flex items-center justify-between">
@@ -530,8 +516,7 @@ export default function AdminDashboardPage() {
             </Link>
 
             {/* 3. Database Pelanggan & CRM Leads */}
-            <Link
-              href="/admin/pelanggan"
+            <Link prefetch={false} href="/admin/pelanggan"
               className="group rounded-2xl border border-surface-200 bg-white p-5 hover:border-emerald-500 hover:shadow-soft-md transition-all"
             >
               <div className="flex items-center justify-between">
@@ -554,8 +539,7 @@ export default function AdminDashboardPage() {
             </Link>
 
             {/* 4. Artikel */}
-            <Link
-              href="/admin/artikel"
+            <Link prefetch={false} href="/admin/artikel"
               className="group rounded-2xl border border-surface-200 bg-white p-5 hover:border-emerald-500 hover:shadow-soft-md transition-all"
             >
               <div className="flex items-center justify-between">
@@ -571,8 +555,7 @@ export default function AdminDashboardPage() {
             </Link>
 
             {/* 4. Konten Teks Web */}
-            <Link
-              href="/admin/konten"
+            <Link prefetch={false} href="/admin/konten"
               className="group rounded-2xl border border-surface-200 bg-white p-5 hover:border-emerald-500 hover:shadow-soft-md transition-all"
             >
               <div className="flex items-center justify-between">
@@ -588,8 +571,7 @@ export default function AdminDashboardPage() {
             </Link>
 
             {/* 5. FAQ Dinamis */}
-            <Link
-              href="/admin/faq"
+            <Link prefetch={false} href="/admin/faq"
               className="group rounded-2xl border border-surface-200 bg-white p-5 hover:border-emerald-500 hover:shadow-soft-md transition-all"
             >
               <div className="flex items-center justify-between">
@@ -605,8 +587,7 @@ export default function AdminDashboardPage() {
             </Link>
 
             {/* 6. Kategori */}
-            <Link
-              href="/admin/kategori"
+            <Link prefetch={false} href="/admin/kategori"
               className="group rounded-2xl border border-surface-200 bg-white p-5 hover:border-emerald-500 hover:shadow-soft-md transition-all"
             >
               <div className="flex items-center justify-between">
@@ -622,8 +603,7 @@ export default function AdminDashboardPage() {
             </Link>
 
             {/* 7. Peruntukan */}
-            <Link
-              href="/admin/peruntukan"
+            <Link prefetch={false} href="/admin/peruntukan"
               className="group rounded-2xl border border-surface-200 bg-white p-5 hover:border-emerald-500 hover:shadow-soft-md transition-all"
             >
               <div className="flex items-center justify-between">
@@ -639,8 +619,7 @@ export default function AdminDashboardPage() {
             </Link>
 
             {/* 8. Pengaturan Situs */}
-            <Link
-              href="/admin/pengaturan"
+            <Link prefetch={false} href="/admin/pengaturan"
               className="group rounded-2xl border border-surface-200 bg-white p-5 hover:border-emerald-500 hover:shadow-soft-md transition-all"
             >
               <div className="flex items-center justify-between">
@@ -657,8 +636,7 @@ export default function AdminDashboardPage() {
 
             {/* 9. Manajemen Pengguna / Admin (Khusus SUPERADMIN) */}
             {user?.role === 'SUPERADMIN' && (
-              <Link
-                href="/admin/pengguna"
+              <Link prefetch={false} href="/admin/pengguna"
                 className="group rounded-2xl border border-surface-200 bg-white p-5 hover:border-emerald-500 hover:shadow-soft-md transition-all"
               >
                 <div className="flex items-center justify-between">
@@ -692,8 +670,7 @@ export default function AdminDashboardPage() {
                   {followUps.length}
                 </span>
               </h3>
-              <Link
-                href="/admin/pelanggan"
+              <Link prefetch={false} href="/admin/pelanggan"
                 className="text-xs text-orange-600 font-semibold hover:text-orange-800 flex items-center gap-1"
                 aria-label="Lihat semua kontak"
               >
@@ -706,8 +683,7 @@ export default function AdminDashboardPage() {
                   ? Math.floor((Date.now() - new Date(contact.nextFollowUpAt).getTime()) / 86400000)
                   : 0;
                 return (
-                  <Link
-                    key={contact.id}
+                  <Link prefetch={false} key={contact.id}
                     href={`/admin/pelanggan/${contact.id}`}
                     className="flex items-center justify-between bg-white rounded-xl border border-orange-100 px-4 py-3 hover:border-orange-300 hover:shadow-sm transition-all group"
                     aria-label={`Detail kontak ${contact.name}`}
