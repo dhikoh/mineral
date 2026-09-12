@@ -15,7 +15,12 @@ export function PwaPrompt() {
   const [isVisible, setIsVisible] = useState(false);
   const [isDismissed, setIsDismissed] = useState(false);
 
+  // Jangan aktifkan prompt PWA atau service worker di area dashboard admin
+  const isAdmin = pathname?.startsWith('/admin');
+
   useEffect(() => {
+    if (isAdmin) return;
+
     // 1. Register Service Worker
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
       navigator.serviceWorker
@@ -48,7 +53,7 @@ export function PwaPrompt() {
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     };
-  }, [isDismissed]);
+  }, [isDismissed, isAdmin]);
 
   const handleInstallClick = async () => {
     if (!deferredPrompt) return;
@@ -68,7 +73,7 @@ export function PwaPrompt() {
   };
 
   // Sembunyikan di dashboard admin
-  if (pathname?.startsWith('/admin') || !isVisible || !deferredPrompt) {
+  if (isAdmin || !isVisible || !deferredPrompt) {
     return null;
   }
 
