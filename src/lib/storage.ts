@@ -1,3 +1,14 @@
+/**
+ * Storage Adapter Module — Multi-Provider (Local, S3/R2, Cloudinary)
+ *
+ * Sesi #17 (Temuan L):
+ * - S3/R2: Menggunakan @aws-sdk/client-s3 resmi untuk signing SigV4 yang benar
+ * - Cloudinary: Signed upload menggunakan apiKey+apiSecret (SHA-1 signature)
+ * - deleteMedia: Menghapus objek remote sungguhan di S3 dan Cloudinary (bukan return true palsu)
+ * - Fallback: Jika provider non-local dikonfigurasi tapi gagal, kembalikan error eksplisit
+ *   (tidak silent fallback ke lokal) agar admin sadar konfigurasinya salah
+ */
+
 import { writeFile, mkdir, unlink } from 'fs/promises';
 import path from 'path';
 import crypto from 'crypto';
@@ -43,60 +54,102 @@ async function uploadToLocal(
 }
 
 /**
- * Penyimpanan S3 / Cloudflare R2
- * Mendukung AWS S3 atau S3-compatible API (Cloudflare R2, MinIO)
+ * Penyimpanan S3 / Cloudflare R2 — dengan AWS SigV4 resmi via @aws-sdk/client-s3
+ * Sesi #17 (Temuan L): Menggantikan HTTP PUT tanpa signature yang selalu gagal 401/403
  */
 async function uploadToS3Compatible(
   buffer: Buffer,
   filename: string,
   mimeType: string
 ): Promise<UploadResult> {
-  const endpoint = process.env.S3_ENDPOINT; // e.g. https://<accountid>.r2.cloudflarestorage.com
+  const endpoint = process.env.S3_ENDPOINT;
   const bucket = process.env.S3_BUCKET_NAME;
-  const publicBaseUrl = process.env.S3_PUBLIC_URL; // e.g. https://cdn.adably.id
+  const publicBaseUrl = process.env.S3_PUBLIC_URL;
   const accessKeyId = process.env.S3_ACCESS_KEY_ID;
   const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY;
+  const region = process.env.S3_REGION || 'auto'; // R2 uses 'auto'
 
   if (!bucket || !endpoint || !accessKeyId || !secretAccessKey) {
-    console.warn(
-      '[Storage] Konfigurasi S3/R2 tidak lengkap. Mengalihkan penyimpanan ke disk lokal.'
+    throw new Error(
+      '[Storage] Konfigurasi S3/R2 tidak lengkap (S3_ENDPOINT, S3_BUCKET_NAME, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY diperlukan). Upload tidak dapat dilanjutkan.'
     );
-    return uploadToLocal(buffer, filename);
   }
 
-  // Jika publicBaseUrl dikonfigurasi, bangun URL publik
+  const { S3Client, PutObjectCommand } = await import('@aws-sdk/client-s3');
+
+  const s3Client = new S3Client({
+    endpoint: endpoint.replace(/\/$/, ''),
+    region,
+    credentials: {
+      accessKeyId,
+      secretAccessKey,
+    },
+    forcePathStyle: true, // Diperlukan untuk R2 / MinIO
+  });
+
+  const command = new PutObjectCommand({
+    Bucket: bucket,
+    Key: filename,
+    Body: buffer,
+    ContentType: mimeType,
+  });
+
+  await s3Client.send(command);
+
   const objectUrl = publicBaseUrl
     ? `${publicBaseUrl.replace(/\/$/, '')}/${filename}`
     : `${endpoint.replace(/\/$/, '')}/${bucket}/${filename}`;
 
+  return {
+    url: objectUrl,
+    filename,
+    provider: 's3',
+  };
+}
+
+/**
+ * Hapus objek dari S3/R2 — sungguhan, bukan no-op
+ */
+async function deleteFromS3(fileUrl: string): Promise<boolean> {
+  const endpoint = process.env.S3_ENDPOINT;
+  const bucket = process.env.S3_BUCKET_NAME;
+  const accessKeyId = process.env.S3_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY;
+  const region = process.env.S3_REGION || 'auto';
+  const publicBaseUrl = process.env.S3_PUBLIC_URL;
+
+  if (!bucket || !endpoint || !accessKeyId || !secretAccessKey) return false;
+
+  // Ekstrak key dari URL
+  let key = '';
+  if (publicBaseUrl && fileUrl.startsWith(publicBaseUrl)) {
+    key = fileUrl.replace(publicBaseUrl.replace(/\/$/, '') + '/', '');
+  } else {
+    // Fallback: ambil segmen terakhir
+    key = fileUrl.split('/').pop() || '';
+  }
+  if (!key) return false;
+
   try {
-    // Sederhana: HTTP PUT langsung ke S3 endpoint jika didukung atau signed URL
-    const uploadUrl = `${endpoint.replace(/\/$/, '')}/${bucket}/${filename}`;
-    const res = await fetch(uploadUrl, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': mimeType,
-      },
-      body: buffer as unknown as BodyInit,
+    const { S3Client, DeleteObjectCommand } = await import('@aws-sdk/client-s3');
+    const s3Client = new S3Client({
+      endpoint: endpoint.replace(/\/$/, ''),
+      region,
+      credentials: { accessKeyId, secretAccessKey },
+      forcePathStyle: true,
     });
-
-    if (!res.ok) {
-      throw new Error(`S3 upload error: ${res.status} ${res.statusText}`);
-    }
-
-    return {
-      url: objectUrl,
-      filename,
-      provider: 's3',
-    };
+    await s3Client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
+    return true;
   } catch (err) {
-    console.error('[Storage S3 Error] Fallback to local:', err);
-    return uploadToLocal(buffer, filename);
+    console.error('[Storage] S3 delete error:', err);
+    return false;
   }
 }
 
 /**
- * Penyimpanan Cloudinary
+ * Penyimpanan Cloudinary — dengan signed upload menggunakan apiKey+apiSecret
+ * Sesi #17 (Temuan L): Menggunakan SHA-1 signature sesuai spesifikasi resmi Cloudinary,
+ * tidak bergantung pada unsigned upload_preset yang bisa gagal diam-diam.
  */
 async function uploadToCloudinary(
   buffer: Buffer,
@@ -105,44 +158,90 @@ async function uploadToCloudinary(
   const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
   const apiKey = process.env.CLOUDINARY_API_KEY;
   const apiSecret = process.env.CLOUDINARY_API_SECRET;
-  const uploadPreset = process.env.CLOUDINARY_UPLOAD_PRESET;
 
-  if (!cloudName) {
-    console.warn('[Storage] Konfigurasi Cloudinary tidak lengkap. Fallback ke disk lokal.');
-    return uploadToLocal(buffer, filename);
+  if (!cloudName || !apiKey || !apiSecret) {
+    throw new Error(
+      '[Storage] Konfigurasi Cloudinary tidak lengkap (CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET diperlukan). Upload tidak dapat dilanjutkan.'
+    );
   }
 
-  try {
-    const base64Data = `data:image/jpeg;base64,${buffer.toString('base64')}`;
-    const formData = new URLSearchParams();
-    formData.append('file', base64Data);
-    if (uploadPreset) {
-      formData.append('upload_preset', uploadPreset);
-    }
+  const timestamp = Math.floor(Date.now() / 1000).toString();
+  const publicId = filename.replace(/\.[^.]+$/, ''); // strip extension
 
-    const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+  // Cloudinary signed upload: signature = SHA1("public_id=X&timestamp=T" + apiSecret)
+  const signatureString = `public_id=${publicId}&timestamp=${timestamp}${apiSecret}`;
+  const signature = crypto.createHash('sha1').update(signatureString).digest('hex');
+
+  const base64Data = `data:image/jpeg;base64,${buffer.toString('base64')}`;
+  const formData = new URLSearchParams();
+  formData.append('file', base64Data);
+  formData.append('public_id', publicId);
+  formData.append('timestamp', timestamp);
+  formData.append('api_key', apiKey);
+  formData.append('signature', signature);
+
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(
+      `[Storage] Cloudinary upload gagal: ${data.error?.message || JSON.stringify(data)}`
+    );
+  }
+
+  return {
+    url: data.secure_url || data.url,
+    filename,
+    provider: 'cloudinary',
+  };
+}
+
+/**
+ * Hapus aset dari Cloudinary — sungguhan via destroy API
+ */
+async function deleteFromCloudinary(fileUrl: string): Promise<boolean> {
+  const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+  const apiKey = process.env.CLOUDINARY_API_KEY;
+  const apiSecret = process.env.CLOUDINARY_API_SECRET;
+  if (!cloudName || !apiKey || !apiSecret) return false;
+
+  // Ekstrak public_id dari URL Cloudinary
+  // URL format: https://res.cloudinary.com/<cloud>/image/upload/v123/public_id.ext
+  const match = fileUrl.match(/\/upload\/(?:v\d+\/)?(.+?)(?:\.\w+)?$/);
+  const publicId = match?.[1];
+  if (!publicId) return false;
+
+  try {
+    const timestamp = Math.floor(Date.now() / 1000).toString();
+    const sigStr = `public_id=${publicId}&timestamp=${timestamp}${apiSecret}`;
+    const signature = crypto.createHash('sha1').update(sigStr).digest('hex');
+
+    const formData = new URLSearchParams();
+    formData.append('public_id', publicId);
+    formData.append('timestamp', timestamp);
+    formData.append('api_key', apiKey);
+    formData.append('signature', signature);
+
+    const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/destroy`, {
       method: 'POST',
       body: formData,
     });
 
     const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.error?.message || 'Cloudinary upload error');
-    }
-
-    return {
-      url: data.secure_url || data.url,
-      filename,
-      provider: 'cloudinary',
-    };
+    return data.result === 'ok';
   } catch (err) {
-    console.error('[Storage Cloudinary Error] Fallback to local:', err);
-    return uploadToLocal(buffer, filename);
+    console.error('[Storage] Cloudinary delete error:', err);
+    return false;
   }
 }
 
 /**
- * Entry point utama upload media dengan pemilihan provider dinamis
+ * Entry point utama upload media dengan pemilihan provider dinamis.
+ * Sesi #17 (Temuan L): Provider non-local yang gagal sekarang throw error eksplisit
+ * alih-alih silent fallback ke lokal.
  */
 export async function uploadMedia(
   buffer: Buffer,
@@ -169,9 +268,12 @@ export async function uploadMedia(
 }
 
 /**
- * Hapus media (jika didukung)
+ * Hapus media dari provider yang sesuai.
+ * Sesi #17 (Temuan L): Sekarang menghapus objek remote sungguhan di S3 dan Cloudinary,
+ * bukan return true palsu tanpa aksi apa pun.
  */
 export async function deleteMedia(fileUrl: string): Promise<boolean> {
+  // Lokal: path diawali /uploads/
   if (fileUrl.startsWith('/uploads/')) {
     const filename = fileUrl.replace('/uploads/', '');
     const localPath = path.join(process.cwd(), 'public', 'uploads', filename);
@@ -182,5 +284,17 @@ export async function deleteMedia(fileUrl: string): Promise<boolean> {
       return false;
     }
   }
-  return true;
+
+  // Cloudinary: URL mengandung res.cloudinary.com
+  if (fileUrl.includes('res.cloudinary.com')) {
+    return deleteFromCloudinary(fileUrl);
+  }
+
+  // S3/R2: URL lainnya yang bukan lokal
+  const provider = (process.env.STORAGE_PROVIDER || 'local').toLowerCase();
+  if (provider === 's3' || provider === 'r2') {
+    return deleteFromS3(fileUrl);
+  }
+
+  return false;
 }

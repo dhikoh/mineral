@@ -52,6 +52,9 @@ export function isValidOrderTransition(
  * Pencocokan nomor telepon terpadu.
  * Membandingkan digit numerik murni dan mencocokkan akhiran 8 digit
  * untuk mengakomodasi perbedaan format (contoh: 0812 vs 62812 vs +62812).
+ *
+ * Sesi #17 (Temuan N): Input dengan panjang < 8 digit langsung ditolak
+ * untuk mencegah brute-force menebak nomor pembeli via input sangat pendek.
  */
 export function isPhoneMatch(
   inputPhone: string | null | undefined,
@@ -62,7 +65,8 @@ export function isPhoneMatch(
   const cleanInput = inputPhone.replace(/\D/g, '');
   const cleanTarget = targetPhone.replace(/\D/g, '');
 
-  if (!cleanInput || !cleanTarget) return false;
+  // Validasi panjang minimum: kurang dari 8 digit langsung ditolak
+  if (!cleanInput || cleanInput.length < 8 || !cleanTarget) return false;
 
   return (
     cleanInput === cleanTarget ||

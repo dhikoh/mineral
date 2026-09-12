@@ -29,7 +29,12 @@ model User {
   email     String   @unique
   password  String   // bcrypt hash
   role      Role     @default(SUPERADMIN)
+  isActive  Boolean  @default(true) // Sesi #17: status aktif staf (false = nonaktif/suspended)
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  verifiedProofs PaymentProof[] @relation("VerifiedBy")
+  auditLogs      AuditLog[]
 }
 
 model SiteSetting {
@@ -146,7 +151,9 @@ model PaymentProof {
   status          String    @default("PENDING") // PENDING, APPROVED, REJECTED
   rejectionReason String?
   uploadedAt      DateTime  @default(now())
-  verifiedBy      String?
+  verifiedBy      String?   // nama staf (display fallback)
+  verifiedById    String?   // Sesi #17: ID staf — source of truth akuntabilitas
+  verifier        User?     @relation("VerifiedBy", fields: [verifiedById], references: [id], onDelete: SetNull)
   verifiedAt      DateTime?
 }
 
@@ -200,3 +207,20 @@ model Customer {
   @@index([status])
 }
 
+// Sesi #17: Audit Log persisten untuk akuntabilitas aksi admin
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorId     String?  // null jika sistem/tidak bisa resolve
+  actor       User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  actorName   String   // snapshot nama saat aksi — tidak berubah meski nama staf diperbarui
+  actorRole   String   // snapshot role saat aksi
+  action      String   // LOGIN_SUCCESS, LOGIN_FAILED, CREATE_USER, UPDATE_USER, DELETE_USER, UPDATE_SETTINGS, dsb.
+  targetType  String?  // "User", "Order", "Product", "SiteSetting", dsb.
+  targetId    String?  // ID entitas yang dimodifikasi
+  metadata    Json?    // detail tambahan, TANPA password plaintext
+  createdAt   DateTime @default(now())
+
+  @@index([actorId])
+  @@index([action])
+  @@index([createdAt])
+}

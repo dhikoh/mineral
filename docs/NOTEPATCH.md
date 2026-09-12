@@ -889,3 +889,52 @@ Audit komprehensif penutupan seluruh temuan Aâ€“I, pemenuhan checklist 3.1â€“3.8
 - npm run build: Exit Code 0 - seluruh rute statis & dinamis ter-compile sempurna via Turbopack.
 - Grep mineralhub (case-insensitive): 0 hasil di seluruh kode sumber aktif.
 - 20/20 titik kontrol implementasi VERIFIED.
+
+---
+
+## Sesi #17 — Hardening Final: Audit Log Persisten, isActive Staf, S3/R2 SigV4, Stored-XSS Fix, Shared Admin Layout
+**Tanggal:** 2026-09-12
+**Scope:** Audit Total Final (Temuan J–S) — Implementasi 10 temuan sisa dari audit Sesi #16 tanpa membangun fitur baru di luar mand?? audit.
+
+### Temuan & Penyelesaian
+
+| Temuan | Deskripsi | Status |
+|--------|-----------|--------|
+| J | Status Aktif Staf (isActive) — schema, auth, API, UI toggle | ? Selesai |
+| K | Persistent Audit Log (AuditLog model + helper + routes + halaman) | ? Selesai |
+| L | Cloud Storage S3/R2 SigV4 via @aws-sdk/client-s3 + Cloudinary signed + deleteMedia remote | ? Selesai |
+| M | Stored-XSS ArticleForm.tsx — preview menggunakan sanitize() | ? Selesai |
+| N | isPhoneMatch() min 8 digit | ? Selesai (Sesi #16) |
+| O | RBAC /admin/pengaturan: bankAccounts hanya SUPERADMIN | ? Selesai (Sesi #16) |
+| P | Global Admin Layout — sidebar desktop + hamburger mobile + logout | ? Selesai |
+| Q | Sinkronisasi dokumentasi BLUEPRINT.md ? Sesi #17 | ? Selesai |
+| R | Migrasi rate-limit login ke modul terpusat (src/lib/rate-limit.ts) | ? Selesai (Sesi #16) |
+| S | verifiedById sebagai FK staf (PaymentProof.verifiedById) | ? Selesai |
+
+### File yang Dibuat/Dimodifikasi
+- prisma/schema.prisma: Tambah AuditLog, User.isActive, PaymentProof.verifiedById
+- src/lib/audit-log.ts: NEW — recordAuditLog helper + AUDIT_ACTIONS enum
+- src/lib/storage.ts: Rewrite — S3 SigV4 via @aws-sdk/client-s3, Cloudinary signed upload, deleteMedia remote sungguhan
+- src/lib/rate-limit.ts: Tambah LOGIN preset
+- src/lib/auth.ts: isActive re-check per request di getAdminSession
+- src/lib/data-store.ts: isActive di UserItem, getAdminUsers, createAdminUser, updateAdminUser; verifiedById di verifyPaymentProof
+- src/app/api/admin/auth/login/route.ts: Rate-limit terpusat, isActive check, audit log
+- src/app/api/admin/audit-log/route.ts: NEW — GET audit log (SUPERADMIN only)
+- src/app/api/admin/pesanan/[id]/route.ts: Audit log PATCH status
+- src/app/api/admin/pesanan/[id]/verifikasi/route.ts: verifiedById + audit log
+- src/app/api/admin/users/route.ts: Audit log POST create user
+- src/app/api/admin/users/[id]/route.ts: isActive PATCH, self-deactivation guard, audit log
+- src/app/api/admin/pengaturan/route.ts: RBAC bankAccounts, audit log
+- src/app/admin/layout.tsx: NEW — Shared sidebar/layout semua halaman admin
+- src/app/admin/audit-log/page.tsx: NEW — Halaman Audit Log (filter + pagination)
+- src/app/admin/pengguna/page.tsx: isActive toggle UI (ToggleLeft/ToggleRight)
+- src/components/admin/ArticleForm.tsx: Preview menggunakan sanitize() (XSS fix)
+- docs/BLUEPRINT.md: Update header ? Sesi #17
+- docs/NOTEPATCH.md: Append Sesi #17 (file ini)
+
+### Verifikasi
+- 
+px tsc --noEmit: Exit Code 0 (0 TypeScript error)
+- 
+pm run build: Exit Code 0 — semua rute ter-compile sempurna
+

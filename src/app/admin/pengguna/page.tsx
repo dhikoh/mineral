@@ -17,6 +17,8 @@ import {
   Key,
   Mail,
   User,
+  ToggleLeft,
+  ToggleRight,
 } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 
@@ -25,6 +27,7 @@ interface AdminUser {
   name: string;
   email: string;
   role: 'SUPERADMIN' | 'ADMIN';
+  isActive: boolean; // Sesi #17 (Temuan J)
   createdAt: string;
 }
 
@@ -47,6 +50,8 @@ export default function AdminPenggunaPage() {
   // Delete modal state
   const [deletingUser, setDeletingUser] = useState<AdminUser | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  // Sesi #17 (Temuan J): Status loading per-user untuk toggle isActive
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   const fetchUsers = async () => {
     try {
@@ -200,6 +205,28 @@ export default function AdminPenggunaPage() {
     }
   };
 
+  // Sesi #17 (Temuan J): Toggle status aktif/nonaktif staf
+  const handleToggleActive = async (u: AdminUser) => {
+    if (currentUser?.id === u.id) return; // Proteksi self-deactivation
+    setTogglingId(u.id);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/users/${u.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isActive: !u.isActive }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Gagal mengubah status akun.');
+      setSuccess(`Akun ${u.name} berhasil ${!u.isActive ? 'diaktifkan' : 'dinonaktifkan'}.`);
+      fetchUsers();
+    } catch (err: any) {
+      setError(err.message || 'Gagal mengubah status akun.');
+    } finally {
+      setTogglingId(null);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 pb-20">
       {/* Header */}
@@ -308,6 +335,7 @@ export default function AdminPenggunaPage() {
                     <th className="px-5 py-3.5">Nama Staf / Pejabat</th>
                     <th className="px-5 py-3.5">Email Akun</th>
                     <th className="px-5 py-3.5">Tingkat Hak Akses</th>
+                    <th className="px-5 py-3.5">Status</th>
                     <th className="px-5 py-3.5">Terdaftar Sejak</th>
                     <th className="px-5 py-3.5 text-right">Aksi</th>
                   </tr>
@@ -317,7 +345,10 @@ export default function AdminPenggunaPage() {
                     const isSelf = currentUser?.id === u.id;
 
                     return (
-                      <tr key={u.id} className="hover:bg-slate-800/40 transition-colors">
+                      <tr
+                        key={u.id}
+                        className={`hover:bg-slate-800/40 transition-colors ${!u.isActive ? 'opacity-60' : ''}`}
+                      >
                         <td className="px-5 py-4">
                           <div className="font-bold text-white flex items-center gap-2">
                             <span>{u.name}</span>
@@ -344,11 +375,44 @@ export default function AdminPenggunaPage() {
                             </span>
                           )}
                         </td>
+                        {/* Sesi #17 (Temuan J): Kolom Status Aktif */}
+                        <td className="px-5 py-4">
+                          {u.isActive ? (
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-1 text-[11px] font-bold text-emerald-400">
+                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                              Aktif
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-700/50 border border-slate-600/50 px-2.5 py-1 text-[11px] font-bold text-slate-400">
+                              <span className="h-1.5 w-1.5 rounded-full bg-slate-500" />
+                              Nonaktif
+                            </span>
+                          )}
+                        </td>
                         <td className="px-5 py-4 text-slate-400 whitespace-nowrap">
                           {formatDate(u.createdAt)}
                         </td>
                         <td className="px-5 py-4 text-right">
                           <div className="inline-flex items-center gap-2">
+                            {/* Toggle Aktif/Nonaktif */}
+                            <button
+                              onClick={() => handleToggleActive(u)}
+                              disabled={isSelf || togglingId === u.id}
+                              className={`rounded-lg border p-1.5 transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
+                                u.isActive
+                                  ? 'border-amber-600/50 bg-amber-600/10 text-amber-400 hover:bg-amber-600/20'
+                                  : 'border-emerald-600/50 bg-emerald-600/10 text-emerald-400 hover:bg-emerald-600/20'
+                              }`}
+                              title={isSelf ? 'Tidak dapat mengubah status akun sendiri' : u.isActive ? 'Nonaktifkan Akun' : 'Aktifkan Akun'}
+                            >
+                              {togglingId === u.id ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : u.isActive ? (
+                                <ToggleRight className="h-3.5 w-3.5" />
+                              ) : (
+                                <ToggleLeft className="h-3.5 w-3.5" />
+                              )}
+                            </button>
                             <button
                               onClick={() => openEditModal(u)}
                               className="rounded-lg border border-slate-700 bg-slate-800 p-1.5 text-slate-300 hover:border-emerald-500 hover:text-white transition-colors"

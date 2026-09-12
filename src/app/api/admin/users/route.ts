@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSuperAdminSession } from '@/lib/auth';
 import { getAdminUsers, createAdminUser } from '@/lib/data-store';
+import { recordAuditLog, AUDIT_ACTIONS } from '@/lib/audit-log';
 
 export async function GET() {
   const session = await requireSuperAdminSession();
@@ -64,6 +65,17 @@ export async function POST(req: NextRequest) {
       email,
       password,
       role: cleanRole,
+    });
+
+    // Sesi #17 (Temuan K): Audit log pembuatan staf baru
+    await recordAuditLog({
+      actorId: session.id,
+      actorName: session.name,
+      actorRole: session.role,
+      action: AUDIT_ACTIONS.CREATE_USER,
+      targetType: 'User',
+      targetId: newUser.id,
+      metadata: { name: newUser.name, email: newUser.email, role: newUser.role },
     });
 
     return NextResponse.json(

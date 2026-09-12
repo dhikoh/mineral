@@ -42,7 +42,26 @@ export async function getAdminSession(): Promise<AdminSessionPayload | null> {
   const cookieStore = await cookies();
   const token = cookieStore.get(COOKIE_NAME)?.value;
   if (!token) return null;
-  return verifyAdminToken(token);
+
+  const payload = await verifyAdminToken(token);
+  if (!payload) return null;
+
+  // Sesi #17 (Temuan J): Re-check status aktif user dari DB pada setiap validasi sesi.
+  // Ini memastikan penonaktifan akun efektif SEKETIKA, tidak menunggu JWT 7 hari expired.
+  try {
+    const { prisma } = await import('@/lib/db');
+    const user = await prisma.user.findUnique({
+      where: { id: payload.id },
+      select: { isActive: true },
+    });
+    // Jika user tidak ditemukan atau dinonaktifkan, tolak sesi
+    if (!user || !user.isActive) return null;
+  } catch {
+    // Jika DB tidak tersedia (dev mode), biarkan sesi berjalan via JWT saja
+    // Ini konsisten dengan pola circuit-breaker yang sudah ada di data-store.ts
+  }
+
+  return payload;
 }
 
 export async function setAdminSessionCookie(token: string) {

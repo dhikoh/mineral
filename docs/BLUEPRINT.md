@@ -1,5 +1,5 @@
 # BLUEPRINT — Web Marketplace Single-Seller + CMS Artikel + Template Reusable
-Terakhir diupdate: 2026-09-12 (Sesi #15 — Audit Total Final, Zero Orphan, Rate Limiting Terpusat, Proteksi PII, Transisi Status Pesanan Strict, & Storage Adapters)
+Terakhir diupdate: 2026-09-12 (Sesi #17 — Hardening Final: isActive Staf, Persistent Audit Log, S3/R2 SigV4 Storage, Stored-XSS ArticleForm, RBAC Pengaturan, Login Rate-Limit Terpusat, verifiedById FK, Shared Admin Layout, Halaman Audit Log)
 
 ---
 

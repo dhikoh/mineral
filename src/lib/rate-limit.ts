@@ -143,6 +143,12 @@ export const RATE_LIMIT_PRESETS = {
     windowMs: 5 * 60 * 1000,
     maxRequests: 10,
   },
+  // Sesi #17 (Temuan R): Login Admin — 5 percobaan / 15 menit per IP+email
+  // Menggantikan implementasi lokal duplikat di api/admin/auth/login/route.ts
+  LOGIN: {
+    windowMs: 15 * 60 * 1000,
+    maxRequests: 5,
+  },
 };
 
 /**
@@ -166,4 +172,20 @@ export function checkLeadsRateLimit(ip: string): RateLimitResult {
 
 export function checkUploadRateLimit(ip: string): RateLimitResult {
   return checkRateLimit(`upload:${ip}`, RATE_LIMIT_PRESETS.UPLOAD);
+}
+
+/**
+ * Sesi #17 (Temuan R): Login rate limit — menggantikan implementasi lokal duplikat.
+ * key harus mencakup IP + email agar granularitas tidak berubah dari implementasi lama.
+ * Contoh key: `login:127.0.0.1:admin@adably.id`
+ */
+export function checkLoginRateLimit(key: string): RateLimitResult {
+  return checkRateLimit(`login:${key}`, RATE_LIMIT_PRESETS.LOGIN);
+}
+
+/**
+ * Reset counter login untuk key tertentu setelah login berhasil.
+ */
+export function clearLoginAttempts(key: string): void {
+  store.delete(`login:${key}`);
 }

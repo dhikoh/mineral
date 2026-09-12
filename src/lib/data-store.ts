@@ -282,6 +282,7 @@ export interface UserItem {
   name: string;
   email: string;
   role: 'SUPERADMIN' | 'ADMIN';
+  isActive: boolean; // Sesi #17 (Temuan J)
   createdAt: string;
 }
 
@@ -295,6 +296,7 @@ export const DEFAULT_USERS: UserItemStored[] = [
     name: 'Super Admin Adably',
     email: 'admin@Adably.com',
     role: 'SUPERADMIN',
+    isActive: true,
     createdAt: new Date().toISOString(),
   },
 ];
@@ -1742,7 +1744,8 @@ export async function verifyPaymentProof(
   orderId: string,
   isApproved: boolean,
   notes?: string,
-  verifiedBy?: string
+  verifiedBy?: string,
+  verifiedById?: string // Sesi #17 (Temuan S): ID staf — source of truth akuntabilitas
 ) {
   const proofStatus = isApproved ? 'APPROVED' : 'REJECTED';
   const orderStatus = isApproved ? 'PAID' : 'PENDING_PAYMENT';
@@ -1762,6 +1765,7 @@ export async function verifyPaymentProof(
         status: proofStatus,
         rejectionReason: isApproved ? null : notes || 'Bukti pembayaran tidak valid',
         verifiedBy: verifiedBy || 'Super Admin',
+        verifiedById: verifiedById || null, // Sesi #17 (Temuan S)
         verifiedAt: new Date(),
       },
     });
@@ -3225,6 +3229,7 @@ export async function getAdminUsers(): Promise<UserItem[]> {
         name: true,
         email: true,
         role: true,
+        isActive: true,
         createdAt: true,
       },
       orderBy: { createdAt: 'asc' },
@@ -3242,6 +3247,7 @@ export async function getAdminUsers(): Promise<UserItem[]> {
       name: u.name,
       email: u.email,
       role: u.role,
+      isActive: u.isActive ?? true,
       createdAt: u.createdAt,
     }));
   }
@@ -3284,6 +3290,7 @@ export async function createAdminUser(data: {
         name: true,
         email: true,
         role: true,
+        isActive: true,
         createdAt: true,
       },
     });
@@ -3305,6 +3312,7 @@ export async function createAdminUser(data: {
       name: cleanName,
       email: cleanEmail,
       role: cleanRole,
+      isActive: true,
       password: hashedPassword,
       createdAt: new Date().toISOString(),
     };
@@ -3317,6 +3325,7 @@ export async function createAdminUser(data: {
       name: newUser.name,
       email: newUser.email,
       role: newUser.role,
+      isActive: newUser.isActive ?? true,
       createdAt: newUser.createdAt,
     };
   }
@@ -3329,6 +3338,7 @@ export async function updateAdminUser(
     email?: string;
     password?: string;
     role?: 'SUPERADMIN' | 'ADMIN';
+    isActive?: boolean; // Sesi #17 (Temuan J)
   },
   currentUserId: string
 ): Promise<UserItem> {
@@ -3343,6 +3353,13 @@ export async function updateAdminUser(
       throw new Error('Anda tidak dapat menurunkan role akun Anda sendiri.');
     }
     updatePayload.role = data.role;
+  }
+  // Sesi #17 (Temuan J): Terima perubahan status isActive, tolak self-deactivation
+  if (typeof data.isActive === 'boolean') {
+    if (id === currentUserId && data.isActive === false) {
+      throw new Error('SUPERADMIN tidak dapat menonaktifkan akunnya sendiri.');
+    }
+    updatePayload.isActive = data.isActive;
   }
   if (data.password) {
     if (data.password.length < 8) {
@@ -3360,6 +3377,7 @@ export async function updateAdminUser(
         name: true,
         email: true,
         role: true,
+        isActive: true,
         createdAt: true,
       },
     });
@@ -3379,6 +3397,7 @@ export async function updateAdminUser(
     if (updatePayload.email) store.users[idx].email = updatePayload.email;
     if (updatePayload.role) store.users[idx].role = updatePayload.role;
     if (updatePayload.password) store.users[idx].password = updatePayload.password;
+    if (typeof updatePayload.isActive === 'boolean') store.users[idx].isActive = updatePayload.isActive;
 
     writeLocalStore(store);
     return {
@@ -3386,6 +3405,7 @@ export async function updateAdminUser(
       name: store.users[idx].name,
       email: store.users[idx].email,
       role: store.users[idx].role,
+      isActive: store.users[idx].isActive ?? true,
       createdAt: store.users[idx].createdAt,
     };
   }

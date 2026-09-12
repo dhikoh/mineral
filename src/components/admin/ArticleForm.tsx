@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { slugify } from '@/lib/utils';
+import { sanitize } from '@/lib/sanitize'; // Sesi #17 (Temuan M): Proteksi Stored XSS
 import { ImageUploader } from '@/components/ui/ImageUploader';
 import {
   FileText,
@@ -319,7 +320,7 @@ export function ArticleForm({ initialData, isEditing = false }: ArticleFormProps
                 {htmlContent ? (
                   <article
                     className="prose prose-slate max-w-none text-xs sm:text-sm leading-relaxed prose-headings:font-bold prose-h2:text-base prose-h2:mt-4 prose-h2:mb-2 prose-p:my-2 prose-ul:my-2 prose-li:my-0.5"
-                    dangerouslySetInnerHTML={{ __html: htmlContent }}
+                    dangerouslySetInnerHTML={{ __html: sanitize(htmlContent) }}
                   />
                 ) : (
                   <div className="flex h-64 items-center justify-center text-xs text-slate-400">

@@ -1,10 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getAdminSession } from '@/lib/auth';
 import { getOrderById, updateOrderStatus } from '@/lib/data-store';
-import {
-  VALID_ORDER_STATUSES,
-  isValidOrderTransition,
-} from '@/lib/order-security';
+import { VALID_ORDER_STATUSES, isValidOrderTransition } from '@/lib/order-security';
+import { recordAuditLog, AUDIT_ACTIONS } from '@/lib/audit-log';
 
 export async function GET(
   request: Request,
@@ -86,6 +84,25 @@ export async function PATCH(
 
     const targetStatus = status !== undefined ? status : order.status;
     const updated = await updateOrderStatus(id, targetStatus, notes, trackingNumber);
+
+    // Sesi #17 (Temuan K): Audit log perubahan status
+    if (status !== undefined && status !== order.status) {
+      await recordAuditLog({
+        actorId: session.id,
+        actorName: session.name,
+        actorRole: session.role,
+        action: AUDIT_ACTIONS.UPDATE_ORDER_STATUS,
+        targetType: 'Order',
+        targetId: id,
+        metadata: {
+          orderCode: order.orderCode,
+          from: order.status,
+          to: status,
+          notes: notes || null,
+          trackingNumber: trackingNumber || null,
+        },
+      });
+    }
 
     return NextResponse.json({
       success: true,
