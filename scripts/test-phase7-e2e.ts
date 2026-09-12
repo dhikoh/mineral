@@ -121,9 +121,9 @@ async function runPhase7TestSuite() {
   console.log('\n--- 4. End-to-End Purchasing & Tracking Lifecycle ---');
   try {
     const products = await getProducts();
-    assert('Catalog Returns Active Commodities', products.length > 0);
+    assert('Catalog Returns Active Commodities', (products as any[]).length > 0);
 
-    const testProduct = products.find((p) => p.stock && p.stock >= 2) || products[0];
+    const testProduct = (products as any[]).find((p: any) => p.stock && p.stock >= 2) || (products as any[])[0];
     const testPhone = '081299887766';
 
     console.log(`    Creating test order for ${testProduct.name}`);
@@ -197,7 +197,7 @@ async function runPhase7TestSuite() {
     const heroBlock = await getContentBlockByKey('homepage_hero');
     assert('Hero ContentBlock Available', heroBlock !== null);
 
-    const articles = await getArticles({ publishedOnly: true });
+    const { data: articles } = await getArticles({ publishedOnly: true });
     assert('Articles Available with Sanitized HTML Content', articles.length > 0 && typeof articles[0].htmlContent === 'string');
   } catch (err: any) {
     assert('CMS Integrity Error', false, err.message);

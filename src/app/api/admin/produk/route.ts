@@ -12,9 +12,14 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const q = searchParams.get('q') || undefined;
     const kategori = searchParams.get('kategori') || undefined;
+    // Sesi #19 (Fix #2): Pagination — admin listing saja, storefront tidak pakai ini
+    const pageRaw = searchParams.get('page');
+    const limitRaw = searchParams.get('limit');
+    const page = pageRaw ? parseInt(pageRaw, 10) : undefined;
+    const limit = limitRaw ? parseInt(limitRaw, 10) : undefined;
 
-    const products = await getProducts({ q, kategori });
-    return NextResponse.json({ success: true, data: products });
+    const products = await getProducts({ q, kategori, page, limit });
+    return NextResponse.json({ success: true, data: Array.isArray(products) ? products : (products as any).data, ...(Array.isArray(products) ? {} : { total: (products as any).total, page: (products as any).page, limit: (products as any).limit, totalPages: (products as any).totalPages }) });
   } catch (error: any) {
     return NextResponse.json(
       { error: error?.message || 'Gagal memuat produk' },
@@ -22,6 +27,7 @@ export async function GET(req: NextRequest) {
     );
   }
 }
+
 
 export async function POST(req: NextRequest) {
   const session = await getAdminSession();

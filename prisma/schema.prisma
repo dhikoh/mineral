@@ -33,8 +33,11 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  verifiedProofs PaymentProof[] @relation("VerifiedBy")
-  auditLogs      AuditLog[]
+  verifiedProofs       PaymentProof[]         @relation("VerifiedBy")
+  auditLogs            AuditLog[]
+  // Sesi #20: relasi CRM
+  assignedCustomers    Customer[]             @relation("AssignedCustomers")
+  customerInteractions CustomerInteraction[]
 }
 
 model SiteSetting {
@@ -127,7 +130,12 @@ model Order {
   total          Int
   items          OrderItem[]
   proof          PaymentProof?
+  // Sesi #20: FK ke Customer (nullable — pesanan lama/guest tanpa akun customer)
+  customerId     String?
+  customer       Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull)
   createdAt      DateTime      @default(now())
+
+  @@index([customerId])
 }
 
 model OrderItem {
@@ -195,16 +203,52 @@ model Customer {
   source             String        @default("WEBSITE_RFQ") // WEBSITE_RFQ, CHECKOUT, MANUAL_ADMIN, OFFLINE_EXPO
   preferredCommodity String?
   estimatedVolume    String?
-  notes              String?
+  notes              String?       // Catatan bebas manual staf (bukan log kronologis)
   totalOrders        Int           @default(0)
   totalSpent         Int           @default(0)
   lastContactAt      DateTime?
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
+  // Sesi #20: field baru CRM
+  assignedToId       String?       // PIC staf penanggung jawab
+  assignedTo         User?         @relation("AssignedCustomers", fields: [assignedToId], references: [id], onDelete: SetNull)
+  nextFollowUpAt     DateTime?     // jadwal follow-up berikutnya
+  tags               Json?         // ["vip","grosir","jabodetabek"]
+  orders             Order[]       // relasi ke pesanan via FK customerId
+  interactions       CustomerInteraction[]
 
   @@index([phone])
   @@index([type])
   @@index([status])
+  @@index([assignedToId])
+  @@index([nextFollowUpAt])
+}
+
+// Sesi #20: Log interaksi terstruktur per kontak CRM
+enum InteractionType {
+  CALL
+  WHATSAPP
+  EMAIL
+  MEETING
+  SITE_VISIT
+  NOTE
+  SYSTEM // entri otomatis dari sistem (koreksi LTV, perubahan status order, dsb.)
+}
+
+model CustomerInteraction {
+  id             String          @id @default(cuid())
+  customerId     String
+  customer       Customer        @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  type           InteractionType
+  summary        String          @db.Text
+  actorId        String?         // null jika SYSTEM
+  actor          User?           @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  actorName      String          // snapshot nama staf / "SYSTEM"
+  relatedOrderId String?         // opsional — tautkan ke pesanan terkait
+  createdAt      DateTime        @default(now())
+
+  @@index([customerId])
+  @@index([createdAt])
 }
 
 // Sesi #17: Audit Log persisten untuk akuntabilitas aksi admin

@@ -678,17 +678,16 @@ export default function AdminPelangganPage() {
                         {/* Row Actions */}
                         <td className="py-3.5 px-4 text-right">
                           <div className="flex items-center justify-end gap-1.5">
-                            {/* 1-Click WhatsApp Direct Chat */}
-                            <a
-                              href={waUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              title="Chat WhatsApp dengan Template Follow-up"
-                              className="inline-flex items-center gap-1 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-2.5 py-1.5 text-xs font-bold transition-colors border border-emerald-200"
+                            {/* Sesi #20: Link ke halaman detail */}
+                            <Link
+                              href={`/admin/pelanggan/${c.id}`}
+                              title="Lihat Profil Detail"
+                              className="inline-flex items-center gap-1 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 px-2.5 py-1.5 text-xs font-bold transition-colors border border-blue-200"
+                              aria-label={`Lihat detail kontak ${c.name}`}
                             >
-                              <Send className="h-3 w-3" />
-                              <span className="hidden sm:inline">Follow Up</span>
-                            </a>
+                              <ExternalLink className="h-3 w-3" />
+                              <span className="hidden sm:inline">Detail</span>
+                            </Link>
 
                             {/* Edit / Notes */}
                             <button
@@ -710,6 +709,7 @@ export default function AdminPelangganPage() {
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>
                           </div>
+
                         </td>
                       </tr>
                     );

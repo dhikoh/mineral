@@ -92,12 +92,13 @@ export default async function ArtikelDetailPage({
 
   // Find related products (e.g. products matching tags or title keywords)
   const titleLower = article.title.toLowerCase();
-  const relatedProducts = allProducts
-    .filter((p) => {
+  const relatedProducts = (allProducts as any[])
+    .filter((p: any) => {
       const nameMatch = titleLower.includes(p.name.toLowerCase()) || p.name.toLowerCase().includes('zeolite');
       return nameMatch;
     })
     .slice(0, 3);
+
 
   const finalRelated = relatedProducts.length > 0 ? relatedProducts : allProducts.slice(0, 3);
 

@@ -43,7 +43,9 @@ export async function PUT(
     const { id } = await params;
     const body = await req.json();
 
-    const updated = await updateCustomer(id, body);
+    // Sesi #20: teruskan actor agar perubahan status dicatat sebagai CustomerInteraction NOTE
+    const actor = { id: session.id, name: session.name };
+    const updated = await updateCustomer(id, body, actor);
     return NextResponse.json({
       success: true,
       message: 'Data pelanggan berhasil diperbarui',
@@ -57,6 +59,7 @@ export async function PUT(
     );
   }
 }
+
 
 export async function DELETE(
   req: Request,

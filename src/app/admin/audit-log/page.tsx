@@ -75,6 +75,8 @@ export default function AuditLogPage() {
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  // Sesi #19 (Fix #3): Guard RBAC — hanya SUPERADMIN yang boleh render halaman ini
+  const [rbacChecked, setRbacChecked] = useState(false);
 
   const fetchLogs = useCallback(async () => {
     setLoading(true);
@@ -98,7 +100,22 @@ export default function AuditLogPage() {
     }
   }, [page, filterAction, filterDateFrom, filterDateTo]);
 
-  useEffect(() => { fetchLogs(); }, [fetchLogs]);
+  useEffect(() => {
+    // Sesi #19 (Fix #3): Verifikasi role sebelum fetch data
+    fetch('/api/admin/auth/me')
+      .then((r) => r.json())
+      .then((d) => {
+        if (!d.user || d.user.role !== 'SUPERADMIN') {
+          window.location.href = d.user ? '/admin/dashboard' : '/admin/login';
+          return;
+        }
+        setRbacChecked(true);
+      })
+      .catch(() => { window.location.href = '/admin/login'; });
+  }, []);
+
+  useEffect(() => { if (rbacChecked) fetchLogs(); }, [fetchLogs, rbacChecked]);
+
 
   const handleFilterSubmit = (e: React.FormEvent) => {
     e.preventDefault();

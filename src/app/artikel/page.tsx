@@ -31,7 +31,7 @@ function estimateReadingTime(html: string): string {
 }
 
 export default async function ArtikelListingPage() {
-  const articles = await getArticles({ publishedOnly: true });
+  const { data: articles } = await getArticles({ publishedOnly: true });
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://adably.id';
 
   const breadcrumbSchema = {

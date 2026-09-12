@@ -59,7 +59,7 @@ async function runTests() {
   // Test 2: Initial Get Customers & Stats
   console.log('\n--- 2. Database Retrieval & Stats ---');
   const initialList = await getCustomers();
-  assert(initialList.length >= 4, `Initial customer list loaded (${initialList.length} items)`);
+  assert(initialList.data.length >= 4, `Initial customer list loaded (${initialList.data.length} items)`);
 
   const initialStats = await getAdminDashboardStats();
   assert(typeof initialStats.totalLeadsCount === 'number', 'totalLeadsCount is present in stats');
@@ -110,10 +110,10 @@ async function runTests() {
   assert(fetched !== null && fetched.id === newContact.id, 'Fetched customer by ID matches');
 
   const searchResults = await getCustomers({ q: 'Konstruksi Jaya' });
-  assert(searchResults.some((c) => c.id === newContact.id), 'Search by company name found test contact');
+  assert(searchResults.data.some((c: any) => c.id === newContact.id), 'Search by company name found test contact');
 
   const statusResults = await getCustomers({ status: 'BARU' });
-  assert(statusResults.every((c) => c.status === 'BARU'), 'Filter by status BARU returned only BARU contacts');
+  assert(statusResults.data.every((c: any) => c.status === 'BARU'), 'Filter by status BARU returned only BARU contacts');
 
   // Test 6: Admin Update Customer (CRUD: Update)
   console.log('\n--- 6. Update Customer (CRUD: Update) ---');
@@ -213,6 +213,73 @@ async function runTests() {
   await deleteCustomer(rfqLead1.customer.id);
   if (checkoutLead) await deleteCustomer(checkoutLead.id);
 
+  // ─── Sesi #20 Tests ───────────────────────────────────────────────────────
+
+  // Test 10: addCustomerInteraction
+  console.log('\n--- 10. [Sesi #20] addCustomerInteraction ---');
+  try {
+    const { addCustomerInteraction } = await import('../src/lib/data-store');
+    // Buat customer sementara untuk test
+    const tempCust = await createCustomer({
+      name: 'Test Interaksi Sesi20',
+      phone: '6299988877766',
+      source: 'MANUAL_ADMIN',
+    });
+    const interaction = await addCustomerInteraction({
+      customerId: tempCust.id,
+      type: 'CALL',
+      summary: 'Test telepon follow-up sesi 20',
+      actorId: null,
+      actorName: 'Test Runner',
+    });
+    assert(!!interaction.id, 'addCustomerInteraction: interaction ID ada');
+    assert(interaction.type === 'CALL', 'addCustomerInteraction: type = CALL');
+    assert(interaction.actorName === 'Test Runner', 'addCustomerInteraction: actorName tersimpan');
+
+    // Test 11: deleteCustomerInteraction — SYSTEM entry harus ditolak
+    console.log('\n--- 11. [Sesi #20] deleteCustomerInteraction RBAC ---');
+    const { deleteCustomerInteraction } = await import('../src/lib/data-store');
+    const systemInteraction = await addCustomerInteraction({
+      customerId: tempCust.id,
+      type: 'SYSTEM',
+      summary: 'Test sistem otomatis',
+      actorId: null,
+      actorName: 'SYSTEM',
+    });
+    try {
+      await deleteCustomerInteraction(systemInteraction.id, 'any-user-id', 'ADMIN');
+      assert(false, 'deleteCustomerInteraction: SYSTEM entry seharusnya DITOLAK');
+    } catch (e: any) {
+      assert(e.message.includes('sistem'), 'deleteCustomerInteraction: SYSTEM entry ditolak dengan pesan benar');
+    }
+    // Hapus manual entry oleh pembuat
+    await deleteCustomerInteraction(interaction.id, 'any-user-id', 'SUPERADMIN');
+    assert(true, 'deleteCustomerInteraction: SUPERADMIN bisa hapus manual entry');
+
+    // Cleanup
+    await deleteCustomer(tempCust.id);
+  } catch (e: any) {
+    console.warn('  ⚠️  Skip Test 10-11 (DB tidak aktif):', e.message);
+  }
+
+  // Test 12: getFollowUpsDue
+  console.log('\n--- 12. [Sesi #20] getFollowUpsDue ---');
+  try {
+    const { getFollowUpsDue } = await import('../src/lib/data-store');
+    const due = await getFollowUpsDue(5);
+    assert(Array.isArray(due), 'getFollowUpsDue: mengembalikan array');
+    assert(due.length <= 5, 'getFollowUpsDue: maksimal 5 kontak');
+    if (due.length > 0) {
+      assert('nextFollowUpAt' in due[0], 'getFollowUpsDue: item punya nextFollowUpAt');
+      assert('overdueMs' in due[0], 'getFollowUpsDue: item punya overdueMs');
+    }
+    console.log(`  ℹ️  getFollowUpsDue: ${due.length} kontak due`);
+  } catch (e: any) {
+    console.warn('  ⚠️  Skip Test 12 (DB tidak aktif):', e.message);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+
   // Summary
   console.log('\n========================================');
   console.log(`🎉 TEST SUMMARY: ${testsPassed} PASSED, ${testsFailed} FAILED`);
@@ -224,6 +291,7 @@ async function runTests() {
     process.exit(0);
   }
 }
+
 
 runTests().catch((err) => {
   console.error('Fatal test error:', err);

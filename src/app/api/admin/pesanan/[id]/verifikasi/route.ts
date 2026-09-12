@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSession } from '@/lib/auth';
 import { verifyPaymentProof, getOrderById } from '@/lib/data-store';
 import { recordAuditLog, AUDIT_ACTIONS } from '@/lib/audit-log';
+import { buildWhatsAppMessage } from '@/lib/wa-notify';
 
 /**
  * POST /api/admin/pesanan/[id]/verifikasi
  * Sesi #17 (Temuan S): Simpan verifiedById (ID staf) — source of truth akuntabilitas.
  * Sesi #17 (Temuan K): Rekam audit log setiap verifikasi pembayaran.
+ * Sesi #19 (Fix #4): Sertakan wa_message siap-copy di JSON response.
  */
 export async function POST(
   request: NextRequest,
@@ -23,7 +25,7 @@ export async function POST(
     const body = await request.json();
     const { isApproved, notes } = body;
 
-    // Dapatkan order untuk metadata audit log
+    // Dapatkan order untuk metadata audit log dan WA
     const order = await getOrderById(id);
     if (!order) {
       return NextResponse.json({ error: 'Pesanan tidak ditemukan.' }, { status: 404 });
@@ -56,12 +58,32 @@ export async function POST(
       },
     });
 
+    // Sesi #19 (Fix #4): Bangun teks WA siap-copy — zero HTTP call
+    let wa_message: string | null = null;
+    try {
+      wa_message = buildWhatsAppMessage(
+        {
+          orderCode: order.orderCode,
+          buyerName: order.buyerName,
+          buyerPhone: order.buyerPhone,
+          total: order.total,
+          rejectionReason: isApproved ? undefined : (notes || 'Bukti pembayaran tidak valid'),
+        },
+        isApproved ? 'payment_verified' : 'payment_rejected'
+      );
+    } catch {
+      // Non-critical — jangan gagalkan response utama
+    }
+
     return NextResponse.json({
       success: true,
       message: isApproved
         ? 'Pembayaran berhasil diverifikasi dan disetujui (Lunas).'
         : 'Bukti pembayaran ditolak. Pesanan dikembalikan ke status Menunggu Pembayaran.',
       order: updated,
+      // wa_message: teks siap-copy untuk admin teruskan ke WhatsApp pembeli
+      wa_message,
+      wa_phone: order.buyerPhone,
     });
   } catch (error: any) {
     console.error('Error verifying payment proof:', error);
@@ -71,3 +93,4 @@ export async function POST(
     );
   }
 }
+

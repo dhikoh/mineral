@@ -20,7 +20,8 @@ export async function GET(req: Request) {
     const status = searchParams.get('status') || undefined;
     const q = searchParams.get('q') || undefined;
 
-    const customers = await getCustomers({ type, status, q });
+    // Export tidak perlu pagination — ambil semua dengan limit besar
+    const { data: customers } = await getCustomers({ type, status, q, limit: 10000, page: 1 });
 
     const headers = [
       'ID',
@@ -60,7 +61,7 @@ export async function GET(req: Request) {
       escapeCsvField(c.notes || '-'),
     ]);
 
-    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((r: string[]) => r.join(','))].join('\r\n');
 
     const todayStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const filename = `Adably-database-pelanggan-${todayStr}.csv`;

@@ -43,6 +43,10 @@ export const AUDIT_ACTIONS = {
   // Produk & Katalog
   CREATE_PRODUCT: 'CREATE_PRODUCT',
   UPDATE_PRODUCT: 'UPDATE_PRODUCT',
+  // Sesi #19 (Fix #7): Granular audit untuk perubahan harga dan stok produk
+  UPDATE_PRODUCT_PRICE: 'UPDATE_PRODUCT_PRICE',
+  UPDATE_PRODUCT_STOCK: 'UPDATE_PRODUCT_STOCK',
+
   DELETE_PRODUCT: 'DELETE_PRODUCT',
 
   // Pengaturan Situs

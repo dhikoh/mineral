@@ -61,9 +61,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   let productEntries: MetadataRoute.Sitemap = [];
   try {
     const products = await getProducts();
-    productEntries = products
-      .filter((p) => p.isActive !== false)
-      .map((p) => ({
+    productEntries = (products as any[])
+      .filter((p: any) => p.isActive !== false)
+      .map((p: any) => ({
         url: `${baseUrl}/produk/${p.slug}`,
         lastModified: currentDate,
         changeFrequency: 'weekly' as const,
@@ -90,10 +90,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // 4. Dynamic Articles
   let articleEntries: MetadataRoute.Sitemap = [];
   try {
-    const articles = await getArticles();
+    const { data: articles } = await getArticles({ limit: 1000 });
     articleEntries = articles
-      .filter((a) => a.isPublished)
-      .map((a) => ({
+      .filter((a: any) => a.isPublished)
+      .map((a: any) => ({
         url: `${baseUrl}/artikel/${a.slug}`,
         lastModified: a.publishedAt ? new Date(a.publishedAt) : currentDate,
         changeFrequency: 'monthly' as const,

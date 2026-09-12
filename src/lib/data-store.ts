@@ -860,7 +860,11 @@ export interface GetProductsOptions {
   maxPrice?: number;
   inStock?: boolean;
   sort?: 'price-asc' | 'price-desc' | 'newest' | 'name-asc' | 'name-desc';
+  // Sesi #19 (Fix #2): Pagination opsional — hanya dipakai admin listing, storefront tidak pakai
+  page?: number;
+  limit?: number;
 }
+
 
 // --- PRODUK METHODS ---
 export async function getProducts(options?: GetProductsOptions) {
@@ -911,6 +915,18 @@ export async function getProducts(options?: GetProductsOptions) {
     else if (options?.sort === 'name-desc') orderBy = { name: 'desc' };
     else if (options?.sort === 'newest') orderBy = { createdAt: 'desc' };
 
+    // Sesi #19 (Fix #2): Jika page/limit dikirim → admin listing mode (paginated)
+    if (options?.page !== undefined || options?.limit !== undefined) {
+      const page = Math.max(1, options?.page ?? 1);
+      const limit = Math.min(100, Math.max(1, options?.limit ?? 20));
+      const skip = (page - 1) * limit;
+      const [prods, total] = await Promise.all([
+        prisma.product.findMany({ where, include: { category: true, usages: { include: { usage: true } } }, orderBy, skip, take: limit }),
+        prisma.product.count({ where }),
+      ]);
+      return { data: prods, total, page, limit, totalPages: Math.ceil(total / limit) } as any;
+    }
+
     return await prisma.product.findMany({
       where,
       include: {
@@ -919,6 +935,7 @@ export async function getProducts(options?: GetProductsOptions) {
       },
       orderBy,
     });
+
   } catch {
     const store = readLocalStore();
     let prods = [...store.products];
@@ -1317,7 +1334,7 @@ export async function createOrder(data: {
   // Resolve items with current products & prices
   const allProducts = await getProducts();
   const resolvedItems = data.items.map((item) => {
-    const p = allProducts.find((prod) => prod.id === item.productId);
+    const p = (allProducts as any[]).find((prod: any) => prod.id === item.productId);
     if (!p) throw new Error(`Produk dengan ID ${item.productId} tidak ditemukan.`);
     if (p.stock !== null && p.stock !== undefined && p.stock < item.qty) {
       throw new Error(`Stok komoditas ${p.name} tidak mencukupi (tersedia: ${p.stock}).`);
@@ -1412,12 +1429,21 @@ export async function createOrder(data: {
     }
 
     // 3. Catat calon pembeli sebagai prospek (R-7: belum DEAL, LTV/totalOrders belum bertambah)
-    await recordLeadFromCheckout({
+    // Sesi #20: tangkap customer yang dikembalikan, lalu link Order.customerId
+    const leadCustomer = await recordLeadFromCheckout({
       buyerName: data.buyerName,
       buyerPhone: data.buyerPhone,
       buyerEmail: data.buyerEmail,
       buyerAddress: data.buyerAddress,
-    }).catch((err) => console.error('Error auto-syncing lead from checkout:', err));
+    }).catch((err) => { console.error('Error auto-syncing lead from checkout:', err); return null; });
+
+    if (leadCustomer && order?.id) {
+      await prisma.order.update({
+        where: { id: order.id },
+        data: { customerId: leadCustomer.id },
+      }).catch((e) => console.warn('Warning: gagal link order.customerId:', e?.message));
+    }
+
 
     return {
       ...order,
@@ -1510,7 +1536,7 @@ export async function getOrderByCode(orderCode: string) {
       return {
         ...order,
         items: order.items.map((it) => {
-          const prod = allProds.find((p) => p.id === it.productId);
+          const prod = (allProds as any[]).find((p: any) => p.id === it.productId);
           return {
             ...it,
             product: prod
@@ -1555,7 +1581,7 @@ export async function getOrderById(id: string) {
       return {
         ...order,
         items: order.items.map((it) => {
-          const prod = allProds.find((p) => p.id === it.productId);
+          const prod = (allProds as any[]).find((p: any) => p.id === it.productId);
           return {
             ...it,
             product: prod
@@ -1586,7 +1612,17 @@ export async function getOrderById(id: string) {
   };
 }
 
-export async function getOrders(options?: { status?: string; q?: string }) {
+export async function getOrders(options?: {
+  status?: string;
+  q?: string;
+  page?: number;
+  limit?: number;
+}): Promise<{ data: OrderData[]; total: number; page: number; limit: number; totalPages: number }> {
+  // Sesi #19 (Fix #2): Pagination default 20/halaman maks 100
+  const page = Math.max(1, options?.page ?? 1);
+  const limit = Math.min(100, Math.max(1, options?.limit ?? 20));
+  const skip = (page - 1) * limit;
+
   try {
     const where: any = {};
     if (options?.status && options.status !== 'ALL') {
@@ -1599,27 +1635,46 @@ export async function getOrders(options?: { status?: string; q?: string }) {
         { buyerPhone: { contains: options.q, mode: 'insensitive' } },
       ];
     }
-    const orders = await prisma.order.findMany({
-      where,
-      include: {
-        items: true,
-        proof: true,
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-    const allProds = await getProducts();
-    return orders.map((order) => ({
+
+    // Sesi #19 (Fix #2 N+1): OrderItem tidak punya relasi Prisma ke Product (schema tidak define relation).
+    // Gunakan targeted lookup: ambil orders dengan items:true, lalu query product hanya untuk
+    // productIds yang muncul di halaman ini — jauh lebih hemat dari getProducts() penuh (lama).
+    const [orders, total] = await Promise.all([
+      prisma.order.findMany({
+        where,
+        include: { proof: true, items: true },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      prisma.order.count({ where }),
+    ]);
+
+    // Targeted product lookup untuk halaman ini saja
+    const productIds = [...new Set(orders.flatMap((o) => o.items.map((i) => i.productId)))];
+    const products = productIds.length > 0
+      ? await prisma.product.findMany({
+          where: { id: { in: productIds } },
+          select: { id: true, name: true, slug: true, images: true, unit: true },
+        })
+      : [];
+    const productMap = new Map(products.map((p) => [p.id, p]));
+
+    const data = orders.map((order) => ({
       ...order,
       items: order.items.map((it) => {
-        const prod = allProds.find((p) => p.id === it.productId);
+        const prod = productMap.get(it.productId);
         return {
           ...it,
           product: prod
-            ? { id: prod.id, name: prod.name, slug: prod.slug, images: prod.images, unit: prod.unit || 'kg' }
+            ? { id: prod.id, name: prod.name, slug: prod.slug, images: prod.images as string[], unit: (prod.unit as string) || 'kg' }
             : { id: it.productId, name: '[Komoditas Diarsipkan]', slug: '#', images: [], unit: 'kg' },
         };
       }),
-    }));
+    })) as unknown as OrderData[];
+
+    return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
+
   } catch {
     const store = readLocalStore();
     let orders = [...(store.orders || [])];
@@ -1636,7 +1691,10 @@ export async function getOrders(options?: { status?: string; q?: string }) {
           o.buyerPhone.includes(q)
       );
     }
-    return orders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    orders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    const total = orders.length;
+    const data = orders.slice(skip, skip + limit) as OrderData[];
+    return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 }
 
@@ -1751,6 +1809,7 @@ export async function verifyPaymentProof(
   const orderStatus = isApproved ? 'PAID' : 'PENDING_PAYMENT';
 
   try {
+    // Baca state awal sebelum transaksi (di luar tx — hanya baca)
     const existingOrder = await prisma.order.findUnique({
       where: { id: orderId },
     });
@@ -1759,48 +1818,71 @@ export async function verifyPaymentProof(
 
     const wasAlreadyPaid = ['PAID', 'PROCESSING', 'SHIPPED', 'COMPLETED'].includes(existingOrder.status);
 
-    await prisma.paymentProof.update({
-      where: { orderId },
-      data: {
-        status: proofStatus,
-        rejectionReason: isApproved ? null : notes || 'Bukti pembayaran tidak valid',
-        verifiedBy: verifiedBy || 'Super Admin',
-        verifiedById: verifiedById || null, // Sesi #17 (Temuan S)
-        verifiedAt: new Date(),
-      },
+    // Sesi #19 (Fix #1 KRITIS): Bungkus dua update dalam satu transaksi atomik.
+    // Sebelumnya dua prisma.update terpisah — jika koneksi putus di tengah, state
+    // akan inkonsisten (proof=APPROVED tapi order masih PENDING_PAYMENT).
+    const updated = await prisma.$transaction(async (tx) => {
+      await tx.paymentProof.update({
+        where: { orderId },
+        data: {
+          status: proofStatus,
+          rejectionReason: isApproved ? null : notes || 'Bukti pembayaran tidak valid',
+          verifiedBy: verifiedBy || 'Super Admin',
+          verifiedById: verifiedById || null, // Sesi #17 (Temuan S)
+          verifiedAt: new Date(),
+        },
+      });
+
+      const updatedOrder = await tx.order.update({
+        where: { id: orderId },
+        data: { status: orderStatus as any },
+        include: { proof: true, items: true },
+      });
+
+      // Koreksi kompensasi LTV di dalam tx jika pembayaran yang tadinya sudah lunas kini ditolak
+      if (!isApproved && wasAlreadyPaid) {
+        const normalizedPhone = normalizePhone(existingOrder.buyerPhone);
+        if (normalizedPhone) {
+          const cust = await tx.customer.findFirst({
+            where: {
+              OR: [
+                { phone: normalizedPhone },
+                ...(updatedOrder.customerId ? [{ id: updatedOrder.customerId }] : []),
+              ],
+            },
+          });
+          if (cust) {
+            await tx.customer.update({
+              where: { id: cust.id },
+              data: {
+                totalOrders: Math.max(0, cust.totalOrders - 1),
+                totalSpent: Math.max(0, cust.totalSpent - Math.round(existingOrder.total)),
+              },
+            });
+            // Sesi #20: Ganti string-append ke notes → CustomerInteraction SYSTEM
+            await tx.customerInteraction.create({
+              data: {
+                customerId: cust.id,
+                type: 'SYSTEM',
+                summary: `Pembayaran pesanan ${existingOrder.orderCode} ditolak/dibatalkan. Koreksi LTV -Rp ${existingOrder.total.toLocaleString('id-ID')}. (Otomatis oleh sistem)`,
+                actorName: 'SYSTEM',
+                relatedOrderId: existingOrder.id,
+              },
+            });
+          }
+        }
+      }
+
+
+      return updatedOrder;
     });
 
-    const updated = await prisma.order.update({
-      where: { id: orderId },
-      data: { status: orderStatus as any },
-      include: { proof: true, items: true },
-    });
-
-    // R-7: Jika pembayaran disetujui (PAID) dan SEBELUMNYA BELUM PAID, catat status DEAL & akumulasi LTV di database CRM
+    // R-7: Jika disetujui (PAID) dan sebelumnya belum PAID, catat status DEAL & akumulasi LTV di CRM.
+    // Dipanggil di luar tx karena recordCustomerDealFromPaidOrder punya local-fallback sendiri.
     if (isApproved && !wasAlreadyPaid) {
       await recordCustomerDealFromPaidOrder(orderId).catch((err) =>
         console.error('Error recording CRM deal after payment verification:', err)
       );
-    }
-
-    // Koreksi kompensasi LTV jika pembayaran yang tadinya sudah lunas kini ditolak
-    if (!isApproved && wasAlreadyPaid) {
-      const normalizedPhone = normalizePhone(existingOrder.buyerPhone);
-      if (normalizedPhone) {
-        const cust = await prisma.customer.findUnique({ where: { phone: normalizedPhone } });
-        if (cust) {
-          await prisma.customer.update({
-            where: { id: cust.id },
-            data: {
-              totalOrders: Math.max(0, cust.totalOrders - 1),
-              totalSpent: Math.max(0, cust.totalSpent - Math.round(existingOrder.total)),
-              notes: cust.notes
-                ? `${cust.notes}\n[${new Date().toLocaleDateString('id-ID')}] Pembayaran pesanan ${existingOrder.orderCode} dibatalkan/ditolak (Koreksi LTV -Rp ${existingOrder.total.toLocaleString('id-ID')}).`
-                : `Pembayaran pesanan ${existingOrder.orderCode} ditolak.`,
-            },
-          }).catch((err) => console.error('Error compensating CRM deal:', err));
-        }
-      }
     }
 
     return updated;
@@ -1884,21 +1966,37 @@ export async function updateOrderStatus(
       if (isCancelling && wasPaid) {
         const normalizedPhone = normalizePhone(currentOrder.buyerPhone);
         if (normalizedPhone) {
-          const cust = await tx.customer.findUnique({ where: { phone: normalizedPhone } });
+          const orderCustomerId = (currentOrder as any).customerId as string | undefined;
+          const cust = await tx.customer.findFirst({
+            where: {
+              OR: [
+                { phone: normalizedPhone },
+                ...(orderCustomerId ? [{ id: orderCustomerId }] : []),
+              ],
+            },
+          });
           if (cust) {
             await tx.customer.update({
               where: { id: cust.id },
               data: {
                 totalOrders: Math.max(0, cust.totalOrders - 1),
                 totalSpent: Math.max(0, cust.totalSpent - Math.round(currentOrder.total)),
-                notes: cust.notes
-                  ? `${cust.notes}\n[${new Date().toLocaleDateString('id-ID')}] Pesanan ${currentOrder.orderCode} dibatalkan (Koreksi LTV -Rp ${currentOrder.total.toLocaleString('id-ID')}).`
-                  : `Pesanan ${currentOrder.orderCode} dibatalkan.`,
+              },
+            });
+            // Sesi #20: Ganti string-append ke notes → CustomerInteraction SYSTEM
+            await tx.customerInteraction.create({
+              data: {
+                customerId: cust.id,
+                type: 'SYSTEM',
+                summary: `Pesanan ${currentOrder.orderCode} dibatalkan (status: ${status}). Koreksi LTV -Rp ${currentOrder.total.toLocaleString('id-ID')}. (Otomatis oleh sistem)`,
+                actorName: 'SYSTEM',
+                relatedOrderId: currentOrder.id,
               },
             });
           }
         }
       }
+
 
       const updateData: any = { status };
       if (notes !== undefined) updateData.notes = notes;
@@ -1949,7 +2047,17 @@ export async function updateOrderStatus(
 }
 
 // --- ARTICLE METHODS ---
-export async function getArticles(options?: { publishedOnly?: boolean; q?: string }) {
+export async function getArticles(options?: {
+  publishedOnly?: boolean;
+  q?: string;
+  page?: number;
+  limit?: number;
+}): Promise<{ data: ArticleItem[]; total: number; page: number; limit: number; totalPages: number }> {
+  // Sesi #19 (Fix #2): Pagination — default 20, maks 100
+  const page = Math.max(1, options?.page ?? 1);
+  const limit = Math.min(100, Math.max(1, options?.limit ?? 20));
+  const skip = (page - 1) * limit;
+
   try {
     const where: any = {};
     if (options?.publishedOnly) {
@@ -1961,10 +2069,22 @@ export async function getArticles(options?: { publishedOnly?: boolean; q?: strin
         { metaDesc: { contains: options.q, mode: 'insensitive' } },
       ];
     }
-    return await prisma.article.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-    });
+    const [articles, total] = await Promise.all([
+      prisma.article.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      prisma.article.count({ where }),
+    ]);
+    return {
+      data: articles as unknown as ArticleItem[],
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   } catch {
     const store = readLocalStore();
     let articles = [...(store.articles || [])];
@@ -1979,9 +2099,17 @@ export async function getArticles(options?: { publishedOnly?: boolean; q?: strin
           (a.metaDesc && a.metaDesc.toLowerCase().includes(q))
       );
     }
-    return articles.sort(
+    articles.sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
+    const total = articles.length;
+    return {
+      data: articles.slice(skip, skip + limit) as ArticleItem[],
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 }
 
@@ -2383,74 +2511,143 @@ export async function deleteFAQ(id: string): Promise<{ success: boolean }> {
 
 // --- DASHBOARD STATS METHODS ---
 export async function getAdminDashboardStats() {
-  const [orders, products, articles, customers, settings] = await Promise.all([
-    getOrders(),
-    getProducts(),
-    getArticles(),
-    getCustomers(),
-    getSiteSettings(),
-  ]);
+  // Sesi #19 (Fix #2): Rewrite menggunakan query agregasi DB.
+  // Sebelumnya: getOrders()+getProducts()+getArticles()+getCustomers() = full scan 4 tabel ke memori Node.
+  // Sekarang: count/aggregate di sisi DB — O(1) memory footprint, O(log N) query time.
+  try {
+    const paidStatuses = ['PAID', 'PROCESSING', 'SHIPPED', 'COMPLETED'];
+    const settings = await getSiteSettings();
+    const defaultThreshold = settings.lowStockAlertThreshold ?? 50;
 
-  const paidStatuses = ['PAID', 'PROCESSING', 'SHIPPED', 'COMPLETED'];
-  const totalRevenue = orders
-    .filter((o) => paidStatuses.includes(o.status))
-    .reduce((sum, o) => sum + (o.total || 0), 0);
+    const [
+      totalOrdersCount,
+      pendingVerificationCount,
+      pendingPaymentCount,
+      inShippingCount,
+      completedCount,
+      revenueAgg,
+      totalProductsCount,
+      totalArticlesCount,
+      totalCustomersCount,
+      totalProspectsCount,
+      lowStockProducts,
+      recentOrders,
+    ] = await Promise.all([
+      prisma.order.count(),
+      prisma.order.count({ where: { status: 'PENDING_VERIFICATION' } }),
+      prisma.order.count({ where: { status: 'PENDING_PAYMENT' } }),
+      prisma.order.count({ where: { status: 'SHIPPED' } }),
+      prisma.order.count({ where: { status: 'COMPLETED' } }),
+      prisma.order.aggregate({
+        _sum: { total: true },
+        where: { status: { in: paidStatuses as any } },
+      }),
+      prisma.product.count({ where: { isActive: true } }),
+      prisma.article.count({ where: { isPublished: true } }),
+      prisma.customer.count({ where: { type: 'CUSTOMER' } }),
+      prisma.customer.count({ where: { type: 'PROSPECT' } }),
+      prisma.product.findMany({
+        where: {
+          isActive: true,
+          stock: { lt: defaultThreshold },
+        },
+        select: { id: true, name: true, slug: true, stock: true, unit: true, minStock: true, price: true, images: true },
+        orderBy: { stock: 'asc' },
+        take: 20,
+      }),
+      prisma.order.findMany({
+        orderBy: { createdAt: 'desc' },
+        take: 7,
+        include: { proof: { select: { id: true } }, _count: { select: { items: true } } },
+      }),
+    ]);
 
-  const pendingVerificationCount = orders.filter((o) => o.status === 'PENDING_VERIFICATION').length;
-  const pendingPaymentCount = orders.filter((o) => o.status === 'PENDING_PAYMENT').length;
-  const inShippingCount = orders.filter((o) => o.status === 'SHIPPED').length;
-  const completedCount = orders.filter((o) => o.status === 'COMPLETED').length;
-  const totalOrdersCount = orders.length;
+    const totalRevenue = revenueAgg._sum.total ?? 0;
+    const totalLeadsCount = totalCustomersCount + totalProspectsCount;
 
-  const totalProductsCount = products.filter((p) => p.isActive !== false).length;
-  const totalArticlesCount = articles.filter((a) => a.isPublished).length;
+    return {
+      totalRevenue,
+      pendingVerificationCount,
+      pendingPaymentCount,
+      inShippingCount,
+      completedCount,
+      totalOrdersCount,
+      totalProductsCount,
+      totalArticlesCount,
+      totalCustomersCount,
+      totalProspectsCount,
+      totalLeadsCount,
+      lowStockProducts: lowStockProducts.map((p) => ({
+        id: p.id,
+        name: p.name,
+        slug: p.slug,
+        stock: p.stock,
+        unit: (p.unit as string) || 'kg',
+        minStock: (p.minStock as number | null) ?? defaultThreshold,
+        price: p.price,
+        image: Array.isArray(p.images) && p.images.length > 0 ? (p.images[0] as string) : null,
+      })),
+      recentOrders: recentOrders.map((o) => ({
+        id: o.id,
+        orderCode: o.orderCode,
+        buyerName: o.buyerName,
+        buyerPhone: o.buyerPhone,
+        total: o.total,
+        status: o.status,
+        createdAt: o.createdAt,
+        itemsCount: o._count.items,
+        hasProof: Boolean(o.proof),
+      })),
+    };
+  } catch {
+    // DB tidak tersedia — fallback ke local store dengan hitung manual
+    const store = readLocalStore();
+    const orders = store.orders || [];
+    const products = store.products || [];
+    const articles = store.articles || [];
+    const customers = store.customers || [];
+    const settings = await getSiteSettings().catch(() => ({ lowStockAlertThreshold: 50 } as any));
+    const defaultThreshold = settings.lowStockAlertThreshold ?? 50;
 
-  const totalCustomersCount = customers.filter((c) => c.type === 'CUSTOMER').length;
-  const totalProspectsCount = customers.filter((c) => c.type === 'PROSPECT').length;
-  const totalLeadsCount = customers.length;
+    const paidStatuses = ['PAID', 'PROCESSING', 'SHIPPED', 'COMPLETED'];
+    const totalRevenue = orders
+      .filter((o) => paidStatuses.includes(o.status))
+      .reduce((sum, o) => sum + (o.total || 0), 0);
 
-  const defaultThreshold = settings.lowStockAlertThreshold ?? 50;
+    const lowStockProducts = products
+      .filter((p) => p.isActive !== false && p.stock < (p.minStock !== undefined ? p.minStock : defaultThreshold))
+      .slice(0, 20)
+      .map((p) => ({
+        id: p.id, name: p.name, slug: p.slug, stock: p.stock,
+        unit: p.unit || 'kg', minStock: p.minStock ?? defaultThreshold,
+        price: p.price, image: Array.isArray(p.images) && p.images.length > 0 ? p.images[0] : null,
+      }));
 
-  const lowStockProducts = products
-    .filter((p) => p.stock < (p.minStock !== undefined ? p.minStock : defaultThreshold))
-    .map((p) => ({
-      id: p.id,
-      name: p.name,
-      slug: p.slug,
-      stock: p.stock,
-      unit: p.unit || 'kg',
-      minStock: p.minStock ?? defaultThreshold,
-      price: p.price,
-      image: Array.isArray(p.images) && p.images.length > 0 ? (p.images[0] as string) : null,
-    }));
+    const recentOrders = orders
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 7)
+      .map((o) => ({
+        id: o.id, orderCode: o.orderCode, buyerName: o.buyerName, buyerPhone: o.buyerPhone,
+        total: o.total, status: o.status, createdAt: o.createdAt,
+        itemsCount: o.items?.length || 0, hasProof: Boolean(o.proof),
+      }));
 
-  const recentOrders = orders.slice(0, 7).map((o) => ({
-    id: o.id,
-    orderCode: o.orderCode,
-    buyerName: o.buyerName,
-    buyerPhone: o.buyerPhone,
-    total: o.total,
-    status: o.status,
-    createdAt: o.createdAt,
-    itemsCount: o.items?.length || 0,
-    hasProof: Boolean(o.proof),
-  }));
-
-  return {
-    totalRevenue,
-    pendingVerificationCount,
-    pendingPaymentCount,
-    inShippingCount,
-    completedCount,
-    totalOrdersCount,
-    totalProductsCount,
-    totalArticlesCount,
-    totalCustomersCount,
-    totalProspectsCount,
-    totalLeadsCount,
-    lowStockProducts,
-    recentOrders,
-  };
+    return {
+      totalRevenue,
+      pendingVerificationCount: orders.filter((o) => o.status === 'PENDING_VERIFICATION').length,
+      pendingPaymentCount: orders.filter((o) => o.status === 'PENDING_PAYMENT').length,
+      inShippingCount: orders.filter((o) => o.status === 'SHIPPED').length,
+      completedCount: orders.filter((o) => o.status === 'COMPLETED').length,
+      totalOrdersCount: orders.length,
+      totalProductsCount: products.filter((p) => p.isActive !== false).length,
+      totalArticlesCount: articles.filter((a) => a.isPublished).length,
+      totalCustomersCount: customers.filter((c) => c.type === 'CUSTOMER').length,
+      totalProspectsCount: customers.filter((c) => c.type === 'PROSPECT').length,
+      totalLeadsCount: customers.length,
+      lowStockProducts,
+      recentOrders,
+    };
+  }
 }
 
 // --- CUSTOMER & CRM METHODS ---
@@ -2459,7 +2656,14 @@ export async function getCustomers(options?: {
   q?: string;
   type?: string;
   status?: string;
-}): Promise<CustomerItem[]> {
+  page?: number;
+  limit?: number;
+}): Promise<{ data: CustomerItem[]; total: number; page: number; limit: number; totalPages: number }> {
+  // Sesi #19 (Fix #2): Pagination default 20/halaman maks 100
+  const page = Math.max(1, options?.page ?? 1);
+  const limit = Math.min(100, Math.max(1, options?.limit ?? 20));
+  const skip = (page - 1) * limit;
+
   try {
     const where: any = {};
     if (options?.type && options.type !== 'ALL') {
@@ -2480,20 +2684,31 @@ export async function getCustomers(options?: {
       ];
     }
 
-    const customers = await prisma.customer.findMany({
-      where,
-      orderBy: { updatedAt: 'desc' },
-    });
+    const [customers, total] = await Promise.all([
+      prisma.customer.findMany({
+        where,
+        orderBy: { updatedAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      prisma.customer.count({ where }),
+    ]);
 
-    return customers.map((c) => ({
-      ...c,
-      lastContactAt: c.lastContactAt ? c.lastContactAt.toISOString() : null,
-      createdAt: c.createdAt.toISOString(),
-      updatedAt: c.updatedAt.toISOString(),
-    })) as CustomerItem[];
+    return {
+      data: customers.map((c) => ({
+        ...c,
+        lastContactAt: c.lastContactAt ? c.lastContactAt.toISOString() : null,
+        createdAt: c.createdAt.toISOString(),
+        updatedAt: c.updatedAt.toISOString(),
+      })) as CustomerItem[],
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   } catch {
     const store = readLocalStore();
-    let list = store.customers || DEFAULT_CUSTOMERS;
+    let list = [...(store.customers || DEFAULT_CUSTOMERS)];
 
     if (options?.type && options.type !== 'ALL') {
       list = list.filter((c) => c.type === options.type);
@@ -2514,24 +2729,60 @@ export async function getCustomers(options?: {
       );
     }
 
-    return [...list].sort(
-      (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-    );
+    list.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+    const total = list.length;
+    return {
+      data: list.slice(skip, skip + limit) as CustomerItem[],
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 }
 
-export async function getCustomerById(id: string): Promise<CustomerItem | null> {
+export async function getCustomerById(id: string): Promise<any | null> {
   try {
     const c = await prisma.customer.findUnique({
       where: { id },
+      include: {
+        assignedTo: { select: { id: true, name: true, email: true, role: true } },
+        orders: {
+          select: {
+            id: true,
+            orderCode: true,
+            status: true,
+            total: true,
+            createdAt: true,
+            items: { select: { qty: true, price: true } },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 20,
+        },
+        interactions: {
+          include: { actor: { select: { id: true, name: true, role: true } } },
+          orderBy: { createdAt: 'desc' },
+          take: 50,
+        },
+      },
     });
     if (!c) return null;
     return {
       ...c,
+      orders: c.orders.map((o) => ({
+        ...o,
+        itemsCount: o.items.reduce((sum, i) => sum + i.qty, 0),
+        createdAt: o.createdAt.toISOString(),
+      })),
+      interactions: c.interactions.map((i) => ({
+        ...i,
+        createdAt: i.createdAt.toISOString(),
+      })),
       lastContactAt: c.lastContactAt ? c.lastContactAt.toISOString() : null,
+      nextFollowUpAt: c.nextFollowUpAt ? c.nextFollowUpAt.toISOString() : null,
       createdAt: c.createdAt.toISOString(),
       updatedAt: c.updatedAt.toISOString(),
-    } as CustomerItem;
+    };
   } catch {
     const store = readLocalStore();
     const c = (store.customers || DEFAULT_CUSTOMERS).find((item) => item.id === id);
@@ -2657,8 +2908,14 @@ export async function updateCustomer(
     totalOrders: number;
     totalSpent: number;
     lastContactAt: string | null;
-  }>
-): Promise<CustomerItem> {
+    // Sesi #20: field baru CRM
+    assignedToId: string | null;
+    nextFollowUpAt: string | null;
+    tags: string[] | null;
+  }>,
+  // Sesi #20: actor untuk log status change
+  actor?: { id: string; name: string } | null
+): Promise<any> {
   const updatePayload: any = {};
   if (data.name !== undefined) updatePayload.name = sanitize(data.name.trim());
   if (data.phone !== undefined) updatePayload.phone = normalizePhone(data.phone);
@@ -2674,26 +2931,45 @@ export async function updateCustomer(
   if (data.totalOrders !== undefined) updatePayload.totalOrders = data.totalOrders;
   if (data.totalSpent !== undefined) updatePayload.totalSpent = Math.round(data.totalSpent);
   if (data.lastContactAt !== undefined) updatePayload.lastContactAt = data.lastContactAt ? new Date(data.lastContactAt) : null;
+  // Sesi #20: field baru
+  if (data.assignedToId !== undefined) updatePayload.assignedToId = data.assignedToId || null;
+  if (data.nextFollowUpAt !== undefined) updatePayload.nextFollowUpAt = data.nextFollowUpAt ? new Date(data.nextFollowUpAt) : null;
+  if (data.tags !== undefined) updatePayload.tags = data.tags || null;
 
   try {
+    // Sesi #20: Baca status lama untuk deteksi perubahan
+    const existing = await prisma.customer.findUnique({ where: { id }, select: { status: true } });
     const updated = await prisma.customer.update({
       where: { id },
       data: updatePayload,
     });
+
+    // Sesi #20: Auto-log perubahan status sebagai CustomerInteraction NOTE
+    if (data.status !== undefined && existing && existing.status !== data.status) {
+      await prisma.customerInteraction.create({
+        data: {
+          customerId: id,
+          type: 'NOTE',
+          summary: `Status diubah dari ${existing.status} menjadi ${data.status}.`,
+          actorId: actor?.id || null,
+          actorName: actor?.name || 'Admin',
+        },
+      }).catch((e) => console.warn('Warn: gagal catat interaction status change:', e?.message));
+    }
+
     return {
       ...updated,
       lastContactAt: updated.lastContactAt ? updated.lastContactAt.toISOString() : null,
+      nextFollowUpAt: updated.nextFollowUpAt ? updated.nextFollowUpAt.toISOString() : null,
       createdAt: updated.createdAt.toISOString(),
       updatedAt: updated.updatedAt.toISOString(),
-    } as CustomerItem;
+    };
   } catch {
     const store = readLocalStore();
     if (!store.customers) store.customers = [...DEFAULT_CUSTOMERS];
 
     const idx = store.customers.findIndex((c) => c.id === id);
-    if (idx === -1) {
-      throw new Error(`Customer dengan ID ${id} tidak ditemukan.`);
-    }
+    if (idx === -1) throw new Error(`Customer dengan ID ${id} tidak ditemukan.`);
 
     const now = new Date().toISOString();
     store.customers[idx] = {
@@ -3443,5 +3719,106 @@ export async function deleteAdminUser(id: string, currentUserId: string): Promis
 
     store.users = store.users.filter((u) => u.id !== id);
     writeLocalStore(store);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sesi #20: CRM Interaction & Follow-up Functions
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Buat entri log interaksi CRM (manual oleh staf atau SYSTEM).
+ * Entri SYSTEM tidak bisa dihapus via UI; entri manual bisa dihapus oleh pembuat / SUPERADMIN.
+ */
+export async function addCustomerInteraction(data: {
+  customerId: string;
+  type: 'CALL' | 'WHATSAPP' | 'EMAIL' | 'MEETING' | 'SITE_VISIT' | 'NOTE' | 'SYSTEM';
+  summary: string;
+  actorId?: string | null;
+  actorName: string;
+  relatedOrderId?: string | null;
+}): Promise<any> {
+  const clean = sanitize(data.summary.trim());
+  if (!clean || clean.length < 5) {
+    throw new Error('Ringkasan interaksi minimal 5 karakter.');
+  }
+
+  const interaction = await prisma.customerInteraction.create({
+    data: {
+      customerId: data.customerId,
+      type: data.type as any,
+      summary: clean,
+      actorId: data.actorId || null,
+      actorName: data.actorName,
+      relatedOrderId: data.relatedOrderId || null,
+    },
+    include: {
+      actor: { select: { id: true, name: true, role: true } },
+    },
+  });
+
+  return {
+    ...interaction,
+    createdAt: interaction.createdAt.toISOString(),
+  };
+}
+
+/**
+ * Hapus entri interaksi — hanya boleh oleh pembuat (actorId) atau SUPERADMIN.
+ * Entri bertipe SYSTEM tidak bisa dihapus.
+ */
+export async function deleteCustomerInteraction(
+  interactionId: string,
+  requesterId: string,
+  requesterRole: string
+): Promise<void> {
+  const interaction = await prisma.customerInteraction.findUnique({
+    where: { id: interactionId },
+    select: { type: true, actorId: true },
+  });
+
+  if (!interaction) throw new Error('Interaksi tidak ditemukan.');
+  if (interaction.type === 'SYSTEM') {
+    throw new Error('Entri interaksi otomatis sistem tidak dapat dihapus.');
+  }
+  if (requesterRole !== 'SUPERADMIN' && interaction.actorId !== requesterId) {
+    throw new Error('Anda tidak memiliki izin untuk menghapus interaksi ini.');
+  }
+
+  await prisma.customerInteraction.delete({ where: { id: interactionId } });
+}
+
+/**
+ * Ambil daftar kontak yang jadwal follow-upnya sudah tiba atau terlewat (nextFollowUpAt <= now),
+ * dengan status bukan DEAL atau BATAL. Maksimal 5 kontak, urut paling terlewat dulu.
+ */
+export async function getFollowUpsDue(limit = 5): Promise<any[]> {
+  try {
+    const now = new Date();
+    const contacts = await prisma.customer.findMany({
+      where: {
+        nextFollowUpAt: { lte: now },
+        status: { notIn: ['DEAL', 'BATAL'] as any[] },
+      },
+      orderBy: { nextFollowUpAt: 'asc' }, // paling lama terlewat dulu
+      take: limit,
+      select: {
+        id: true,
+        name: true,
+        company: true,
+        phone: true,
+        status: true,
+        nextFollowUpAt: true,
+        assignedTo: { select: { id: true, name: true } },
+      },
+    });
+
+    return contacts.map((c) => ({
+      ...c,
+      nextFollowUpAt: c.nextFollowUpAt ? c.nextFollowUpAt.toISOString() : null,
+      overdueMs: c.nextFollowUpAt ? now.getTime() - c.nextFollowUpAt.getTime() : 0,
+    }));
+  } catch {
+    return []; // fail-soft: widget dashboard tidak boleh crash halaman
   }
 }

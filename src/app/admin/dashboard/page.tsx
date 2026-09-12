@@ -26,6 +26,9 @@ import {
   MessageSquare,
   Users,
   UserCheck,
+  Bell,
+  Calendar,
+  PhoneCall,
 } from 'lucide-react';
 import { formatRupiah, formatTanggal } from '@/lib/utils';
 
@@ -66,6 +69,8 @@ export default function AdminDashboardPage() {
   const [user, setUser] = useState<{ name: string; email: string; role: string } | null>(null);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
+  // Sesi #20: follow-ups widget
+  const [followUps, setFollowUps] = useState<any[]>([]);
   const router = useRouter();
 
   useEffect(() => {
@@ -87,6 +92,11 @@ export default function AdminDashboardPage() {
       .catch(() => {
         router.push('/admin/login');
       });
+    // Sesi #20: load follow-ups (fail-soft)
+    fetch('/api/admin/pelanggan/follow-up')
+      .then((r) => r.ok ? r.json() : { data: [] })
+      .then((d) => setFollowUps(d.data || []))
+      .catch(() => {});
   }, [router]);
 
   const handleLogout = async () => {
@@ -665,6 +675,68 @@ export default function AdminDashboardPage() {
             )}
           </div>
         </div>
+
+        {/* Sesi #20: Widget Follow-up Hari Ini */}
+        {followUps.length > 0 && (
+          <div className="mt-6 rounded-2xl border border-orange-200 bg-orange-50 p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-bold text-orange-800 flex items-center gap-2">
+                <Bell className="h-4 w-4" />
+                Follow-up Hari Ini
+                <span className="rounded-full bg-orange-200 text-orange-800 px-2 py-0.5 text-[10px] font-bold">
+                  {followUps.length}
+                </span>
+              </h3>
+              <Link
+                href="/admin/pelanggan"
+                className="text-xs text-orange-600 font-semibold hover:text-orange-800 flex items-center gap-1"
+                aria-label="Lihat semua kontak"
+              >
+                Lihat semua <ArrowUpRight className="h-3 w-3" />
+              </Link>
+            </div>
+            <div className="space-y-2">
+              {followUps.map((contact: any) => {
+                const overdueDays = contact.nextFollowUpAt
+                  ? Math.floor((Date.now() - new Date(contact.nextFollowUpAt).getTime()) / 86400000)
+                  : 0;
+                return (
+                  <Link
+                    key={contact.id}
+                    href={`/admin/pelanggan/${contact.id}`}
+                    className="flex items-center justify-between bg-white rounded-xl border border-orange-100 px-4 py-3 hover:border-orange-300 hover:shadow-sm transition-all group"
+                    aria-label={`Detail kontak ${contact.name}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
+                        <PhoneCall className="h-4 w-4 text-orange-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900 group-hover:text-orange-700">
+                          {contact.name}
+                          {contact.company && <span className="text-slate-400 font-normal"> · {contact.company}</span>}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          {contact.assignedTo ? `PIC: ${contact.assignedTo.name}` : 'Belum ada PIC'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700">
+                        <Calendar className="h-2.5 w-2.5" />
+                        Terlewat {overdueDays}h
+                      </span>
+                      <p className="text-[10px] text-slate-400 mt-0.5">
+                        {new Date(contact.nextFollowUpAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+                      </p>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
       </main>
     </div>
   );

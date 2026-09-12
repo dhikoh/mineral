@@ -64,7 +64,7 @@ adably/
 │   │   │   │   ├── [id]/page.tsx
 │   │   │   │   ├── baru/page.tsx
 │   │   │   │   └── page.tsx
-│   │   │   ├── audit-log/page.tsx     # Halaman Audit Log — khusus SUPERADMIN (Sesi #17)
+│   │   │   ├── audit-log/page.tsx     # Halaman Audit Log — khusus SUPERADMIN (Sesi #17). RBAC page-level guard: cek role via /api/admin/auth/me sebelum fetchLogs, redirect non-SUPERADMIN (Sesi #19 Fix #3)
 │   │   │   ├── dashboard/page.tsx
 │   │   │   ├── faq/page.tsx
 │   │   │   ├── kategori/page.tsx
@@ -72,7 +72,7 @@ adably/
 │   │   │   ├── login/page.tsx
 │   │   │   ├── pelanggan/page.tsx
 │   │   │   ├── pengaturan/page.tsx
-│   │   │   ├── pengguna/page.tsx      # Manajemen Staf/Admin RBAC + toggle isActive (SUPERADMIN)
+│   │   │   ├── pengguna/page.tsx      # Manajemen Staf/Admin RBAC + toggle isActive (SUPERADMIN). RBAC page-level guard via useEffect: redirect non-SUPERADMIN ke /admin/dashboard (Sesi #19 Fix #3)
 │   │   │   ├── peruntukan/page.tsx
 │   │   │   ├── pesanan/
 │   │   │   │   ├── [id]/
@@ -522,7 +522,7 @@ model AuditLog {
 | `GET` | `/api/admin/produk` | Admin Wajib | Ambil katalog produk dengan filter, pencarian, satuan, dan ambang stok |
 | `POST` | `/api/admin/produk` | Admin Wajib | Buat produk komoditas baru (lengkap dengan satuan & minStock) |
 | `GET` | `/api/admin/produk/[id]` | Admin Wajib | Ambil detail lengkap satu produk |
-| `PUT` | `/api/admin/produk/[id]` | Admin Wajib | Perbarui data produk, harga, galeri, stok, satuan, dan minStock |
+| `PUT` | `/api/admin/produk/[id]` | Admin Wajib | Perbarui data produk, harga, galeri, stok, satuan, dan minStock. **Sesi #19**: jika `price` atau `stock` berubah, otomatis merekam `UPDATE_PRODUCT_PRICE`/`UPDATE_PRODUCT_STOCK` ke audit log via `Promise.allSettled` |
 | `DELETE` | `/api/admin/produk/[id]` | Admin Wajib | Hapus produk (dicek riwayat pesanan untuk mencegah orphan) |
 | `POST` | `/api/admin/upload` | Admin Wajib | Upload media CMS admin (10 MB, Magic Bytes fisik, rate limited, no SVG) |
 | `GET` | `/api/admin/users` | Admin Wajib (SUPERADMIN) | Ambil daftar akun staf & admin (termasuk field `isActive`) |
@@ -532,7 +532,7 @@ model AuditLog {
 | `GET` | `/api/admin/pesanan` | Admin Wajib | Daftar seluruh transaksi pesanan pembeli |
 | `GET` | `/api/admin/pesanan/[id]` | Admin Wajib | Detail pesanan spesifik beserta item & bukti bayar |
 | `PATCH` | `/api/admin/pesanan/[id]` | Admin Wajib | Update status pesanan (validasi transisi ketat, larang mutasi langsung PAID, restock otomatis jika batal/tolak, audit log) |
-| `POST` | `/api/admin/pesanan/[id]/verifikasi` | Admin Wajib | Setujui/tolak bukti bayar (PAID + trigger DEAL CRM atomik, catat `verifiedById`, audit log) |
+| `POST` | `/api/admin/pesanan/[id]/verifikasi` | Admin Wajib | Setujui/tolak bukti bayar (PAID + trigger DEAL CRM atomik via `prisma.$transaction`, catat `verifiedById`, audit log, sertakan `wa_message` siap-copy + `wa_phone` di JSON response — Sesi #19 Fix #4) |
 | `GET` | `/api/admin/pelanggan` | Admin Wajib | Direktori CRM database kontak (prospek & customer) |
 | `POST` | `/api/admin/pelanggan` | Admin Wajib | Tambah data kontak pelanggan/prospek manual |
 | `GET` | `/api/admin/pelanggan/[id]` | Admin Wajib | Detail kontak pelanggan, riwayat transaksi & estimasi kebutuhan |
@@ -628,3 +628,29 @@ ALLOW_LOCAL_FALLBACK="false"
    - `GET /api/admin/audit-log` memanggil `prisma` secara langsung (tidak melalui `src/lib/data-store.ts`). Ini adalah **pengecualian yang disengaja** dengan alasan berikut: (a) Endpoint ini membaca data audit log yang secara inheren hanya eksis di database — tidak ada fallback lokal yang bermakna; (b) Jika database mati, audit log endpoint harus **fail-loud** (HTTP 500) agar SUPERADMIN mengetahui kondisi darurat, bukan mengembalikan data kosong yang menyesatkan. Pengecualian ini tidak melanggar prinsip "Isolasi Dual Persistence" (Bagian 9 poin 4) karena prinsip tersebut khusus untuk operasi bisnis yang membutuhkan resilience, bukan untuk endpoint monitoring administratif.
 12. **Keputusan Arsitektur: Cakupan Audit Log Dibatasi ke Aksi High-Risk**:
    - Berdasarkan keputusan eksplisit bisnis, `recordAuditLog` hanya dipasang di operasi **high-risk akuntabilitas RBAC**: login, manajemen staf (create/update/activate/deactivate/delete), perubahan status pesanan, verifikasi pembayaran, dan mutasi pengaturan situs sensitif. CRUD Produk/Kategori/Peruntukan/Artikel/FAQ/ContentBlock **sengaja tidak dicakup** karena volume mutasinya tinggi (operational daily) sehingga audit penuh akan menciptakan tabel AuditLog yang sangat besar tanpa nilai bisnis proporsional. Jika persyaratan kepatuhan berubah di masa depan, `recordAuditLog` dapat ditambahkan ke route manapun tanpa perubahan arsitektur.
+
+
+---
+
+## Sesi #20 Update — CRM Enhancement (CustomerInteraction)
+
+### Schema Baru
+- InteractionType enum: CALL, WHATSAPP, EMAIL, MEETING, SITE_VISIT, NOTE, SYSTEM
+- Model CustomerInteraction: id, customerId (FK->Customer), type, summary, actorId (FK->User nullable), actorName (snapshot), relatedOrderId (optional), createdAt
+- Order.customerId: FK nullable ke Customer (onDelete: SetNull)
+- Customer: tambah assignedToId (FK->User), nextFollowUpAt (DateTime?), tags (Json?), relasi orders & interactions
+- User: tambah assignedCustomers & customerInteractions relations
+
+### Route Baru
+- GET /api/admin/pelanggan/[id] — detail dengan orders+interactions+assignedTo (sebelumnya orphan)
+- POST /api/admin/pelanggan/[id]/interaksi — tambah log interaksi manual
+- DELETE /api/admin/pelanggan/[id]/interaksi/[interactionId] — hapus (RBAC: pembuat/SUPERADMIN; SYSTEM readonly)
+- GET /api/admin/pelanggan/follow-up — kontak overdue follow-up (max 5)
+
+### Halaman Baru
+- /admin/pelanggan/[id] — detail pelanggan: metrik LTV, info kontak, auto-save PIC, jadwal follow-up, riwayat transaksi, timeline interaksi
+
+### Business Logic
+- createOrder(): setelah recordLeadFromCheckout, link Order.customerId = customer.id
+- updateCustomer(): auto-create CustomerInteraction NOTE saat status berubah
+- erifyPaymentProof() & updateOrderStatus(): koreksi LTV kini dicatat sebagai CustomerInteraction SYSTEM (bukan string-append ke notes)

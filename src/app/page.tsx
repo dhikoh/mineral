@@ -25,7 +25,7 @@ export default async function HomePage() {
     getSiteSettings(),
   ]);
 
-  const products = allProducts.filter((p) => p.isActive !== false).slice(0, 8);
+  const products = (allProducts as any[]).filter((p: any) => p.isActive !== false).slice(0, 8);
 
   let cleanWa = settings.csWhatsapp.replace(/\D/g, '');
   if (cleanWa.startsWith('0')) {

@@ -742,17 +742,17 @@ Menindaklanjuti instruksi pemilik proyek untuk merombak seluruh narasi, copywrit
 
 ---
 
-## [2026-09-11] - Sesi #14: Rebranding Global — MineralHub ? Adably
+## [2026-09-11] - Sesi #14: Rebranding Global ï¿½ MineralHub ? Adably
 
 **Tujuan Sesi:**
 Mengganti seluruh identitas merek **MineralHub** / **MineralHub Indonesia** / **PT MineralHub Indonesia** menjadi **Adably** di seluruh kode sumber frontend (src/) dan prisma/ yang tampil ke publik. Nama domain dably.id telah aktif digunakan sebagai domain produksi aplikasi ini.
 
 **Keputusan Desain:**
-- Nama resmi brand: **Adably** (tanpa sufiks PT atau Indonesia — bukan badan hukum PT).
+- Nama resmi brand: **Adably** (tanpa sufiks PT atau Indonesia ï¿½ bukan badan hukum PT).
 - Tagline: tetap **"Pusat Komoditas Mineral Tambang & Hasil Alam Berkualitas"**.
-- Email CS (cs@adably.id) dan rekening bank dapat diubah langsung via **Admin CMS Panel** setelah deploy — tidak perlu perubahan kode.
+- Email CS (cs@adably.id) dan rekening bank dapat diubah langsung via **Admin CMS Panel** setelah deploy ï¿½ tidak perlu perubahan kode.
 - Fallback URL di seluruh file dikorreksikan ke https://adably.id (huruf kecil, sesuai standar domain).
-- Email/kredensial admin system (dmin@mineralhub.com) tidak diubah — ini bukan teks publik; dapat diubah langsung di database Coolify.
+- Email/kredensial admin system (dmin@mineralhub.com) tidak diubah ï¿½ ini bukan teks publik; dapat diubah langsung di database Coolify.
 
 **Metode:**
 Penggantian massal menggunakan PowerShell [System.IO.File]::ReadAllText / WriteAllText dengan 3 pola berurutan:
@@ -781,8 +781,8 @@ Diikuti koreksi casing domain URL:
 - src/components/storefront/RfqModal.tsx, src/components/storefront/ProductDetailClient.tsx
 - src/lib/data-store.ts, src/lib/storage.ts
 - prisma/seed.ts
-- docs/BLUEPRINT.md [MODIFIKASI] — Update header terakhir diupdate ke Sesi #14
-- docs/NOTEPATCH.md [MODIFIKASI] — Pencatatan Sesi #14
+- docs/BLUEPRINT.md [MODIFIKASI] ï¿½ Update header terakhir diupdate ke Sesi #14
+- docs/NOTEPATCH.md [MODIFIKASI] ï¿½ Pencatatan Sesi #14
 
 **Verifikasi Kualitas & Integritas:**
 - Grep MineralHub pada seluruh src/ + prisma/: **0 hasil** (bersih total).
@@ -892,41 +892,41 @@ Audit komprehensif penutupan seluruh temuan Aâ€“I, pemenuhan checklist 3.1â€“3.8
 
 ---
 
-## Sesi #17 — Hardening Final: Audit Log Persisten, isActive Staf, S3/R2 SigV4, Stored-XSS Fix, Shared Admin Layout
+## Sesi #17 ï¿½ Hardening Final: Audit Log Persisten, isActive Staf, S3/R2 SigV4, Stored-XSS Fix, Shared Admin Layout
 **Tanggal:** 2026-09-12
-**Scope:** Audit Total Final (Temuan J–S) — Implementasi 10 temuan sisa dari audit Sesi #16 tanpa membangun fitur baru di luar mand?? audit.
+**Scope:** Audit Total Final (Temuan Jï¿½S) ï¿½ Implementasi 10 temuan sisa dari audit Sesi #16 tanpa membangun fitur baru di luar mand?? audit.
 
 ### Temuan & Penyelesaian
 
 | Temuan | Deskripsi | Status |
 |--------|-----------|--------|
-| J | Status Aktif Staf (isActive) — schema, auth, API, UI toggle | ? Selesai |
+| J | Status Aktif Staf (isActive) ï¿½ schema, auth, API, UI toggle | ? Selesai |
 | K | Persistent Audit Log (AuditLog model + helper + routes + halaman) | ? Selesai |
 | L | Cloud Storage S3/R2 SigV4 via @aws-sdk/client-s3 + Cloudinary signed + deleteMedia remote | ? Selesai |
-| M | Stored-XSS ArticleForm.tsx — preview menggunakan sanitize() | ? Selesai |
+| M | Stored-XSS ArticleForm.tsx ï¿½ preview menggunakan sanitize() | ? Selesai |
 | N | isPhoneMatch() min 8 digit | ? Selesai (Sesi #16) |
 | O | RBAC /admin/pengaturan: bankAccounts hanya SUPERADMIN | ? Selesai (Sesi #16) |
-| P | Global Admin Layout — sidebar desktop + hamburger mobile + logout | ? Selesai |
+| P | Global Admin Layout ï¿½ sidebar desktop + hamburger mobile + logout | ? Selesai |
 | Q | Sinkronisasi dokumentasi BLUEPRINT.md ? Sesi #17 | ? Selesai |
 | R | Migrasi rate-limit login ke modul terpusat (src/lib/rate-limit.ts) | ? Selesai (Sesi #16) |
 | S | verifiedById sebagai FK staf (PaymentProof.verifiedById) | ? Selesai |
 
 ### File yang Dibuat/Dimodifikasi
 - prisma/schema.prisma: Tambah AuditLog, User.isActive, PaymentProof.verifiedById
-- src/lib/audit-log.ts: NEW — recordAuditLog helper + AUDIT_ACTIONS enum
-- src/lib/storage.ts: Rewrite — S3 SigV4 via @aws-sdk/client-s3, Cloudinary signed upload, deleteMedia remote sungguhan
+- src/lib/audit-log.ts: NEW ï¿½ recordAuditLog helper + AUDIT_ACTIONS enum
+- src/lib/storage.ts: Rewrite ï¿½ S3 SigV4 via @aws-sdk/client-s3, Cloudinary signed upload, deleteMedia remote sungguhan
 - src/lib/rate-limit.ts: Tambah LOGIN preset
 - src/lib/auth.ts: isActive re-check per request di getAdminSession
 - src/lib/data-store.ts: isActive di UserItem, getAdminUsers, createAdminUser, updateAdminUser; verifiedById di verifyPaymentProof
 - src/app/api/admin/auth/login/route.ts: Rate-limit terpusat, isActive check, audit log
-- src/app/api/admin/audit-log/route.ts: NEW — GET audit log (SUPERADMIN only)
+- src/app/api/admin/audit-log/route.ts: NEW ï¿½ GET audit log (SUPERADMIN only)
 - src/app/api/admin/pesanan/[id]/route.ts: Audit log PATCH status
 - src/app/api/admin/pesanan/[id]/verifikasi/route.ts: verifiedById + audit log
 - src/app/api/admin/users/route.ts: Audit log POST create user
 - src/app/api/admin/users/[id]/route.ts: isActive PATCH, self-deactivation guard, audit log
 - src/app/api/admin/pengaturan/route.ts: RBAC bankAccounts, audit log
-- src/app/admin/layout.tsx: NEW — Shared sidebar/layout semua halaman admin
-- src/app/admin/audit-log/page.tsx: NEW — Halaman Audit Log (filter + pagination)
+- src/app/admin/layout.tsx: NEW ï¿½ Shared sidebar/layout semua halaman admin
+- src/app/admin/audit-log/page.tsx: NEW ï¿½ Halaman Audit Log (filter + pagination)
 - src/app/admin/pengguna/page.tsx: isActive toggle UI (ToggleLeft/ToggleRight)
 - src/components/admin/ArticleForm.tsx: Preview menggunakan sanitize() (XSS fix)
 - docs/BLUEPRINT.md: Update header ? Sesi #17
@@ -936,14 +936,14 @@ Audit komprehensif penutupan seluruh temuan Aâ€“I, pemenuhan checklist 3.1â€“3.8
 - 
 px tsc --noEmit: Exit Code 0 (0 TypeScript error)
 - 
-pm run build: Exit Code 0 — semua rute ter-compile sempurna
+pm run build: Exit Code 0 ï¿½ semua rute ter-compile sempurna
 
 
 ---
 
-## Sesi #18 — Audit Total Mandiri: Sinkronisasi BLUEPRINT 100%, Keputusan Arsitektur Eksplisit
+## Sesi #18 ï¿½ Audit Total Mandiri: Sinkronisasi BLUEPRINT 100%, Keputusan Arsitektur Eksplisit
 **Tanggal:** 2026-09-12
-**Scope:** Audit independen sebagai Senior Staff Engineer + Auditor Teknis. Tidak ada fitur baru — hanya perbaikan gap dokumentasi, verifikasi kode, dan keputusan arsitektur eksplisit.
+**Scope:** Audit independen sebagai Senior Staff Engineer + Auditor Teknis. Tidak ada fitur baru ï¿½ hanya perbaikan gap dokumentasi, verifikasi kode, dan keputusan arsitektur eksplisit.
 
 ### Gap yang Ditemukan & Diperbaiki
 
@@ -960,15 +960,15 @@ pm run build: Exit Code 0 — semua rute ter-compile sempurna
 | D-9 | BLUEPRINT Bagian 9: Tidak ada keputusan arsitektur audit-log direct Prisma (bypass data-store.ts) | Fix: Tambah poin 11 sebagai keputusan eksplisit |
 | D-10 | BLUEPRINT Bagian 9: Tidak ada keputusan cakupan audit log (mengapa CRUD tidak dicakup) | Fix: Tambah poin 12 sebagai keputusan eksplisit bisnis |
 | D-11 | .env.example: Missing FORCE_LOCAL_STORE dan S3_REGION | Fix: Tambah keduanya |
-| V-1 | Verifikasi isActive re-check: efektif seketika via DB query per request | Konfirmasi: auth.ts baris 53-58 — OK, bukan celah keamanan |
-| V-2 | Verifikasi DELETE staf audit log: sudah ada | Konfirmasi: users/[id]/route.ts baris 93-101 — OK |
+| V-1 | Verifikasi isActive re-check: efektif seketika via DB query per request | Konfirmasi: auth.ts baris 53-58 ï¿½ OK, bukan celah keamanan |
+| V-2 | Verifikasi DELETE staf audit log: sudah ada | Konfirmasi: users/[id]/route.ts baris 93-101 ï¿½ OK |
 | V-3 | Verifikasi PWA assets magic bytes | Konfirmasi: icon-192, icon-512, apple-touch semua 89 50 4E 47 (valid PNG, >0 byte) |
 | V-4 | Verifikasi XSS rendering di halaman publik artikel | Konfirmasi: cleanHtml = sanitize() di server sebelum render, FAQ = sanitize(), konten admin = sanitize() |
-| V-5 | Audit log route (direct Prisma) vs prinsip dual-persistence | Keputusan: Pengecualian yang disengaja — fail-loud by design, didokumentasikan di Bagian 9 poin 11 |
-| V-6 | Cakupan audit log: CRUD operasional tidak tercakup | Keputusan: Dibatasi ke aksi high-risk akuntabilitas RBAC — didokumentasikan di Bagian 9 poin 12 |
+| V-5 | Audit log route (direct Prisma) vs prinsip dual-persistence | Keputusan: Pengecualian yang disengaja ï¿½ fail-loud by design, didokumentasikan di Bagian 9 poin 11 |
+| V-6 | Cakupan audit log: CRUD operasional tidak tercakup | Keputusan: Dibatasi ke aksi high-risk akuntabilitas RBAC ï¿½ didokumentasikan di Bagian 9 poin 12 |
 
 ### File yang Diubah
-- docs/BLUEPRINT.md: Rewrite Bagian 3, 4, 5, 6, 7, 8, 9 — sinkron 100% dengan kode aktual per Sesi #18
+- docs/BLUEPRINT.md: Rewrite Bagian 3, 4, 5, 6, 7, 8, 9 ï¿½ sinkron 100% dengan kode aktual per Sesi #18
 - .env.example: Tambah S3_REGION dan FORCE_LOCAL_STORE
 - docs/NOTEPATCH.md: Append Sesi #18 (file ini)
 
@@ -981,3 +981,100 @@ px tsc --noEmit: Exit Code 0 (0 TypeScript error)
 - 
 pm run build: Exit Code 0
 
+
+---
+
+## Sesi #19 ï¿½ Audit Kumulatif-Final: Perbaikan Komprehensif (2026-09-12)
+
+### Ringkasan
+Sesi audit akhir berdasarkan mandate kumulatif-final. Semua item dari daftar prioritas Sesi #19 telah diimplementasikan dan diverifikasi.
+
+### Fix #1 (Tinggi) ï¿½ Sudah dikerjakan sesi sebelumnya
+erifyPaymentProof dibungkus prisma.\ ï¿½ atomicity terjamin.
+
+### Fix #2 (Tinggi) ï¿½ Pagination & Dashboard N+1 (Selesai sesi ini)
+- getOrders, getArticles, getCustomers, getProducts: semua support parameter opsional page / limit.
+- Jika page/limit dikirim ? return { data, total, page, limit, totalPages }.
+- Jika tidak ? backward-compatible (array untuk storefront; paginated untuk admin).
+- getAdminDashboardStats rewrite menggunakan DB aggregation queries ï¿½ eliminasi N+1 dan full-table scan.
+- **N+1 Order-Product**: getOrders kini menggunakan targeted product lookup (hanya productId yang muncul di halaman), bukan getProducts() penuh.
+- OrderItem di schema Prisma tidak punya relasi product ? semua nested include product sudah dihapus dan diganti 2-query approach.
+
+### Fix #3 (Tinggi) ï¿½ RBAC Guard Halaman Admin
+- src/app/admin/pengguna/page.tsx: Guard useEffect ? redirect non-SUPERADMIN ke /admin/dashboard, unauthenticated ke /admin/login.
+- src/app/admin/audit-log/page.tsx: State bacChecked ? etchLogs hanya dipanggil setelah role terverifikasi SUPERADMIN.
+
+### Fix #4 (Tinggi) ï¿½ Integrasi WA Notify
+- src/app/api/admin/pesanan/[id]/verifikasi/route.ts: Import uildWhatsAppMessage dari src/lib/wa-notify.ts.
+- JSON response kini menyertakan wa_message (teks siap-copy) dan wa_phone. Non-critical ï¿½ jika helper gagal, response tetap sukses dengan wa_message: null.
+
+### Fix #5 (Sedang) ï¿½ Export CSV Pesanan (Selesai sesi sebelumnya)
+src/app/api/admin/pesanan/export/route.ts dibuat dengan filter status/tanggal.
+
+### Fix #6 (Sedang) ï¿½ Deduplikasi Upload Logic (Selesai sesi sebelumnya)
+src/lib/upload-validate.ts ï¿½ shared helper detectFileTypeFromMagicBytes.
+
+### Fix #7 (Sedang) ï¿½ Audit Log Harga & Stok Produk
+- src/lib/audit-log.ts: Tambah UPDATE_PRODUCT_PRICE dan UPDATE_PRODUCT_STOCK ke AUDIT_ACTIONS.
+- src/app/api/admin/produk/[id]/route.ts: PUT handler membaca nilai lama sebelum update, lalu memanggil ecordAuditLog dengan AUDIT_ACTIONS.UPDATE_PRODUCT_PRICE / UPDATE_PRODUCT_STOCK jika ada perubahan. Promise.allSettled agar audit log tidak mem-fail response utama.
+
+### Fix #8 ï¿½ TypeScript Compilation (0 Error)
+Semua error TypeScript yang timbul dari perubahan pagination diperbaiki:
+- Callers getArticles: rtikel/page.tsx, sitemap.ts, rtikel/[slug]/page.tsx, scripts/test-phase7-e2e.ts ? destructure .data.
+- Callers getCustomers: pelanggan/export/route.ts, scripts/test-crm-module.ts ? destructure .data.
+- Callers getProducts: page.tsx, sitemap.ts, rtikel/[slug]/page.tsx, data-store.ts (createOrder, getOrderByCode, getOrderById) ? cast s any[].
+- pesanan/export/route.ts: Hapus nested product include (tidak valid di schema), ganti targeted product lookup.
+- pelanggan/export/route.ts: limit: 10000 untuk export semua tanpa pagination.
+
+### Verifikasi Kualitas
+- 
+px tsc --noEmit: **Exit Code 0** (0 error TypeScript)
+- Semua fix diverifikasi terhadap kode aktual (bukan asumsi).
+
+### File yang Diubah
+| File | Perubahan |
+|------|-----------|
+| src/lib/data-store.ts | Pagination opsional getProducts, getOrders N+1 fix, implicit any fix |
+| src/lib/audit-log.ts | Tambah UPDATE_PRODUCT_PRICE, UPDATE_PRODUCT_STOCK |
+| src/lib/wa-notify.ts | *(dibuat sesi sebelumnya)* |
+| src/lib/upload-validate.ts | *(dibuat sesi sebelumnya)* |
+| src/app/admin/pengguna/page.tsx | RBAC useEffect guard |
+| src/app/admin/audit-log/page.tsx | RBAC rbacChecked guard |
+| src/app/api/admin/pesanan/[id]/verifikasi/route.ts | Integrasi wa_message ke response |
+| src/app/api/admin/produk/[id]/route.ts | Audit log price/stock di PUT |
+| src/app/api/admin/pesanan/export/route.ts | Fix product include, targeted lookup |
+| src/app/api/admin/pelanggan/export/route.ts | Fix .data dari paginated getCustomers |
+| src/app/artikel/page.tsx | Destructure .data dari getArticles |
+| src/app/artikel/[slug]/page.tsx | Cast allProducts as any[] |
+| src/app/page.tsx | Cast allProducts as any[] |
+| src/app/sitemap.ts | Fix getArticles .data, getProducts cast |
+| scripts/test-crm-module.ts | Update ke paginated .data API |
+| scripts/test-phase7-e2e.ts | Update ke paginated .data API |
+
+
+---
+
+## Sesi #20 -- Penguatan Modul CRM Admin
+**Tanggal:** 12/9/2026
+**Build:** Exit Code 0 (tsc + npm run build)
+
+### Schema
+- InteractionType enum, CustomerInteraction model, Order.customerId FK, Customer (assignedToId/nextFollowUpAt/tags)
+
+### Backend (data-store.ts)
+- getCustomerById: include orders+interactions+assignedTo
+- updateCustomer: assignedToId/nextFollowUpAt/tags + auto-log status NOTE
+- verifyPaymentProof/updateOrderStatus: notes-append -> CustomerInteraction SYSTEM
+- addCustomerInteraction [BARU]
+- deleteCustomerInteraction [BARU]
+- getFollowUpsDue [BARU]
+
+### API Routes Baru
+- POST /api/admin/pelanggan/[id]/interaksi
+- DELETE /api/admin/pelanggan/[id]/interaksi/[interactionId]
+- GET /api/admin/pelanggan/follow-up
+
+### Halaman
+- admin/pelanggan/[id]/page.tsx [BARU]: detail+LTV+PIC+follow-up+timeline
+- admin/pelanggan/page.tsx: tambah tombol Detail
+- admin/dashboard/page.tsx: widget Follow-up Hari Ini

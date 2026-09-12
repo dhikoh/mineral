@@ -73,18 +73,28 @@ export default function AdminPenggunaPage() {
   };
 
   useEffect(() => {
-    // Ambil sesi aktif pengguna dari endpoint resmi auth/me
+    // Sesi #19 (Fix #3): Guard RBAC di layer halaman — defense-in-depth.
+    // Middleware + requireSuperAdminSession di API sudah benar, ini layer tambahan
+    // agar ADMIN biasa tidak melihat shell halaman bahkan sebelum API dipanggil.
     fetch('/api/admin/auth/me')
       .then((res) => res.json())
       .then((data) => {
-        if (data.user) {
-          setCurrentUser(data.user);
+        if (!data.user) {
+          window.location.href = '/admin/login';
+          return;
         }
+        if (data.user.role !== 'SUPERADMIN') {
+          window.location.href = '/admin/dashboard';
+          return;
+        }
+        setCurrentUser(data.user);
+        fetchUsers();
       })
-      .catch(() => {});
-
-    fetchUsers();
+      .catch(() => {
+        window.location.href = '/admin/login';
+      });
   }, []);
+
 
   const openAddModal = () => {
     setEditingUser(null);

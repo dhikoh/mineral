@@ -10,10 +10,13 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const q = searchParams.get('q') || undefined;
+  // Sesi #19 (Fix #2): Pagination
+  const page = parseInt(searchParams.get('page') || '1', 10);
+  const limit = parseInt(searchParams.get('limit') || '20', 10);
 
   try {
-    const articles = await getArticles({ q });
-    return NextResponse.json(articles);
+    const result = await getArticles({ q, page, limit });
+    return NextResponse.json(result);
   } catch (error: any) {
     console.error('Error fetching admin articles:', error);
     return NextResponse.json(
@@ -22,6 +25,7 @@ export async function GET(request: Request) {
     );
   }
 }
+
 
 export async function POST(request: Request) {
   const session = await getAdminSession();

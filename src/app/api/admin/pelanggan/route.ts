@@ -13,9 +13,12 @@ export async function GET(req: Request) {
     const q = searchParams.get('q') || undefined;
     const type = searchParams.get('type') || undefined;
     const status = searchParams.get('status') || undefined;
+    // Sesi #19 (Fix #2): Pagination
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const limit = parseInt(searchParams.get('limit') || '20', 10);
 
-    const customers = await getCustomers({ q, type, status });
-    return NextResponse.json({ success: true, data: customers });
+    const result = await getCustomers({ q, type, status, page, limit });
+    return NextResponse.json({ success: true, ...result });
   } catch (error: any) {
     console.error('Error fetching admin customers:', error);
     return NextResponse.json(
@@ -24,6 +27,7 @@ export async function GET(req: Request) {
     );
   }
 }
+
 
 export async function POST(req: Request) {
   const session = await getAdminSession();
