@@ -139,7 +139,7 @@ export default function AdminTambahProdukPage() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 pb-20">
       {/* Header */}
-      <header className="sticky top-0 z-30 border-b border-slate-800 bg-slate-900/90 backdrop-blur-md px-4 sm:px-8 py-3.5">
+      <header className="relative z-10 md:sticky md:top-0 md:z-30 border-b border-slate-800 bg-slate-900/90 backdrop-blur-md px-4 sm:px-8 py-3.5">
         <div className="mx-auto flex max-w-5xl items-center justify-between">
           <div className="flex items-center gap-3">
             <Link

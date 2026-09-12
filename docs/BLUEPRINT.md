@@ -1,5 +1,5 @@
 # BLUEPRINT — Web Marketplace Single-Seller + CMS Artikel + Template Reusable
-Terakhir diupdate: 2026-09-12 (Sesi #23 — Perbaikan Next.js Image 400 Bad Request via Dynamic Uploads Route Handler & PUT Pengaturan 500 Dual Persistence Fix)
+Terakhir diupdate: 2026-09-13 (Sesi #24 — Isolasi StorefrontShell & Eliminasi Tumpang Tindih (Overlap) Header UI/UX Panel Admin di Mode PWA/Mobile)
 
 ---
 
@@ -487,7 +487,7 @@ model AuditLog {
 | Status Aktif Staf (isActive) & Invalidasi Sesi Instan | Selesai (Hardened) | Sesi #17: `User.isActive` schema, re-check DB per request di `getAdminSession()` — penonaktifan efektif seketika tanpa menunggu JWT 7 hari expired. Self-deactivation diproteksi di API & UI |
 | Persistent Audit Log Admin | Selesai (Parsial — Lihat Catatan Cakupan) | Sesi #17: Model `AuditLog`, helper `recordAuditLog`, endpoint `GET /api/admin/audit-log`, halaman `/admin/audit-log`. **Cakupan saat ini: login, users (create/update/activate/deactivate/delete), pesanan (update status, verifikasi bayar), pengaturan situs.** CRUD Produk/Kategori/Peruntukan/Artikel/FAQ/ContentBlock tidak tercakup secara sengaja — keputusan arsitektur eksplisit (lihat Bagian 9 poin 11) |
 | verifiedById FK — Akuntabilitas Verifikator Bayar | Selesai | Sesi #17: `PaymentProof.verifiedById` sebagai FK ke `User`, dicatat saat verifikasi pembayaran |
-| Shared Admin Layout (Sidebar + Mobile Nav) | Selesai | Sesi #17: `src/app/admin/layout.tsx` — sidebar desktop, hamburger mobile, tombol logout persisten, RBAC-aware nav |
+| Shared Admin Layout (Sidebar + Mobile Nav) | Selesai | Sesi #17 & Sesi #24: `src/app/admin/layout.tsx` — sidebar desktop, fixed mobile header `h-14` + drawer slide-in, tombol logout persisten, RBAC-aware nav. Terisolasi total via `StorefrontShell` (elemen toko tidak bocor ke panel admin). Seluruh header halaman admin responsif `relative z-10 md:sticky md:top-0 md:z-30`. |
 | Cloud Storage S3/R2 SigV4 & Cloudinary | Selesai | Sesi #17: `src/lib/storage.ts` rewrite — `@aws-sdk/client-s3` SigV4, Cloudinary signed upload, `deleteMedia` remote |
 | Sanitasi XSS Konsisten (Admin Preview + Publik) | Selesai (Terverifikasi) | Sesi #17-18: `ArticleForm.tsx`, `konten/page.tsx` preview gunakan `sanitize()`. Halaman publik `/artikel/[slug]` gunakan `sanitize()` sisi server sebelum `dangerouslySetInnerHTML`. FAQ public: `sanitize(faq.answer)` |
 | Satuan Komoditas Dinamis (UoM) & Ambang Stok Rendah | Selesai (Terverifikasi) | Sesi #10-11: Multi-unit (`kg`, `ton`, `sak`, `m³`), atribut `minStock` pada produk & `lowStockAlertThreshold` pada pengaturan situs, badge visual stok menipis |

@@ -1229,4 +1229,76 @@ Audit total, mendalam, dan final terhadap seluruh kodebase Adably sebelum dinyat
 - `docs/NOTEPATCH.md` [MODIFIKASI — entri ini]
 - `docs/BLUEPRINT.md` [MODIFIKASI]
 
+---
+
+## [2026-09-13] Sesi #24 — Isolasi StorefrontShell & Eliminasi Tumpang Tindih (Overlap) Header UI/UX Panel Admin di Mode PWA/Mobile
+**Sesi:** #24  
+**Tanggal:** 13/9/2026  
+**Build:** Exit Code 0 (`tsc --noEmit` + `npm test` + `npm run build`, 49 routes)
+
+### 1. Temuan Masalah & User Feedback
+1. **Overlap Elemen Storefront Publik di Panel Admin:**
+   - Elemen storefront toko (`Navbar`, `Footer`, `WhatsAppButton`, `BottomNav`, dan `PwaPrompt`) di-render secara global di `src/app/layout.tsx`. Akibatnya, pada tampilan seluler (PWA/mobile view), Navbar toko bertumpuk di `top-0` bersamaan dengan header mobile admin, sementara `BottomNav` toko dan tombol WhatsApp floating menutupi tombol aksi/simpan di panel admin.
+   - Body global memiliki class `pb-mobile-nav` yang memberikan padding berlebih dan distorsi vertikal pada area kerja panel admin.
+2. **Tabrakan Sticky Header Antara Layout Admin dan Halaman Admin:**
+   - Header internal halaman-halaman admin (`dashboard`, `produk`, `produk/baru`, `produk/[id]`, `kategori`, `peruntukan`, `konten`, `faq`, `pengguna`, `audit-log`, `pengaturan`, `pelanggan`) memakai `sticky top-0 z-30` atau `z-40`.
+   - Di mobile view, saat halaman di-scroll, header halaman menempel di `top-0` dan bertabrakan/bertumpuk secara langsung di belakang Mobile Header `src/app/admin/layout.tsx` (`fixed top-0 z-40`), menyebabkan teks dan tombol terdistorsi atau tidak dapat diklik.
+
+### 2. Perbaikan Yang Dilakukan
+1. **Pemisahan Total Storefront Shell (`src/components/layout/StorefrontShell.tsx`):**
+   - Dibuat client wrapper component `StorefrontShell` yang mengecek status rute via `usePathname()`.
+   - Jika rute mengarah ke `/admin/*`, shell langsung me-render `<main className="flex-1">{children}</main>` tanpa menyertakan elemen toko sama sekali.
+   - Jika rute adalah toko publik, shell me-render `Navbar`, `Footer`, `WhatsAppButton`, `BottomNav`, dan `PwaPrompt` dengan wrapper `pb-mobile-nav md:pb-0`.
+2. **Pembersihan Root Layout (`src/app/layout.tsx`):**
+   - Menghapus padding `pb-mobile-nav` dari tag `<body>` global.
+   - Membungkus konten aplikasi dengan `<StorefrontShell>`.
+3. **Refaktor Admin Mobile Header (`src/app/admin/layout.tsx`):**
+   - Mengubah mobile header menjadi `fixed top-0 inset-x-0 z-40 bg-slate-900/95 backdrop-blur-md` dengan spacer kompensasi `h-14` agar konten halaman tidak tertutup.
+   - Sidebar mobile drawer ditingkatkan dengan animasi halus `w-72 shadow-2xl animate-in slide-in-from-left duration-200` dan backdrop dismissal `bg-black/60 backdrop-blur-sm z-50`.
+4. **Refaktor Sticky Header Halaman Admin Menjadi Responsif:**
+   - Mengubah class header dari `sticky top-0 z-30/40` menjadi `relative z-10 md:sticky md:top-0 md:z-30` pada:
+     - `src/app/admin/dashboard/page.tsx`
+     - `src/app/admin/produk/page.tsx`
+     - `src/app/admin/produk/baru/page.tsx`
+     - `src/app/admin/produk/[id]/page.tsx`
+     - `src/app/admin/kategori/page.tsx`
+     - `src/app/admin/peruntukan/page.tsx`
+     - `src/app/admin/konten/page.tsx`
+     - `src/app/admin/faq/page.tsx`
+     - `src/app/admin/pengguna/page.tsx`
+     - `src/app/admin/audit-log/page.tsx`
+     - `src/app/admin/pengaturan/page.tsx`
+     - `src/app/admin/pelanggan/page.tsx`
+   - Pada layar mobile (< 768px), header mengalir secara natural di dalam dokumen tanpa bertabrakan dengan mobile header layout. Pada layar desktop (>= 768px), header tetap sticky untuk kenyamanan navigasi.
+5. **Isolasi PWA Prompt (`src/components/common/PwaPrompt.tsx`):**
+   - Ditambahkan pengecekan `isAdmin` di `PwaPrompt` untuk menonaktifkan pendaftaran Service Worker dan listener `beforeinstallprompt` saat berada di panel admin.
+
+### 3. Verifikasi Kualitas
+| Pemeriksaan | Hasil |
+|---|---|
+| `npx tsc --noEmit` | Exit Code 0 (0 error TypeScript) ✅ |
+| `npm test` | Exit Code 0 (23 Audit test + 42 CRM test = 65 PASSED, 0 FAILED) ✅ |
+| `npm run build` | Exit Code 0 (49 routes terkompilasi sukses, 0 error) ✅ |
+
+### 4. File yang Diubah
+- `src/components/layout/StorefrontShell.tsx` [BARU] — pembungkus isolasi elemen toko
+- `src/app/layout.tsx` [MODIFIKASI] — integrasi StorefrontShell & pembersihan body padding
+- `src/app/admin/layout.tsx` [MODIFIKASI] — refaktor fixed mobile header & drawer backdrop
+- `src/components/common/PwaPrompt.tsx` [MODIFIKASI] — isolasi PWA listener dari rute admin
+- `src/app/admin/dashboard/page.tsx` [MODIFIKASI] — header relative di mobile, sticky di desktop
+- `src/app/admin/produk/page.tsx` [MODIFIKASI] — header relative di mobile, sticky di desktop
+- `src/app/admin/produk/baru/page.tsx` [MODIFIKASI] — header relative di mobile, sticky di desktop
+- `src/app/admin/produk/[id]/page.tsx` [MODIFIKASI] — header relative di mobile, sticky di desktop
+- `src/app/admin/kategori/page.tsx` [MODIFIKASI] — header relative di mobile, sticky di desktop
+- `src/app/admin/peruntukan/page.tsx` [MODIFIKASI] — header relative di mobile, sticky di desktop
+- `src/app/admin/konten/page.tsx` [MODIFIKASI] — header relative di mobile, sticky di desktop
+- `src/app/admin/faq/page.tsx` [MODIFIKASI] — header relative di mobile, sticky di desktop
+- `src/app/admin/pengguna/page.tsx` [MODIFIKASI] — header relative di mobile, sticky di desktop
+- `src/app/admin/audit-log/page.tsx` [MODIFIKASI] — header relative di mobile, sticky di desktop
+- `src/app/admin/pengaturan/page.tsx` [MODIFIKASI] — header relative di mobile, sticky di desktop
+- `src/app/admin/pelanggan/page.tsx` [MODIFIKASI] — header relative di mobile, sticky di desktop
+- `docs/NOTEPATCH.md` [MODIFIKASI — entri ini]
+- `docs/BLUEPRINT.md` [MODIFIKASI]
+
+
 

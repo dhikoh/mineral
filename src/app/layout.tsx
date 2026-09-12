@@ -1,10 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
-import { Navbar } from '@/components/layout/Navbar';
-import { BottomNav } from '@/components/layout/BottomNav';
-import { Footer } from '@/components/layout/Footer';
-import { WhatsAppButton } from '@/components/common/WhatsAppButton';
-import { PwaPrompt } from '@/components/common/PwaPrompt';
+import { StorefrontShell } from '@/components/layout/StorefrontShell';
 import { getSiteSettings } from '@/lib/data-store';
 import { CartProvider } from '@/lib/cart-context';
 
@@ -123,11 +119,9 @@ export default async function RootLayout({
 
   return (
     <html lang="id" className="scroll-smooth">
-      <body className="flex min-h-screen flex-col antialiased selection:bg-emerald-500 selection:text-white pb-mobile-nav md:pb-0">
+      <body className="flex min-h-screen flex-col antialiased selection:bg-emerald-500 selection:text-white">
         <CartProvider>
-          <Navbar siteName={siteName} csWhatsapp={csWhatsapp} />
-          <main className="flex-1">{children}</main>
-          <Footer
+          <StorefrontShell
             siteName={siteName}
             tagline={tagline}
             address={address}
@@ -135,10 +129,9 @@ export default async function RootLayout({
             csOperationalHours={csOperationalHours}
             bankAccounts={bankAccounts}
             footerText={footerText}
-          />
-          <WhatsAppButton csWhatsapp={csWhatsapp} />
-          <BottomNav csWhatsapp={csWhatsapp} />
-          <PwaPrompt />
+          >
+            {children}
+          </StorefrontShell>
         </CartProvider>
       </body>
     </html>
