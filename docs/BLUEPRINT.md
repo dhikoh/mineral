@@ -1,5 +1,5 @@
 # BLUEPRINT — Web Marketplace Single-Seller + CMS Artikel + Template Reusable
-Terakhir diupdate: 2026-09-12 (Sesi #17 — Hardening Final: isActive Staf, Persistent Audit Log, S3/R2 SigV4 Storage, Stored-XSS ArticleForm, RBAC Pengaturan, Login Rate-Limit Terpusat, verifiedById FK, Shared Admin Layout, Halaman Audit Log)
+Terakhir diupdate: 2026-09-12 (Sesi #18 — Audit Total Mandiri: Sinkronisasi BLUEPRINT 100%, AuditLog model, isActive+verifiedById schema, shared admin layout, 32 route, keputusan arsitektur eksplisit, env var fix)
 
 ---
 
@@ -38,7 +38,7 @@ adably/
 │   ├── BLUEPRINT.md          # Single Source of Truth proyek (sinkron 100%)
 │   └── NOTEPATCH.md          # Log perubahan historis per sesi
 ├── prisma/
-│   ├── schema.prisma         # Definisi 13 model database & enum
+│   ├── schema.prisma         # Definisi 14 model database & 4 enum
 │   └── seed.ts               # Data awal: superadmin, kategori, komoditas, settings, FAQ
 ├── public/
 │   ├── icons/                # Aset PWA Icons & Favicon
@@ -64,6 +64,7 @@ adably/
 │   │   │   │   ├── [id]/page.tsx
 │   │   │   │   ├── baru/page.tsx
 │   │   │   │   └── page.tsx
+│   │   │   ├── audit-log/page.tsx     # Halaman Audit Log — khusus SUPERADMIN (Sesi #17)
 │   │   │   ├── dashboard/page.tsx
 │   │   │   ├── faq/page.tsx
 │   │   │   ├── kategori/page.tsx
@@ -71,22 +72,24 @@ adably/
 │   │   │   ├── login/page.tsx
 │   │   │   ├── pelanggan/page.tsx
 │   │   │   ├── pengaturan/page.tsx
-│   │   │   ├── pengguna/page.tsx      # Manajemen Staf/Admin RBAC (khusus SUPERADMIN)
+│   │   │   ├── pengguna/page.tsx      # Manajemen Staf/Admin RBAC + toggle isActive (SUPERADMIN)
 │   │   │   ├── peruntukan/page.tsx
 │   │   │   ├── pesanan/
 │   │   │   │   ├── [id]/
 │   │   │   │   │   ├── AdminOrderDetailClient.tsx
 │   │   │   │   │   └── page.tsx
 │   │   │   │   └── page.tsx
-│   │   │   └── produk/
-│   │   │       ├── [id]/page.tsx
-│   │   │       ├── baru/page.tsx
-│   │   │       └── page.tsx
+│   │   │   ├── produk/
+│   │   │   │   ├── [id]/page.tsx
+│   │   │   │   ├── baru/page.tsx
+│   │   │   │   └── page.tsx
+│   │   │   └── layout.tsx             # Shared Admin Layout: sidebar desktop + hamburger mobile + logout (Sesi #17)
 │   │   ├── api/
 │   │   │   ├── admin/
 │   │   │   │   ├── artikel/
 │   │   │   │   │   ├── [id]/route.ts
 │   │   │   │   │   └── route.ts
+│   │   │   │   ├── audit-log/route.ts  # GET audit log (SUPERADMIN only, direct Prisma — fail-loud by design)
 │   │   │   │   ├── auth/
 │   │   │   │   │   ├── login/route.ts
 │   │   │   │   │   ├── logout/route.ts
@@ -184,14 +187,15 @@ adably/
 │   │       ├── ImageUploader.tsx
 │   │       └── TagInput.tsx
 │   ├── lib/
-│   │   ├── auth.ts           # Token verification, JWT fail-fast, session helpers, RBAC (SUPERADMIN / ADMIN)
+│   │   ├── audit-log.ts      # recordAuditLog helper + AUDIT_ACTIONS enum (Sesi #17)
+│   │   ├── auth.ts           # Token verification, JWT fail-fast, isActive re-check per request, RBAC helpers
 │   │   ├── cart-context.tsx   # React context state keranjang
 │   │   ├── data-store.ts     # Data access layer (Prisma + local dev fallback, retry collision, status gate)
 │   │   ├── db.ts             # Prisma Client instance & circuit-breaker proxy
-│   │   ├── order-security.ts # PII masking, pencocokan nomor HP fleksibel, validasi transisi status pesanan
-│   │   ├── rate-limit.ts     # In-memory rate limiting per-IP terpusat dengan preset endpoint
-│   │   ├── sanitize.ts       # HTML sanitizer
-│   │   ├── storage.ts        # Storage driver modular (local, s3/r2, cloudinary)
+│   │   ├── order-security.ts # PII masking, pencocokan nomor HP (min 8 digit), transisi status pesanan strict
+│   │   ├── rate-limit.ts     # In-memory rate limiting per-IP terpusat dengan preset endpoint (LOGIN, API publik)
+│   │   ├── sanitize.ts       # HTML sanitizer (sanitize-html, digunakan di semua preview & render HTML publik)
+│   │   ├── storage.ts        # Storage driver modular (local, S3/R2 SigV4, Cloudinary signed upload)
 │   │   └── utils.ts          # Format rupiah, slugify, generateOrderCode (kriptografis 8-char hex)
 │   └── middleware.ts         # Defense-in-depth auth guard (/admin/* & /api/admin/*)
 ├── .env
@@ -246,7 +250,12 @@ model User {
   email     String   @unique
   password  String   // bcrypt hash
   role      Role     @default(SUPERADMIN)
+  isActive  Boolean  @default(true) // Sesi #17: status aktif staf (false = nonaktif/suspended)
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  verifiedProofs PaymentProof[] @relation("VerifiedBy")
+  auditLogs      AuditLog[]
 }
 
 model SiteSetting {
@@ -363,7 +372,9 @@ model PaymentProof {
   status          String    @default("PENDING") // PENDING, APPROVED, REJECTED
   rejectionReason String?
   uploadedAt      DateTime  @default(now())
-  verifiedBy      String?
+  verifiedBy      String?   // nama staf (display fallback)
+  verifiedById    String?   // Sesi #17: ID staf — source of truth akuntabilitas
+  verifier        User?     @relation("VerifiedBy", fields: [verifiedById], references: [id], onDelete: SetNull)
   verifiedAt      DateTime?
 }
 
@@ -416,6 +427,24 @@ model Customer {
   @@index([type])
   @@index([status])
 }
+
+// Sesi #17: Audit Log persisten untuk akuntabilitas aksi admin
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorId     String?  // null jika sistem/tidak bisa resolve
+  actor       User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  actorName   String   // snapshot nama saat aksi — tidak berubah meski nama staf diperbarui
+  actorRole   String   // snapshot role saat aksi
+  action      String   // LOGIN_SUCCESS, LOGIN_FAILED, CREATE_USER, UPDATE_USER, DELETE_USER, UPDATE_SETTINGS, dsb.
+  targetType  String?  // "User", "Order", "Product", "SiteSetting", dsb.
+  targetId    String?  // ID entitas yang dimodifikasi
+  metadata    Json?    // detail tambahan, TANPA password plaintext
+  createdAt   DateTime @default(now())
+
+  @@index([actorId])
+  @@index([action])
+  @@index([createdAt])
+}
 ```
 
 ---
@@ -424,8 +453,8 @@ model Customer {
 
 | Role | Hak Akses | Catatan Keamanan |
 |---|---|---|
-| **Superadmin** | Full akses: Pengaturan situs & rekening, manajemen akun staf/admin (`/admin/pengguna`), kelola produk, kategori, peruntukan, verifikasi pembayaran pesanan, CMS artikel, CMS teks & FAQ, serta CRM Database Pelanggan & Prospek Leads. | Seluruh endpoint admin diproteksi ganda via middleware dan `getAdminSession()`. Operasi mutasi pengaturan dan manajemen pengguna dikunci khusus role `SUPERADMIN` via `requireSuperAdminSession()`. Sesi via HTTP-only cookie. |
-| **Admin (Staf)** | Operasional harian: Katalog produk, kategori, peruntukan, pengelolaan pesanan, verifikasi pembayaran bukti transfer, database CRM pelanggan/prospek, CMS artikel, FAQ, dan blok konten web. Dibatasi dari pengaturan global sistem dan manajemen akun staf. | Terotentikasi sesi JWT admin. Diproteksi guard RBAC `isAdmin` & `isSuperAdmin`. |
+| **Superadmin** | Full akses: Pengaturan situs & rekening, manajemen akun staf/admin termasuk toggle `isActive` & reset password (`/admin/pengguna`), halaman Audit Log (`/admin/audit-log`), kelola produk/kategori/peruntukan, verifikasi pembayaran, CMS artikel/konten/FAQ, CRM Database Pelanggan & Prospek Leads. | Seluruh endpoint admin diproteksi ganda via middleware + `getAdminSession()` dengan re-check `isActive` per request. Operasi mutasi pengaturan, user management, dan akses Audit Log dikunci khusus `SUPERADMIN` via `requireSuperAdminSession()`. Sesi via HTTP-only cookie. |
+| **Admin (Staf)** | Operasional harian: Katalog produk, kategori, peruntukan, pengelolaan pesanan, verifikasi pembayaran bukti transfer, database CRM pelanggan/prospek, CMS artikel, FAQ, dan blok konten web. Dibatasi dari pengaturan global, manajemen akun staf, dan halaman Audit Log. | Terotentikasi sesi JWT admin dengan re-check `isActive` per request (penonaktifan efektif seketika, tidak menunggu JWT expired). Diproteksi guard RBAC `isAdmin` & `isSuperAdmin`. |
 | **Buyer / Publik** | Browse katalog, pencarian & filter, guest checkout, request penawaran resmi (RFQ), upload bukti transfer (JPG/PNG/WEBP/PDF max 5MB rate limited), lacak pesanan via `orderCode` + HP, membaca artikel & FAQ, klik-chat CS WhatsApp. | Tanpa wajib login / registrasi akun. |
 
 ---
@@ -435,11 +464,17 @@ model Customer {
 | Fitur | Status | Catatan |
 |---|---|---|
 | Inisialisasi Project (Next.js + Tailwind + TS) | Selesai | Fase 1: Next.js 16 (App Router) + TS + Tailwind v3 + Lucide Icons |
-| Setup Schema Prisma & Migrasi | Selesai | Fase 1: 13 model Prisma lengkap, validasi & Prisma Client generated |
+| Setup Schema Prisma & Migrasi | Selesai | Fase 1: 14 model Prisma (termasuk AuditLog Sesi #17), validasi & Prisma Client generated |
 | Seed Data Awal (Komoditas Mineral) | Selesai | Fase 1: Script seed (Zeolite, Bentonite, Timah, Gaharu, dsb.) |
 | Auth Superadmin (Login, Logout, Middleware) | Selesai (Hardened) | Sesi #10-11: Fail-fast JWT Secret (>= 32 chars), backdoor dihapus di produksi, middleware defense-in-depth, logout whitelist untuk mitigasi token expired |
 | Otorisasi Admin API 100% Terlindungi | Selesai (Hardened) | Sesi #10: Seluruh endpoint `/api/admin/**` menolak akses tanpa sesi dengan HTTP 401 |
-| Role-Based Access Control (RBAC) & Manajemen Staf | Selesai (Terverifikasi) | Sesi #10-11: Rute `/admin/pengguna` dan API `/api/admin/users`, kontrol level akun `SUPERADMIN` vs `ADMIN`, proteksi restriksi mutasi pengaturan situs |
+| Role-Based Access Control (RBAC) & Manajemen Staf | Selesai (Hardened) | Sesi #10-17: Rute `/admin/pengguna` dan API `/api/admin/users`, kontrol level `SUPERADMIN` vs `ADMIN`, proteksi pengaturan situs |
+| Status Aktif Staf (isActive) & Invalidasi Sesi Instan | Selesai (Hardened) | Sesi #17: `User.isActive` schema, re-check DB per request di `getAdminSession()` — penonaktifan efektif seketika tanpa menunggu JWT 7 hari expired. Self-deactivation diproteksi di API & UI |
+| Persistent Audit Log Admin | Selesai (Parsial — Lihat Catatan Cakupan) | Sesi #17: Model `AuditLog`, helper `recordAuditLog`, endpoint `GET /api/admin/audit-log`, halaman `/admin/audit-log`. **Cakupan saat ini: login, users (create/update/activate/deactivate/delete), pesanan (update status, verifikasi bayar), pengaturan situs.** CRUD Produk/Kategori/Peruntukan/Artikel/FAQ/ContentBlock tidak tercakup secara sengaja — keputusan arsitektur eksplisit (lihat Bagian 9 poin 11) |
+| verifiedById FK — Akuntabilitas Verifikator Bayar | Selesai | Sesi #17: `PaymentProof.verifiedById` sebagai FK ke `User`, dicatat saat verifikasi pembayaran |
+| Shared Admin Layout (Sidebar + Mobile Nav) | Selesai | Sesi #17: `src/app/admin/layout.tsx` — sidebar desktop, hamburger mobile, tombol logout persisten, RBAC-aware nav |
+| Cloud Storage S3/R2 SigV4 & Cloudinary | Selesai | Sesi #17: `src/lib/storage.ts` rewrite — `@aws-sdk/client-s3` SigV4, Cloudinary signed upload, `deleteMedia` remote |
+| Sanitasi XSS Konsisten (Admin Preview + Publik) | Selesai (Terverifikasi) | Sesi #17-18: `ArticleForm.tsx`, `konten/page.tsx` preview gunakan `sanitize()`. Halaman publik `/artikel/[slug]` gunakan `sanitize()` sisi server sebelum `dangerouslySetInnerHTML`. FAQ public: `sanitize(faq.answer)` |
 | Satuan Komoditas Dinamis (UoM) & Ambang Stok Rendah | Selesai (Terverifikasi) | Sesi #10-11: Multi-unit (`kg`, `ton`, `sak`, `m³`), atribut `minStock` pada produk & `lowStockAlertThreshold` pada pengaturan situs, badge visual stok menipis |
 | Upload Berkas Publik Terlindungi | Selesai (Hardened) | Sesi #10: Rate limiting per-IP (10x/5m), verifikasi Magic Bytes fisik, disallow format SVG |
 | Admin Media Upload Berkas Terlindungi | Selesai (Hardened) | Sesi #10: Endpoint `/api/admin/upload` khusus CMS admin (limit 10MB, rate-limiting, validasi Magic Bytes fisik, disallow SVG) |
@@ -449,19 +484,19 @@ model Customer {
 | Pencarian & Filter Multi-Dimensi (URL Query) | Selesai | Fase 3: FilterSidebar desktop sticky + mobile bottom drawer, SortSelect, ActiveFilterChips |
 | Checkout & Transaksi Stok Atomik | Selesai (Anti-Overselling) | Sesi #10: `prisma.$transaction` dengan validasi kondisional `stock >= qty` |
 | Restock Pembatalan Pesanan | Selesai (Terverifikasi) | Sesi #10: Pengembalian stok otomatis saat status pesanan menjadi `CANCELLED`/`REJECTED` |
-| Verifikasi Pembayaran Superadmin | Selesai | Fase 4: Persetujuan/penolakan bukti transfer, kontrol nomor resi |
-| Pelacakan Pesanan Publik | Selesai | Fase 4: /lacak-pesanan verifikasi orderCode + no WA pembeli, visual stepper progress |
+| Verifikasi Pembayaran Admin | Selesai | Fase 4: Persetujuan/penolakan bukti transfer, `verifiedById` FK, audit log, kontrol nomor resi |
+| Pelacakan Pesanan Publik | Selesai | Fase 4: /lacak-pesanan verifikasi orderCode + no WA pembeli (min 8 digit), visual stepper progress |
 | CMS Artikel (HTML Sanitizer, Slug Generator) | Selesai | Fase 5: Editor HTML live preview, sanitasi XSS, listing & detail artikel |
 | CMS Konten Teks Web (`ContentBlock`) | Selesai | Fase 6: Editor tabbed /admin/konten untuk 6 blok teks |
 | Modul FAQ Dinamis | Selesai | Fase 6: CRUD /admin/faq, urutan tampil, toggle status aktif |
-| Site Settings & WhatsApp Click-to-Chat | Selesai | Fase 6: Form /admin/pengaturan 3 tab, floating WhatsAppButton |
+| Site Settings & WhatsApp Click-to-Chat | Selesai | Fase 6: Form /admin/pengaturan 3 tab, floating WhatsAppButton. `bankAccounts` hanya SUPERADMIN |
 | Dashboard Ringkasan Superadmin | Selesai | Fase 6: /admin/dashboard metrik live omset terverifikasi, pending verifikasi |
-| Polish: SEO, PWA/Mobile Bottom Nav, End-to-End | Selesai (Aset Valid) | Sesi #10: Seluruh aset ikon PWA (192px, 512px, svg, apple-touch) valid dan HTTP 200 |
-| Database Pelanggan & CRM Prospek/Leads (B2B) | Selesai (Siklus Benar) | Sesi #10: Checkout mencatat status PROSPECT (belum lunas), promosi DEAL & akumulasi LTV hanya saat pembayaran terverifikasi sah |
+| Polish: SEO, PWA/Mobile Bottom Nav, End-to-End | Selesai (Terverifikasi Sesi #18) | Aset ikon PWA (192px, 512px, svg, apple-touch) valid PNG (magic bytes `89 50 4E 47`) & >0 byte |
+| Database Pelanggan & CRM Prospek/Leads (B2B) | Selesai (Siklus Benar) | Sesi #10: Checkout mencatat PROSPECT (belum lunas), promosi DEAL & akumulasi LTV hanya saat PAID |
 
 ---
 
-## 7. Matriks Endpoint API Lengkap (31 Route)
+## 7. Matriks Endpoint API Lengkap (32 Route)
 
 | Method | Endpoint | Tipe Akses | Deskripsi & Proteksi |
 |---|---|---|---|
@@ -471,9 +506,10 @@ model Customer {
 | `POST` | `/api/lacak-pesanan` | Publik | Pelacakan pesanan publik (Rate limit 30x/1m, verifikasi orderCode + no HP fleksibel, PII masking) |
 | `POST` | `/api/leads` | Publik | Penangkapan lead prospek dari formulir RFQ storefront (Rate limit 10x/5m, proteksi kebocoran customer) |
 | `POST` | `/api/upload` | Publik | Upload media bukti bayar (Rate limit 10x/5m, Magic Bytes valid, no SVG, max 5MB) |
-| `POST` | `/api/admin/auth/login` | Publik (Admin) | Login superadmin/staf dengan rate limit brute-force & audit log |
-| `POST` | `/api/admin/auth/logout` | Publik / Admin | Menghapus session cookie admin (`adably_admin_token`, bebas blokir expired token) |
+| `POST` | `/api/admin/auth/login` | Publik (Admin) | Login superadmin/staf (Rate limit LOGIN preset via `rate-limit.ts`, isActive check, audit log) |
+| `POST` | `/api/admin/auth/logout` | Publik / Admin | Menghapus session cookie admin (`adably_admin_token`) |
 | `GET` | `/api/admin/auth/me` | Admin Wajib | Cek profil sesi superadmin/staf yang sedang aktif |
+| `GET` | `/api/admin/audit-log` | Admin Wajib (SUPERADMIN) | Ambil riwayat audit log dengan filter action/dateFrom/dateTo & pagination (direct Prisma — fail-loud by design, lihat Bagian 9 poin 11) |
 | `GET` | `/api/admin/dashboard/stats` | Admin Wajib | Statistik real-time omset, pesanan, peringatan stok rendah, dan ringkasan CRM |
 | `GET` | `/api/admin/kategori` | Admin Wajib | Ambil seluruh daftar kategori komoditas |
 | `POST` | `/api/admin/kategori` | Admin Wajib | Tambah kategori komoditas baru |
@@ -489,14 +525,14 @@ model Customer {
 | `PUT` | `/api/admin/produk/[id]` | Admin Wajib | Perbarui data produk, harga, galeri, stok, satuan, dan minStock |
 | `DELETE` | `/api/admin/produk/[id]` | Admin Wajib | Hapus produk (dicek riwayat pesanan untuk mencegah orphan) |
 | `POST` | `/api/admin/upload` | Admin Wajib | Upload media CMS admin (10 MB, Magic Bytes fisik, rate limited, no SVG) |
-| `GET` | `/api/admin/users` | Admin Wajib (SUPERADMIN) | Ambil daftar akun staf & admin aktif |
-| `POST` | `/api/admin/users` | Admin Wajib (SUPERADMIN) | Buat akun staf baru (validasi eksplisit role, least privilege default `ADMIN`, enkripsi bcrypt) |
-| `PATCH` | `/api/admin/users/[id]` | Admin Wajib (SUPERADMIN) | Perbarui role (ADMIN/SUPERADMIN), status aktif, atau reset password staf |
-| `DELETE` | `/api/admin/users/[id]` | Admin Wajib (SUPERADMIN) | Hapus akun staf (proteksi: dilarang menghapus akun sendiri) |
+| `GET` | `/api/admin/users` | Admin Wajib (SUPERADMIN) | Ambil daftar akun staf & admin (termasuk field `isActive`) |
+| `POST` | `/api/admin/users` | Admin Wajib (SUPERADMIN) | Buat akun staf baru (validasi role, least privilege default `ADMIN`, bcrypt hash, audit log) |
+| `PATCH` | `/api/admin/users/[id]` | Admin Wajib (SUPERADMIN) | Perbarui role, isActive (toggle aktif/nonaktif), atau reset password staf. Self-deactivation diblokir. Audit log per aksi |
+| `DELETE` | `/api/admin/users/[id]` | Admin Wajib (SUPERADMIN) | Hapus akun staf (proteksi: dilarang menghapus akun sendiri, audit log) |
 | `GET` | `/api/admin/pesanan` | Admin Wajib | Daftar seluruh transaksi pesanan pembeli |
 | `GET` | `/api/admin/pesanan/[id]` | Admin Wajib | Detail pesanan spesifik beserta item & bukti bayar |
-| `PATCH` | `/api/admin/pesanan/[id]` | Admin Wajib | Update status pesanan (validasi transisi ketat, larang mutasi langsung PAID, restock otomatis jika batal/tolak) |
-| `POST` | `/api/admin/pesanan/[id]/verifikasi` | Admin Wajib | Setujui bukti bayar (PAID + trigger DEAL CRM atomik) / Tolak |
+| `PATCH` | `/api/admin/pesanan/[id]` | Admin Wajib | Update status pesanan (validasi transisi ketat, larang mutasi langsung PAID, restock otomatis jika batal/tolak, audit log) |
+| `POST` | `/api/admin/pesanan/[id]/verifikasi` | Admin Wajib | Setujui/tolak bukti bayar (PAID + trigger DEAL CRM atomik, catat `verifiedById`, audit log) |
 | `GET` | `/api/admin/pelanggan` | Admin Wajib | Direktori CRM database kontak (prospek & customer) |
 | `POST` | `/api/admin/pelanggan` | Admin Wajib | Tambah data kontak pelanggan/prospek manual |
 | `GET` | `/api/admin/pelanggan/[id]` | Admin Wajib | Detail kontak pelanggan, riwayat transaksi & estimasi kebutuhan |
@@ -516,12 +552,12 @@ model Customer {
 | `PUT` | `/api/admin/faq/[id]` | Admin Wajib | Perbarui pertanyaan & jawaban FAQ |
 | `DELETE` | `/api/admin/faq/[id]` | Admin Wajib | Hapus item FAQ |
 | `GET` | `/api/admin/pengaturan` | Admin Wajib | Ambil konfigurasi situs & rekening bank |
-| `PUT` | `/api/admin/pengaturan` | Admin Wajib (SUPERADMIN) | Perbarui identitas, kontak CS, ambang stok, dan rekening bank |
+| `PUT` | `/api/admin/pengaturan` | Admin Wajib (SUPERADMIN untuk `bankAccounts`) | Perbarui identitas situs, kontak CS, ambang stok. Mutasi `bankAccounts` dikunci khusus SUPERADMIN. Audit log |
 
 ---
 
 ## 8. Environment Variables
-Daftar variabel lingkungan resmi (`.env.example`):
+Daftar variabel lingkungan resmi (`.env.example`) — semua variabel yang dipakai di kode tercakup:
 
 ```env
 # Database PostgreSQL URL (Wajib diisi untuk lingkungan produksi)
@@ -540,6 +576,7 @@ STORAGE_PROVIDER="local"
 
 # --- Konfigurasi S3 / Cloudflare R2 (jika STORAGE_PROVIDER="s3" atau "r2") ---
 # S3_ENDPOINT="https://<accountid>.r2.cloudflarestorage.com"
+# S3_REGION="auto"                  # "auto" untuk R2, atau misal "ap-southeast-1" untuk AWS
 # S3_BUCKET_NAME="adably-uploads"
 # S3_PUBLIC_URL="https://cdn.adably.id"
 # S3_ACCESS_KEY_ID="your_access_key_id"
@@ -558,6 +595,9 @@ ALLOW_DEV_FALLBACK_LOGIN="false"
 # Izinkan fallback penulisan data ke file lokal .local-store.json saat database offline.
 # Di lingkungan produksi (NODE_ENV=production), biarkan 'false' agar kegagalan database melempar error keras (fail-loud).
 ALLOW_LOCAL_FALLBACK="false"
+
+# Paksa penggunaan local store JSON tanpa percobaan ke database (khusus dev/testing offline penuh)
+# FORCE_LOCAL_STORE="false"
 ```
 
 ---
@@ -583,4 +623,8 @@ ALLOW_LOCAL_FALLBACK="false"
 9. **Rate Limiting Terpusat & Anti-Brute Force**:
    - Modul `src/lib/rate-limit.ts` memproteksi endpoint publik (`/api/lacak-pesanan`, `/api/pesanan/[orderCode]`, `/api/checkout`, `/api/leads`, `/api/upload`) dari serangan denial of service dan enumerasi nomor pesanan.
 10. **Proteksi PII & State Machine Pesanan Strict**:
-   - Endpoint pelacakan publik menerapkan sensor data PII (`maskOrderPII`) pada nama pembeli, nomor telepon, dan alamat. Mutasi status pesanan divalidasi ketat terhadap state machine (`ALLOWED_ORDER_TRANSITIONS`), dan status `PAID` hanya boleh dicapai secara eksklusif melalui `POST /api/admin/pesanan/[id]/verifikasi` demi integritas data keuangan dan CRM.
+   - Endpoint pelacakan publik menerapkan sensor data PII (`maskOrderPII`) pada nama pembeli, nomor telepon (min 8 digit), dan alamat. Mutasi status pesanan divalidasi ketat terhadap state machine (`ALLOWED_ORDER_TRANSITIONS`), dan status `PAID` hanya boleh dicapai secara eksklusif melalui `POST /api/admin/pesanan/[id]/verifikasi` demi integritas data keuangan dan CRM.
+11. **Keputusan Arsitektur: Audit Log Route — Direct Prisma tanpa data-store.ts**:
+   - `GET /api/admin/audit-log` memanggil `prisma` secara langsung (tidak melalui `src/lib/data-store.ts`). Ini adalah **pengecualian yang disengaja** dengan alasan berikut: (a) Endpoint ini membaca data audit log yang secara inheren hanya eksis di database — tidak ada fallback lokal yang bermakna; (b) Jika database mati, audit log endpoint harus **fail-loud** (HTTP 500) agar SUPERADMIN mengetahui kondisi darurat, bukan mengembalikan data kosong yang menyesatkan. Pengecualian ini tidak melanggar prinsip "Isolasi Dual Persistence" (Bagian 9 poin 4) karena prinsip tersebut khusus untuk operasi bisnis yang membutuhkan resilience, bukan untuk endpoint monitoring administratif.
+12. **Keputusan Arsitektur: Cakupan Audit Log Dibatasi ke Aksi High-Risk**:
+   - Berdasarkan keputusan eksplisit bisnis, `recordAuditLog` hanya dipasang di operasi **high-risk akuntabilitas RBAC**: login, manajemen staf (create/update/activate/deactivate/delete), perubahan status pesanan, verifikasi pembayaran, dan mutasi pengaturan situs sensitif. CRUD Produk/Kategori/Peruntukan/Artikel/FAQ/ContentBlock **sengaja tidak dicakup** karena volume mutasinya tinggi (operational daily) sehingga audit penuh akan menciptakan tabel AuditLog yang sangat besar tanpa nilai bisnis proporsional. Jika persyaratan kepatuhan berubah di masa depan, `recordAuditLog` dapat ditambahkan ke route manapun tanpa perubahan arsitektur.

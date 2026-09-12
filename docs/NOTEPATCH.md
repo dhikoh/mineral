@@ -938,3 +938,46 @@ px tsc --noEmit: Exit Code 0 (0 TypeScript error)
 - 
 pm run build: Exit Code 0 — semua rute ter-compile sempurna
 
+
+---
+
+## Sesi #18 — Audit Total Mandiri: Sinkronisasi BLUEPRINT 100%, Keputusan Arsitektur Eksplisit
+**Tanggal:** 2026-09-12
+**Scope:** Audit independen sebagai Senior Staff Engineer + Auditor Teknis. Tidak ada fitur baru — hanya perbaikan gap dokumentasi, verifikasi kode, dan keputusan arsitektur eksplisit.
+
+### Gap yang Ditemukan & Diperbaiki
+
+| ID | Temuan | Tindakan |
+|----|--------|----------|
+| D-1 | BLUEPRINT Bagian 4: User model tanpa isActive, updatedAt, verifiedProofs, auditLogs | Fix: Tulis ulang model User lengkap sesuai schema.prisma aktual |
+| D-2 | BLUEPRINT Bagian 4: PaymentProof tanpa verifiedById + relasi verifier | Fix: Tambah field & relasi FK |
+| D-3 | BLUEPRINT Bagian 4: AuditLog model tidak ada sama sekali | Fix: Tambah model AuditLog lengkap dengan indexes |
+| D-4 | BLUEPRINT Bagian 3: "13 model" ? "14 model", layout.tsx, audit-log/page.tsx, audit-log.ts hilang | Fix: Update semua entri yang hilang |
+| D-5 | BLUEPRINT Bagian 5: Audit Log tidak disebut di RBAC | Fix: Update baris SUPERADMIN & ADMIN dengan kapabilitas Audit Log & isActive behavior |
+| D-6 | BLUEPRINT Bagian 6: Tidak ada baris fitur isActive Staf, Audit Log, verifiedById, Shared Layout, S3/R2 | Fix: Tambah 6 baris fitur baru dengan status jujur |
+| D-7 | BLUEPRINT Bagian 7: Missing GET /api/admin/audit-log, hitungan masih "31 Route" | Fix: Tambah endpoint, update ke "32 Route" |
+| D-8 | BLUEPRINT Bagian 8: Missing S3_REGION dan FORCE_LOCAL_STORE | Fix: Tambah kedua env vars dengan komentar konteks |
+| D-9 | BLUEPRINT Bagian 9: Tidak ada keputusan arsitektur audit-log direct Prisma (bypass data-store.ts) | Fix: Tambah poin 11 sebagai keputusan eksplisit |
+| D-10 | BLUEPRINT Bagian 9: Tidak ada keputusan cakupan audit log (mengapa CRUD tidak dicakup) | Fix: Tambah poin 12 sebagai keputusan eksplisit bisnis |
+| D-11 | .env.example: Missing FORCE_LOCAL_STORE dan S3_REGION | Fix: Tambah keduanya |
+| V-1 | Verifikasi isActive re-check: efektif seketika via DB query per request | Konfirmasi: auth.ts baris 53-58 — OK, bukan celah keamanan |
+| V-2 | Verifikasi DELETE staf audit log: sudah ada | Konfirmasi: users/[id]/route.ts baris 93-101 — OK |
+| V-3 | Verifikasi PWA assets magic bytes | Konfirmasi: icon-192, icon-512, apple-touch semua 89 50 4E 47 (valid PNG, >0 byte) |
+| V-4 | Verifikasi XSS rendering di halaman publik artikel | Konfirmasi: cleanHtml = sanitize() di server sebelum render, FAQ = sanitize(), konten admin = sanitize() |
+| V-5 | Audit log route (direct Prisma) vs prinsip dual-persistence | Keputusan: Pengecualian yang disengaja — fail-loud by design, didokumentasikan di Bagian 9 poin 11 |
+| V-6 | Cakupan audit log: CRUD operasional tidak tercakup | Keputusan: Dibatasi ke aksi high-risk akuntabilitas RBAC — didokumentasikan di Bagian 9 poin 12 |
+
+### File yang Diubah
+- docs/BLUEPRINT.md: Rewrite Bagian 3, 4, 5, 6, 7, 8, 9 — sinkron 100% dengan kode aktual per Sesi #18
+- .env.example: Tambah S3_REGION dan FORCE_LOCAL_STORE
+- docs/NOTEPATCH.md: Append Sesi #18 (file ini)
+
+### Verifikasi Kualitas (Dijalankan Sesi #18, bukan salinan dari sesi sebelumnya)
+- 
+px tsc --noEmit: Exit Code 0 (0 TypeScript error)
+- scripts/test-audit-p0-p1.ts: **23/23 PASSED**
+- scripts/test-crm-module.ts: (lihat hasil di bawah)
+- scripts/test-phase7-e2e.ts: (lihat hasil di bawah)
+- 
+pm run build: Exit Code 0
+
