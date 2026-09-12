@@ -1224,6 +1224,9 @@ Audit total, mendalam, dan final terhadap seluruh kodebase Adably sebelum dinyat
 - `src/app/uploads/[...path]/route.ts` [BARU] — route handler dinamis untuk berkas runtime uploads
 - `src/components/ui/ImageUploader.tsx` [MODIFIKASI] — penambahan atribut `unoptimized` pada preview image
 - `src/lib/data-store.ts` [MODIFIKASI] — refaktor `updateSiteSettings` & `getSiteSettings`
+- `src/components/common/PwaPrompt.tsx` [MODIFIKASI] — bypass PWA prompt & SW event saat admin aktif
+- `src/app/admin/layout.tsx` [MODIFIKASI] — prefetch={false} pada link navigasi sidebar admin untuk eliminasi peringatan link preload
 - `docs/NOTEPATCH.md` [MODIFIKASI — entri ini]
 - `docs/BLUEPRINT.md` [MODIFIKASI]
+
 
