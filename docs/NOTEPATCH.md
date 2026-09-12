@@ -1183,3 +1183,47 @@ Audit total, mendalam, dan final terhadap seluruh kodebase Adably sebelum dinyat
 
 ### Status
 **AUDIT SELESAI — PRODUCTION READY** ✅
+
+---
+
+## Sesi #23 — Perbaikan Next.js Image 400 Bad Request & PUT Pengaturan 500 Error
+**Tanggal:** 12/9/2026  
+**Build:** Exit Code 0 (`tsc --noEmit` + `npm test` + `npm run build`, 49 routes)
+
+### 1. Temuan Masalah di Live Production (`https://adably.id`)
+1. **Next.js Image 400 (Bad Request) pada Berkas Upload:**
+   - URL `GET /_next/image?url=%2Fuploads%2F...&w=384&q=75` menghasilkan HTTP 400 dan ikon gambar preview rusak (broken image) di halaman admin (`admin/pengaturan`, `admin/artikel/baru`, dsb.).
+   - *Akar Masalah:* Di Docker container Coolify dengan Next.js standalone mode, direktori `public` hanya di-index saat build time. Berkas fisik yang baru di-unggah ke `public/uploads/` saat runtime tidak memiliki handler route otomatis di Next.js App Router, sehingga internal upstream fetch optimizer menghasilkan 404 yang memicu respons 400 Bad Request.
+2. **PUT `/api/admin/pengaturan` 500 (Internal Server Error):**
+   - Saat admin menyimpan pengaturan situs (identitas platform, nomor WhatsApp CS, rekening bank transfer resmi, teks hak cipta footer), server merespons HTTP 500.
+   - *Akar Masalah:* Pada fungsi `updateSiteSettings()` di `src/lib/data-store.ts`, pemanggilan `writeLocalStore(store)` ditaruh di luar blok try-catch setelah `prisma.siteSetting.upsert`. Di mode produksi (`NODE_ENV === 'production'`), `writeLocalStore` dirancang fail-loud untuk melempar error `[CRITICAL PERSISTENCE ERROR]`, sehingga request selalu gagal dengan 500 meski data berhasil di-upsert ke database. Selain itu, field `footerText` dan `lowStockAlertThreshold` belum disertakan ke dalam query update/create Prisma.
+
+### 2. Perbaikan Yang Dilakukan
+1. **Dynamic Route Handler Berkas Unggahan (`src/app/uploads/[...path]/route.ts`):**
+   - Dibuat Route Handler baru untuk menangkap seluruh request ke `/uploads/*`.
+   - Mengambil berkas fisik dari `public/uploads/...` secara aman dengan proteksi path traversal (`path.resolve` + pengecekan batas direktori uploads).
+   - Mendeteksi tipe MIME (`image/jpeg`, `image/png`, `image/webp`, `image/svg+xml`, `application/pdf`).
+   - Menyertakan header `Cache-Control: public, max-age=31536000, immutable` dan `X-Content-Type-Options: nosniff`.
+2. **Optimasi Preview Upload (`src/components/ui/ImageUploader.tsx`):**
+   - Menambahkan atribut `unoptimized` pada komponen `<Image>` di area preview galeri/single upload.
+   - Preview berkas unggahan kini langsung dilayani oleh route handler `/uploads/...` seketika tanpa beban antrean kompresi Sharp, menghemat resource CPU container dan menjamin preview tidak pernah broken.
+3. **Refaktor Dual Persistence Site Settings (`src/lib/data-store.ts`):**
+   - `updateSiteSettings()` diperbaiki agar langsung mengembalikan objek pengaturan dari hasil upsert Prisma tanpa memicu `writeLocalStore` di production.
+   - Field `footerText` dan `lowStockAlertThreshold` kini disimpan secara persisten ke tabel `SiteSetting` di PostgreSQL.
+   - Penanganan fallback database dibungkus secara rapi dalam blok `catch` dengan memanggil `handleDbFallback('updateSiteSettings', e)`.
+   - `getSiteSettings()` diperbarui untuk membaca `s.footerText` dan `s.lowStockAlertThreshold` secara langsung tanpa type casting kotor.
+
+### 3. Verifikasi Kualitas
+| Pemeriksaan | Hasil |
+|---|---|
+| `npx tsc --noEmit` | Exit Code 0 (0 error TypeScript) ✅ |
+| `npm test` | Exit Code 0 (42/42 CRM test + 23/23 Audit test = 65 PASSED, 0 FAILED) ✅ |
+| `npm run build` | Exit Code 0 (49 routes terkompilasi sukses, termasuk `/uploads/[...path]`) ✅ |
+
+### 4. File yang Diubah
+- `src/app/uploads/[...path]/route.ts` [BARU] — route handler dinamis untuk berkas runtime uploads
+- `src/components/ui/ImageUploader.tsx` [MODIFIKASI] — penambahan atribut `unoptimized` pada preview image
+- `src/lib/data-store.ts` [MODIFIKASI] — refaktor `updateSiteSettings` & `getSiteSettings`
+- `docs/NOTEPATCH.md` [MODIFIKASI — entri ini]
+- `docs/BLUEPRINT.md` [MODIFIKASI]
+

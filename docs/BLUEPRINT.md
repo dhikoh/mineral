@@ -1,5 +1,5 @@
 # BLUEPRINT — Web Marketplace Single-Seller + CMS Artikel + Template Reusable
-Terakhir diupdate: 2026-09-12 (Sesi #22 — Audit Total Final: Integrasi WA Notify Orphan Events, Sinkronisasi Dokumentasi Final, Keputusan Out-of-Scope 14 Item Kelengkapan Bisnis)
+Terakhir diupdate: 2026-09-12 (Sesi #23 — Perbaikan Next.js Image 400 Bad Request via Dynamic Uploads Route Handler & PUT Pengaturan 500 Dual Persistence Fix)
 
 ---
 
@@ -511,12 +511,13 @@ model AuditLog {
 
 ---
 
-## 7. Matriks Endpoint API Lengkap (36 Route File — 57 Method Handler)
+## 7. Matriks Endpoint API Lengkap (37 Route File — 58 Method Handler)
 
-> **Catatan:** Blueprint ini menghitung route berdasarkan **file route** (36 file), bukan jumlah method handler (57 handler). Setiap baris tabel di bawah mewakili satu method handler unik.
+> **Catatan:** Blueprint ini menghitung route berdasarkan **file route** (37 file), bukan jumlah method handler (58 handler). Setiap baris tabel di bawah mewakili satu method handler unik.
 
 | Method | Endpoint | Tipe Akses | Deskripsi & Proteksi |
 |---|---|---|---|
+| `GET` | `/uploads/[...path]` | Publik | Melayani berkas fisik yang diunggah saat runtime di container Docker/standalone Next.js (proteksi path traversal, Content-Type dinamis, Cache-Control immutable 1 tahun) (Sesi #23) |
 | `POST` | `/api/checkout` | Publik | Formulir guest checkout (Rate limit 10x/5m, transaksi atomik potong stok & catat lead) |
 | `GET` | `/api/pesanan/[orderCode]` | Publik | Detail pesanan untuk upload bukti bayar (Rate limit 30x/1m, verifikasi no HP 8-digit, PII masking) |
 | `POST` | `/api/pesanan/[orderCode]/bukti` | Publik | Simpan informasi bukti transfer pembayaran (Rate limit 10x/5m, status gate) |

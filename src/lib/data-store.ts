@@ -1241,7 +1241,8 @@ export async function getSiteSettings(): Promise<SiteSettingsData> {
         csOperationalHours: s.csOperationalHours || DEFAULT_SITE_SETTINGS.csOperationalHours,
         address: s.address || DEFAULT_SITE_SETTINGS.address,
         bankAccounts: (s.bankAccounts as any) || DEFAULT_SITE_SETTINGS.bankAccounts,
-        footerText: (s as any).footerText || DEFAULT_SITE_SETTINGS.footerText,
+        footerText: s.footerText || DEFAULT_SITE_SETTINGS.footerText,
+        lowStockAlertThreshold: s.lowStockAlertThreshold ?? DEFAULT_SITE_SETTINGS.lowStockAlertThreshold,
       };
     }
   } catch {}
@@ -1266,10 +1267,11 @@ export async function updateSiteSettings(data: Partial<SiteSettingsData>): Promi
     address: data.address ?? current.address,
     bankAccounts: data.bankAccounts ?? current.bankAccounts,
     footerText: data.footerText !== undefined ? data.footerText : current.footerText,
+    lowStockAlertThreshold: data.lowStockAlertThreshold !== undefined ? data.lowStockAlertThreshold : current.lowStockAlertThreshold,
   };
 
   try {
-    await prisma.siteSetting.upsert({
+    const s = await prisma.siteSetting.upsert({
       where: { id: 'default-setting' },
       update: {
         siteName: updated.siteName,
@@ -1282,6 +1284,8 @@ export async function updateSiteSettings(data: Partial<SiteSettingsData>): Promi
         csOperationalHours: updated.csOperationalHours,
         address: updated.address,
         bankAccounts: updated.bankAccounts as any,
+        footerText: updated.footerText,
+        lowStockAlertThreshold: updated.lowStockAlertThreshold,
       },
       create: {
         id: 'default-setting',
@@ -1295,17 +1299,32 @@ export async function updateSiteSettings(data: Partial<SiteSettingsData>): Promi
         csOperationalHours: updated.csOperationalHours,
         address: updated.address,
         bankAccounts: updated.bankAccounts as any,
+        footerText: updated.footerText,
+        lowStockAlertThreshold: updated.lowStockAlertThreshold,
       },
     });
-  } catch (e) {
-    console.error('Failed updating site setting in prisma, saving to local store', e);
+
+    return {
+      siteName: s.siteName,
+      tagline: s.tagline || DEFAULT_SITE_SETTINGS.tagline,
+      logoUrl: s.logoUrl || DEFAULT_SITE_SETTINGS.logoUrl,
+      faviconUrl: s.faviconUrl || DEFAULT_SITE_SETTINGS.faviconUrl,
+      primaryColor: s.primaryColor || DEFAULT_SITE_SETTINGS.primaryColor,
+      csWhatsapp: s.csWhatsapp || DEFAULT_SITE_SETTINGS.csWhatsapp,
+      csEmail: s.csEmail || DEFAULT_SITE_SETTINGS.csEmail,
+      csOperationalHours: s.csOperationalHours || DEFAULT_SITE_SETTINGS.csOperationalHours,
+      address: s.address || DEFAULT_SITE_SETTINGS.address,
+      bankAccounts: (s.bankAccounts as any) || DEFAULT_SITE_SETTINGS.bankAccounts,
+      footerText: s.footerText || DEFAULT_SITE_SETTINGS.footerText,
+      lowStockAlertThreshold: s.lowStockAlertThreshold ?? DEFAULT_SITE_SETTINGS.lowStockAlertThreshold,
+    };
+  } catch (e: any) {
+    handleDbFallback('updateSiteSettings', e);
+    const store = readLocalStore();
+    store.siteSettings = updated;
+    writeLocalStore(store);
+    return updated;
   }
-
-  const store = readLocalStore();
-  store.siteSettings = updated;
-  writeLocalStore(store);
-
-  return updated;
 }
 
 // --- ORDER METHODS ---
