@@ -1022,16 +1022,21 @@ export async function getProducts(options?: GetProductsOptions) {
 
 export async function getProductBySlug(slug: string) {
   try {
-    return await prisma.product.findUnique({
+    const product = await prisma.product.findUnique({
       where: { slug },
       include: {
         category: true,
         usages: { include: { usage: true } },
       },
     });
+    // Gap #4 fix: produk nonaktif diperlakukan seperti tidak ditemukan
+    if (product && product.isActive === false) return null;
+    return product;
   } catch {
     const store = readLocalStore();
-    return store.products.find((p) => p.slug === slug) || null;
+    const p = store.products.find((p) => p.slug === slug) || null;
+    if (p && (p as any).isActive === false) return null;
+    return p;
   }
 }
 
@@ -1365,7 +1370,11 @@ export async function createOrder(data: {
   const allProducts = await getProducts();
   const resolvedItems = data.items.map((item) => {
     const p = (allProducts as any[]).find((prod: any) => prod.id === item.productId);
-    if (!p) throw new Error(`Produk dengan ID ${item.productId} tidak ditemukan.`);
+    if (!p) throw new Error(`Produk "${item.productId}" tidak ditemukan atau sudah tidak tersedia.`);
+    // Gap #1 fix: produk yang dinonaktifkan admin tidak bisa di-checkout
+    if (p.isActive === false) {
+      throw new Error(`Produk "${p.name}" saat ini tidak tersedia untuk dipesan. Silakan hapus dari keranjang.`);
+    }
     if (p.stock !== null && p.stock !== undefined && p.stock < item.qty) {
       throw new Error(`Stok komoditas ${p.name} tidak mencukupi (tersedia: ${p.stock}).`);
     }
@@ -1753,7 +1762,12 @@ export async function submitPaymentProof(
     }
 
     if (currentOrder.status === 'CANCELLED') {
-      throw new Error('Pesanan ini telah dibatalkan.');
+      throw new Error('Pesanan ini telah dibatalkan dan tidak dapat menerima bukti pembayaran baru.');
+    }
+
+    // Gap #5 fix: pesanan REJECTED hanya boleh upload bukti baru via alur resmi
+    if (currentOrder.status === 'REJECTED') {
+      throw new Error('Pesanan ini telah ditolak. Silakan hubungi admin untuk klarifikasi sebelum mengunggah ulang bukti.');
     }
 
     await prisma.paymentProof.upsert({

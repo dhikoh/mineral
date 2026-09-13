@@ -1,5 +1,43 @@
 # NOTEPATCH — Log Perubahan
 
+## [2026-09-13] Sesi — Fix 5 Gap Integrasi: Keranjang ↔ Produk DB
+
+**Masalah yang ditemukan dari audit menyeluruh:**
+
+### Gap #1 — `isActive` diabaikan di `createOrder` (KRITIS)
+Produk yang dinonaktifkan admin (`isActive=false`) tetap ada di DB tapi seharusnya tidak bisa di-checkout. `createOrder` hanya cek `!p` (tidak ditemukan), tidak cek `p.isActive`.
+- **Fix:** Tambah guard `if (p.isActive === false) throw new Error(...)` di `createOrder` di `data-store.ts`
+
+### Gap #2 — Stok basi di localStorage
+CartItem.stock disimpan saat produk ditambah. Jika admin kurangi stok, user bisa input qty melebihi stok real di halaman keranjang.
+- **Fix:** `POST /api/validate-cart` → auto-detect stok berubah, tampil banner "Sesuaikan Qty"
+
+### Gap #3 — Harga basi di keranjang (non-fatal tapi UX buruk)
+CartItem.price dari localStorage bisa berbeda dari harga DB terbaru. Server tetap pakai harga DB, tapi user tidak diberi tahu.
+- **Fix:** validate-cart mendeteksi perubahan harga → tampil badge "harga diperbarui" di halaman keranjang
+
+### Gap #4 — `getProductBySlug` tidak filter `isActive`
+Produk nonaktif bisa diakses langsung via URL `/produk/[slug]` dan ditambah ke keranjang.
+- **Fix:** `getProductBySlug` tambah guard `if (product.isActive === false) return null` → otomatis `notFound()`
+
+### Gap #5 — Bukti bayar bisa di-upload ke pesanan REJECTED
+`submitPaymentProof` sudah ada guard CANCELLED, tapi belum REJECTED.
+- **Fix:** Tambah `if (currentOrder.status === 'REJECTED') throw new Error(...)` di `data-store.ts`
+
+**File dimodifikasi:**
+- `src/lib/data-store.ts` — Gap #1, #4, #5
+- `src/app/api/validate-cart/route.ts` — [NEW] endpoint validasi keranjang
+- `src/app/keranjang/page.tsx` — Gap #2, #3: integrasi validate-cart + banner warning per-item
+
+**UX yang dihasilkan di halaman keranjang:**
+- Spinner "Memverifikasi ketersediaan..." saat validasi berlangsung
+- Banner merah (produk dihapus/nonaktif) dengan tombol "Hapus Item"
+- Banner oranye (stok berubah) dengan tombol "Sesuaikan Qty" atau "Hapus Item"
+- Banner kuning (harga berubah) + badge "(harga diperbarui)" inline
+- Item dengan masalah fatal (DELETED/INACTIVE) di-dimmed 50%, tombol checkout diblokir
+
+---
+
 ## [2026-09-13] Sesi — Fix Cache: revalidatePath di Semua Mutation Route
 
 **Masalah:** Homepage (`/`) adalah Static Route tanpa `force-dynamic`. Next.js menyimpan hasil render sebagai Full Route Cache saat build. Akibatnya, item yang dihapus admin di database masih tampil di homepage karena cache belum di-invalidasi.
