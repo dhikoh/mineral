@@ -1,21 +1,25 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useCart } from '@/lib/cart-context';
 import { formatRupiah } from '@/lib/utils';
+import type { BankAccount } from '@/lib/data-store';
+import { PaymentMethodModal } from '@/components/common/PaymentMethodModal';
 import {
   ShieldCheck,
   Truck,
   CreditCard,
   Building2,
+  QrCode,
   ArrowLeft,
   Loader2,
   CheckCircle2,
   AlertCircle,
   ShoppingBag,
+  ChevronRight,
 } from 'lucide-react';
 
 export default function CheckoutPage() {
@@ -32,6 +36,19 @@ export default function CheckoutPage() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [paymentMethods, setPaymentMethods] = useState<BankAccount[]>([]);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+
+  // Ambil metode pembayaran dari pengaturan situs
+  useEffect(() => {
+    fetch('/api/public/settings')
+      .then((r) => r.json())
+      .then((d) => {
+        const methods = d?.bankAccounts;
+        if (Array.isArray(methods) && methods.length > 0) setPaymentMethods(methods);
+      })
+      .catch(() => {});
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData((prev) => ({
@@ -124,6 +141,7 @@ export default function CheckoutPage() {
   }
 
   return (
+    <>
     <div className="mx-auto max-w-7xl px-4 py-8 sm:py-12">
       {/* Header Breadcrumb & Notice */}
       <div className="mb-8">
@@ -253,36 +271,66 @@ export default function CheckoutPage() {
             </div>
           </form>
 
-          {/* Payment Method Preview Box */}
+          {/* Payment Method Preview Box — Dinamis dari CMS */}
           <div className="rounded-3xl border border-surface-200 bg-white p-6 shadow-soft-sm space-y-4">
-            <div className="flex items-center gap-2 pb-3 border-b border-surface-200">
-              <CreditCard className="h-4 w-4 text-emerald-600" />
-              <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
-                Metode Pembayaran
-              </h2>
+            <div className="flex items-center justify-between pb-3 border-b border-surface-200">
+              <div className="flex items-center gap-2">
+                <CreditCard className="h-4 w-4 text-emerald-600" />
+                <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
+                  Metode Pembayaran
+                </h2>
+              </div>
+              {paymentMethods.filter((m) => m.isActive !== false).length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setIsPaymentModalOpen(true)}
+                  className="flex items-center gap-1 text-xs font-semibold text-emerald-600 hover:text-emerald-800 transition-colors"
+                >
+                  Lihat Detail <ChevronRight className="h-3.5 w-3.5" />
+                </button>
+              )}
             </div>
+
             <p className="text-xs text-slate-600 leading-relaxed">
-              Pembayaran dilakukan melalui <strong>Transfer Bank Manual</strong>. Nomor rekening resmi penjual (Bank BCA &amp; Bank Mandiri) akan tertera di halaman instruksi pembayaran setelah Anda menekan tombol konfirmasi.
+              Pembayaran dilakukan setelah pesanan dibuat. Pilih metode Transfer Bank atau QRIS sesuai preferensi Anda.
             </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-              <div className="rounded-2xl border border-surface-200 bg-surface-50 p-3.5 flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-white font-extrabold text-xs">
-                  BCA
-                </div>
-                <div>
-                  <div className="text-xs font-bold text-slate-800">Bank Central Asia</div>
-                  <div className="text-[11px] text-slate-500">Rekening Resmi Perusahaan</div>
-                </div>
-              </div>
-              <div className="rounded-2xl border border-surface-200 bg-surface-50 p-3.5 flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-900 text-white font-extrabold text-xs">
-                  MDR
-                </div>
-                <div>
-                  <div className="text-xs font-bold text-slate-800">Bank Mandiri</div>
-                  <div className="text-[11px] text-slate-500">Rekening Resmi Perusahaan</div>
-                </div>
-              </div>
+
+            {/* Badge metode pembayaran tersedia */}
+            <div className="flex flex-wrap gap-2">
+              {paymentMethods.filter((m) => m.isActive !== false && m.type !== 'QRIS').map((m, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => setIsPaymentModalOpen(true)}
+                  className="flex items-center gap-1.5 rounded-xl border border-surface-200 bg-surface-50 px-3 py-2 hover:border-emerald-300 hover:bg-emerald-50 transition-all"
+                >
+                  <Building2 className="h-3.5 w-3.5 text-slate-500" />
+                  <span className="text-xs font-bold text-slate-700">{m.bank}</span>
+                </button>
+              ))}
+              {paymentMethods.filter((m) => m.isActive !== false && m.type === 'QRIS').length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setIsPaymentModalOpen(true)}
+                  className="flex items-center gap-1.5 rounded-xl border border-purple-200 bg-purple-50 px-3 py-2 hover:border-purple-400 hover:bg-purple-100 transition-all"
+                >
+                  <QrCode className="h-3.5 w-3.5 text-purple-600" />
+                  <span className="text-xs font-bold text-purple-700">QRIS</span>
+                </button>
+              )}
+              {/* Fallback jika settings belum dimuat */}
+              {paymentMethods.length === 0 && (
+                <>
+                  <div className="flex items-center gap-1.5 rounded-xl border border-surface-200 bg-surface-50 px-3 py-2">
+                    <Building2 className="h-3.5 w-3.5 text-slate-500" />
+                    <span className="text-xs font-bold text-slate-700">Transfer Bank</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 rounded-xl border border-purple-200 bg-purple-50 px-3 py-2">
+                    <QrCode className="h-3.5 w-3.5 text-purple-600" />
+                    <span className="text-xs font-bold text-purple-700">QRIS</span>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -375,5 +423,13 @@ export default function CheckoutPage() {
         </div>
       </div>
     </div>
+
+      {/* Modal Metode Pembayaran */}
+      <PaymentMethodModal
+        isOpen={isPaymentModalOpen}
+        onClose={() => setIsPaymentModalOpen(false)}
+        paymentMethods={paymentMethods}
+      />
+    </>
   );
 }

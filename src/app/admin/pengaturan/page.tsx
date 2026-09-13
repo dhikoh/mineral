@@ -18,14 +18,13 @@ import {
   Globe,
   Sparkles,
   ExternalLink,
+  QrCode,
+  Building2,
+  ToggleLeft,
+  ToggleRight,
 } from 'lucide-react';
 import { ImageUploader } from '@/components/ui/ImageUploader';
-
-interface BankAccount {
-  bank: string;
-  noRekening: string;
-  atasNama: string;
-}
+import type { BankAccount } from '@/lib/data-store';
 
 interface SiteSettingsData {
   siteName: string;
@@ -104,7 +103,14 @@ export default function AdminPengaturanPage() {
   const handleAddBank = () => {
     setBankAccounts((prev) => [
       ...prev,
-      { bank: 'BCA', noRekening: '', atasNama: 'Adably' },
+      { type: 'BANK', bank: 'BCA', noRekening: '', atasNama: 'Adably', isActive: true },
+    ]);
+  };
+
+  const handleAddQris = () => {
+    setBankAccounts((prev) => [
+      ...prev,
+      { type: 'QRIS', bank: 'QRIS', noRekening: '', atasNama: 'Adably', qrImageUrl: '', instructions: '', isActive: true },
     ]);
   };
 
@@ -116,7 +122,7 @@ export default function AdminPengaturanPage() {
     setBankAccounts((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleBankChange = (index: number, field: keyof BankAccount, val: string) => {
+  const handleBankChange = (index: number, field: keyof BankAccount, val: string | boolean) => {
     setBankAccounts((prev) => {
       const next = [...prev];
       next[index] = { ...next[index], [field]: val };
@@ -447,89 +453,227 @@ export default function AdminPengaturanPage() {
             </div>
           )}
 
-          {/* TAB 3: REKENING BANK TRANSFER */}
+          {/* TAB 3: REKENING BANK & QRIS */}
           {activeTab === 'banks' && (
             <div className="rounded-3xl border border-surface-200 bg-white p-6 sm:p-8 shadow-soft-xs space-y-6">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
-                  <h2 className="text-base font-bold text-slate-900">Rekening Bank Resmi Transfer</h2>
+                  <h2 className="text-base font-bold text-slate-900">Rekening Bank &amp; QRIS</h2>
                   <p className="text-xs text-slate-500">
-                    Daftar rekening yang akan ditampilkan pada halaman instruksi transfer pembayaran pembeli
+                    Daftar metode pembayaran yang akan ditampilkan pada halaman pesanan pembeli
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleAddBank}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-surface-100 px-3.5 py-2 text-xs font-bold text-slate-800 hover:bg-surface-200 transition-colors self-start sm:self-auto"
-                >
-                  <Plus className="h-4 w-4" /> Tambah Rekening
-                </button>
+                <div className="flex gap-2 self-start sm:self-auto">
+                  <button
+                    type="button"
+                    onClick={handleAddBank}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-surface-100 px-3 py-2 text-xs font-bold text-slate-800 hover:bg-surface-200 transition-colors"
+                  >
+                    <Building2 className="h-3.5 w-3.5" /> Tambah Bank
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleAddQris}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-purple-100 px-3 py-2 text-xs font-bold text-purple-800 hover:bg-purple-200 transition-colors"
+                  >
+                    <QrCode className="h-3.5 w-3.5" /> Tambah QRIS
+                  </button>
+                </div>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-5">
                 {bankAccounts.map((b, idx) => (
                   <div
                     key={idx}
-                    className="rounded-2xl border border-surface-200 bg-surface-50/50 p-4.5 sm:p-5 relative group"
+                    className={`rounded-2xl border p-4 sm:p-5 relative transition-all ${
+                      b.isActive === false
+                        ? 'border-slate-200 bg-slate-50/50 opacity-60'
+                        : b.type === 'QRIS'
+                        ? 'border-purple-200 bg-purple-50/30'
+                        : 'border-surface-200 bg-surface-50/50'
+                    }`}
                   >
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-100 px-2.5 py-1 text-xs font-extrabold text-emerald-800">
-                        <CreditCard className="h-3.5 w-3.5" /> Rekening #{idx + 1}
-                      </span>
-                      {bankAccounts.length > 1 && (
+                    {/* Header: tipe + badge + toggle + hapus */}
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2">
+                        {b.type === 'QRIS' ? (
+                          <span className="inline-flex items-center gap-1.5 rounded-lg bg-purple-100 px-2.5 py-1 text-xs font-extrabold text-purple-800">
+                            <QrCode className="h-3.5 w-3.5" /> QRIS #{idx + 1}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-100 px-2.5 py-1 text-xs font-extrabold text-emerald-800">
+                            <CreditCard className="h-3.5 w-3.5" /> Bank #{idx + 1}
+                          </span>
+                        )}
+                        {b.isActive === false && (
+                          <span className="text-[10px] font-bold text-slate-400 uppercase">Nonaktif</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {/* Toggle aktif */}
                         <button
                           type="button"
-                          onClick={() => handleRemoveBank(idx)}
-                          className="text-xs font-semibold text-rose-600 hover:text-rose-800 inline-flex items-center gap-1"
+                          onClick={() => handleBankChange(idx, 'isActive', !(b.isActive !== false))}
+                          className={`inline-flex items-center gap-1 text-xs font-semibold transition-colors ${
+                            b.isActive !== false ? 'text-emerald-600 hover:text-emerald-800' : 'text-slate-400 hover:text-slate-600'
+                          }`}
                         >
-                          <Trash2 className="h-3.5 w-3.5" /> Hapus
+                          {b.isActive !== false ? (
+                            <ToggleRight className="h-5 w-5" />
+                          ) : (
+                            <ToggleLeft className="h-5 w-5" />
+                          )}
+                          {b.isActive !== false ? 'Aktif' : 'Nonaktif'}
                         </button>
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      <div>
-                        <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                          Nama Bank (BCA, Mandiri, BNI, dll)
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          value={b.bank}
-                          onChange={(e) => handleBankChange(idx, 'bank', e.target.value)}
-                          placeholder="BCA"
-                          className="w-full rounded-xl border border-surface-200 bg-white px-3 py-2 text-xs font-bold text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                          Nomor Rekening
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          value={b.noRekening}
-                          onChange={(e) => handleBankChange(idx, 'noRekening', e.target.value)}
-                          placeholder="8001234567"
-                          className="w-full rounded-xl border border-surface-200 bg-white px-3 py-2 text-xs font-mono font-bold text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                          Atas Nama Pemilik Rekening
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          value={b.atasNama}
-                          onChange={(e) => handleBankChange(idx, 'atasNama', e.target.value)}
-                          placeholder="Adably"
-                          className="w-full rounded-xl border border-surface-200 bg-white px-3 py-2 text-xs font-bold text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                        />
+                        {bankAccounts.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveBank(idx)}
+                            className="text-xs font-semibold text-rose-600 hover:text-rose-800 inline-flex items-center gap-1"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" /> Hapus
+                          </button>
+                        )}
                       </div>
                     </div>
+
+                    {/* Fields BANK */}
+                    {b.type !== 'QRIS' && (
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                            Nama Bank
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={b.bank}
+                            onChange={(e) => handleBankChange(idx, 'bank', e.target.value)}
+                            placeholder="BCA, Mandiri, BRI..."
+                            className="w-full rounded-xl border border-surface-200 bg-white px-3 py-2 text-xs font-bold text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                            Nomor Rekening
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={b.noRekening}
+                            onChange={(e) => handleBankChange(idx, 'noRekening', e.target.value)}
+                            placeholder="8001234567"
+                            className="w-full rounded-xl border border-surface-200 bg-white px-3 py-2 text-xs font-mono font-bold text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                            Atas Nama
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={b.atasNama}
+                            onChange={(e) => handleBankChange(idx, 'atasNama', e.target.value)}
+                            placeholder="Adably"
+                            className="w-full rounded-xl border border-surface-200 bg-white px-3 py-2 text-xs font-bold text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          />
+                        </div>
+                        <div className="sm:col-span-3">
+                          <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                            Instruksi Pembayaran <span className="font-normal text-slate-400">(opsional)</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={b.instructions || ''}
+                            onChange={(e) => handleBankChange(idx, 'instructions', e.target.value)}
+                            placeholder="Contoh: Transfer tepat sesuai total. Verifikasi 1x24 jam kerja."
+                            className="w-full rounded-xl border border-surface-200 bg-white px-3 py-2 text-xs text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Fields QRIS */}
+                    {b.type === 'QRIS' && (
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                              Nama Merchant / Label
+                            </label>
+                            <input
+                              type="text"
+                              required
+                              value={b.bank}
+                              onChange={(e) => handleBankChange(idx, 'bank', e.target.value)}
+                              placeholder="QRIS Adably"
+                              className="w-full rounded-xl border border-surface-200 bg-white px-3 py-2 text-xs font-bold text-slate-900 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                              Atas Nama
+                            </label>
+                            <input
+                              type="text"
+                              required
+                              value={b.atasNama}
+                              onChange={(e) => handleBankChange(idx, 'atasNama', e.target.value)}
+                              placeholder="Adably"
+                              className="w-full rounded-xl border border-surface-200 bg-white px-3 py-2 text-xs font-bold text-slate-900 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                              NMID <span className="font-normal text-slate-400">(opsional)</span>
+                            </label>
+                            <input
+                              type="text"
+                              value={b.noRekening || ''}
+                              onChange={(e) => handleBankChange(idx, 'noRekening', e.target.value)}
+                              placeholder="ID merchant QRIS"
+                              className="w-full rounded-xl border border-surface-200 bg-white px-3 py-2 text-xs font-mono text-slate-900 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                              Instruksi <span className="font-normal text-slate-400">(opsional)</span>
+                            </label>
+                            <input
+                              type="text"
+                              value={b.instructions || ''}
+                              onChange={(e) => handleBankChange(idx, 'instructions', e.target.value)}
+                              placeholder="Scan QR, masukkan nominal, konfirmasi."
+                              className="w-full rounded-xl border border-surface-200 bg-white px-3 py-2 text-xs text-slate-900 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Upload Gambar QR */}
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-600 mb-2">
+                            Gambar Kode QR <span className="text-rose-500">*</span>
+                          </label>
+                          <ImageUploader
+                            value={b.qrImageUrl || ''}
+                            onChange={(val) => handleBankChange(idx, 'qrImageUrl', val as string)}
+                            uploadEndpoint="/api/admin/upload"
+                            helperText="Upload gambar QR code QRIS (PNG/JPG, maks 5MB)"
+                          />
+                          {b.qrImageUrl && (
+                            <div className="mt-2 flex items-center gap-2">
+                              <img
+                                src={b.qrImageUrl}
+                                alt="Preview QR"
+                                className="h-24 w-24 rounded-xl border border-purple-200 object-contain bg-white p-1"
+                              />
+                              <p className="text-[11px] text-slate-500">Preview kode QR yang akan ditampilkan ke pembeli</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

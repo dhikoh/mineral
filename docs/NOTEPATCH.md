@@ -1,6 +1,88 @@
 # NOTEPATCH — Log Perubahan
 
+## [2026-09-13] Sesi Terbaru — Integrasi Metode Pembayaran (Bank+QRIS) & PWA Enhancements
+
+**Dikerjakan:**
+
+### A. Tipe Data & Foundation
+- Perluas interface `BankAccount` di `src/lib/data-store.ts`: tambah field `type` ('BANK'|'QRIS'), `qrImageUrl`, `instructions`, `isActive` — backward-compatible (semua field optional).
+
+### B. PWA Context & Logic (Terpusat)
+- Buat `src/lib/pwa-context.tsx` — `PwaProvider` + `usePwa()` hook dengan:
+  - Deteksi instalasi native via `display-mode: standalone` dan `navigator.standalone`
+  - Persistensi state `localStorage`: `pwa_installed`, `pwa_prompt_never_show`
+  - Registrasi Service Worker terpusat (tidak lagi tersebar di PwaPrompt)
+  - Listen `beforeinstallprompt` dan `appinstalled`
+- Modifikasi `src/app/layout.tsx` — bungkus tree dengan `<PwaProvider>`
+- Renovasi `src/components/common/PwaPrompt.tsx`:
+  - Gunakan `usePwa()` — hapus logika duplikat lama
+  - Banner tidak muncul jika PWA sudah terpasang (`isInstalled`)
+  - Tambah checkbox **"Jangan tampilkan lagi di perangkat ini"** yang menyimpan state permanent ke localStorage
+  - Tombol close + tombol "Pasang Sekarang"
+- Modifikasi `src/components/layout/Navbar.tsx`:
+  - Tambah tombol ikon **Download** di samping ikon Keranjang
+  - Hanya tampil jika `isInstallable && !isInstalled`
+
+### C. Komponen Modal Pembayaran Baru
+- Buat `src/components/common/PaymentMethodModal.tsx`:
+  - Pop-up modal interaktif dengan **tab Transfer Bank / QRIS**
+  - Tampil badge bank Indonesia (BCA biru, Mandiri kuning, BRI navy, BSI hijau, dll.)
+  - Nomor rekening besar dengan **tombol Salin 1-klik** + animasi "Tersalin!"
+  - QRIS: tampil QR image, tombol **Perbesar** (zoom overlay) + **Unduh QR**
+  - Instruksi per-metode yang dapat dikustomisasi di CMS
+  - `onSelectMethod` callback untuk auto-fill form bukti bayar
+  - Tutup dengan Escape atau klik overlay
+
+### D. Halaman Storefront
+- Modifikasi `src/app/checkout/page.tsx`:
+  - Tambah `useEffect` fetch `/api/public/settings` untuk metode pembayaran dinamis
+  - Ganti kotak BCA/Mandiri hardcoded → badge dinamis clickable yang memicu modal
+  - Integrasi `<PaymentMethodModal>` dalam Fragment return
+- Buat `src/app/api/public/settings/route.ts` — GET endpoint publik (tanpa auth) mengembalikan `bankAccounts` dengan cache header
+- Modifikasi `src/app/pesanan/[orderCode]/OrderDetailClient.tsx`:
+  - Ganti daftar rekening statis → badge metode pembayaran (Bank/QRIS) yang memicu modal
+  - `onSelectMethod` auto-fill field **Bank Pengirim** di form upload bukti bayar
+  - Tambah `<PaymentMethodModal>` di akhir return
+- Buat `src/components/layout/FooterPaymentButton.tsx` — client component kecil untuk tombol modal di Footer (agar Footer tetap Server Component)
+- Modifikasi `src/components/layout/Footer.tsx`:
+  - Import `BankAccount` dari `data-store` (hapus inline type lama)
+  - Filter: hanya tampilkan bank (bukan QRIS) di list footer
+  - Tambah `<FooterPaymentButton>` di kolom rekening
+
+### E. CMS Admin
+- Modifikasi `src/app/admin/pengaturan/page.tsx` — Tab "Rekening Bank & QRIS":
+  - Import `BankAccount` dari `data-store` (hapus interface lokal duplikat)
+  - Tombol **"Tambah Bank"** dan **"Tambah QRIS"** terpisah
+  - Form Bank: nama bank, nomor rekening, atas nama, instruksi
+  - Form QRIS: nama merchant, atas nama, NMID, instruksi, **upload gambar QR** (`ImageUploader`) + preview
+  - Toggle **Aktif/Nonaktif** per-metode dengan ikon ToggleLeft/ToggleRight
+
+**File Dibuat:**
+- `src/lib/pwa-context.tsx`
+- `src/components/common/PaymentMethodModal.tsx`
+- `src/components/layout/FooterPaymentButton.tsx`
+- `src/app/api/public/settings/route.ts`
+
+**File Dimodifikasi:**
+- `src/lib/data-store.ts` (BankAccount interface diperluas)
+- `src/app/layout.tsx` (tambah PwaProvider)
+- `src/components/common/PwaPrompt.tsx` (renovasi total)
+- `src/components/layout/Navbar.tsx` (tombol install PWA)
+- `src/components/layout/Footer.tsx` (FooterPaymentButton, type BankAccount dari data-store)
+- `src/app/checkout/page.tsx` (modal pembayaran dinamis)
+- `src/app/pesanan/[orderCode]/OrderDetailClient.tsx` (modal + auto-fill)
+- `src/app/admin/pengaturan/page.tsx` (CMS Bank+QRIS)
+
+**Hasil Verifikasi:**
+- `npx tsc --noEmit` → ✅ 0 errors
+- `npm run build` → ✅ Exit Code 0 (semua rute terkompilasi)
+- `npm test` → ✅ 23/23 PASSED, 0 FAILED
+- Audit otomatis 40 checklist implementation plan → ✅ 40/40 PASS
+
+---
+
 ## [2026-09-08] Sesi #1 — Inisialisasi Proyek & Eksekusi Fase 1
+
 **Dikerjakan:**
 - Membuat dokumen acuan `docs/BLUEPRINT.md` (Single Source of Truth) dan `docs/NOTEPATCH.md`.
 - Memulai setup project Next.js (App Router) + TypeScript + Tailwind CSS.

@@ -10,9 +10,11 @@ import {
   Package,
   Layers,
   ShieldCheck,
+  Download,
 } from 'lucide-react';
 
 import { useCart } from '@/lib/cart-context';
+import { usePwa } from '@/lib/pwa-context';
 
 interface NavbarProps {
   siteName?: string;
@@ -28,6 +30,7 @@ export function Navbar({
   const [searchQuery, setSearchQuery] = useState('');
   const router = useRouter();
   const { totalItems } = useCart();
+  const { isInstallable, isInstalled, promptInstall } = usePwa();
   const displayCartCount = cartCount !== undefined ? cartCount : totalItems;
 
   const handleSearch = (e: React.FormEvent) => {
@@ -140,6 +143,20 @@ export function Navbar({
           >
             Artikel & Edukasi
           </Link>
+
+          {/* Tombol Pasang PWA — hanya tampil jika bisa diinstal & belum terpasang */}
+          {isInstallable && !isInstalled && (
+            <button
+              id="navbar-pwa-install-btn"
+              type="button"
+              onClick={() => promptInstall()}
+              aria-label="Pasang Aplikasi Adably"
+              title="Pasang Aplikasi Adably"
+              className="relative flex h-10 w-10 items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-500 hover:bg-emerald-100 transition-colors shadow-soft-sm"
+            >
+              <Download className="h-4 w-4" />
+            </button>
+          )}
 
           {/* Cart Button */}
           <Link

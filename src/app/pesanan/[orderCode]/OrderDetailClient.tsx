@@ -5,6 +5,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { formatRupiah, formatDate } from '@/lib/utils';
 import { ImageUploader } from '@/components/ui/ImageUploader';
+import type { BankAccount } from '@/lib/data-store';
+import { PaymentMethodModal } from '@/components/common/PaymentMethodModal';
 import {
   Clock,
   CheckCircle2,
@@ -12,6 +14,7 @@ import {
   Copy,
   Check,
   Building2,
+  QrCode,
   Truck,
   MessageCircle,
   ArrowLeft,
@@ -22,13 +25,8 @@ import {
   ExternalLink,
   UploadCloud,
   XCircle,
+  CreditCard,
 } from 'lucide-react';
-
-interface BankAccount {
-  bank: string;
-  noRekening: string;
-  atasNama: string;
-}
 
 interface OrderDetailClientProps {
   initialOrder: any;
@@ -54,6 +52,7 @@ export function OrderDetailClient({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [submitSuccess, setSubmitSuccess] = useState('');
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
 
   const copyToClipboard = (text: string, type: string) => {
     navigator.clipboard.writeText(text);
@@ -295,60 +294,53 @@ export function OrderDetailClient({
           </div>
         </div>
 
-        {/* Bank Account Details (Shown if not yet completed/cancelled) */}
+        {/* Payment Methods (Shown if not yet completed/cancelled) */}
         {order.status !== 'COMPLETED' && order.status !== 'CANCELLED' && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                <Building2 className="h-4 w-4 text-emerald-600" />
-                Rekening Resmi Tujuan Pembayaran:
+                <CreditCard className="h-4 w-4 text-emerald-600" />
+                Metode Pembayaran Resmi:
               </h3>
-              <span className="text-[11px] text-slate-400">Transfer tepat sesuai total tagihan</span>
+              <button
+                type="button"
+                onClick={() => setIsPaymentModalOpen(true)}
+                className="text-[11px] font-semibold text-emerald-600 hover:text-emerald-800 transition-colors underline underline-offset-2"
+              >
+                Lihat Detail Rekening &amp; QRIS
+              </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {(Array.isArray(bankAccounts) ? bankAccounts : []).map((acc) => {
-                const isCopied = copiedBank === acc.bank;
-                return (
-                  <div
-                    key={acc.bank}
-                    className="rounded-2xl border border-surface-200 bg-surface-50 p-4 flex flex-col justify-between space-y-3 hover:border-emerald-300 transition-all"
+            {/* Badge-badges metode pembayaran */}
+            <div className="flex flex-wrap gap-2">
+              {(Array.isArray(bankAccounts) ? bankAccounts : [])
+                .filter((acc) => acc.isActive !== false)
+                .map((acc, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      setIsPaymentModalOpen(true);
+                    }}
+                    className={`flex items-center gap-2 rounded-2xl border px-4 py-2.5 text-xs font-bold transition-all hover:shadow-md ${
+                      acc.type === 'QRIS'
+                        ? 'border-purple-200 bg-purple-50 text-purple-800 hover:border-purple-400'
+                        : 'border-surface-200 bg-white text-slate-800 hover:border-emerald-400'
+                    }`}
                   >
-                    <div className="flex items-center justify-between">
-                      <span className="rounded-lg bg-slate-900 px-2.5 py-1 text-xs font-black text-white">
-                        Bank {acc.bank}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => copyToClipboard(acc.noRekening, acc.bank)}
-                        className="inline-flex items-center gap-1 rounded-lg bg-white border border-surface-200 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 transition-all cursor-pointer shadow-soft-xs"
-                      >
-                        {isCopied ? (
-                          <>
-                            <Check className="h-3 w-3 text-emerald-600" />
-                            <span className="text-emerald-700">Tersalin!</span>
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="h-3 w-3" />
-                            <span>Salin No. Rekening</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-
-                    <div>
-                      <div className="text-base font-black tracking-wide text-slate-900 font-mono">
-                        {acc.noRekening}
-                      </div>
-                      <div className="text-xs text-slate-500 mt-0.5">
-                        a.n. <strong className="text-slate-700">{acc.atasNama}</strong>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+                    {acc.type === 'QRIS' ? (
+                      <QrCode className="h-4 w-4 text-purple-600" />
+                    ) : (
+                      <Building2 className="h-4 w-4 text-emerald-600" />
+                    )}
+                    <span>{acc.type === 'QRIS' ? 'QRIS' : `Bank ${acc.bank}`}</span>
+                  </button>
+                ))}
             </div>
+
+            <p className="text-[11px] text-slate-400">
+              Klik salah satu metode di atas untuk melihat nomor rekening / kode QR resmi dan menyalin nomor rekening.
+            </p>
           </div>
         )}
       </div>
@@ -604,6 +596,17 @@ export function OrderDetailClient({
           <span className="text-base font-black text-emerald-700">{formatRupiah(order.total)}</span>
         </div>
       </div>
+
+      {/* Modal Detail Metode Pembayaran */}
+      <PaymentMethodModal
+        isOpen={isPaymentModalOpen}
+        onClose={() => setIsPaymentModalOpen(false)}
+        paymentMethods={Array.isArray(bankAccounts) ? bankAccounts : []}
+        onSelectMethod={(method) => {
+          // Auto-fill field bank pengirim di form bukti bayar
+          setSenderBank(method.type === 'QRIS' ? 'QRIS' : method.bank);
+        }}
+      />
     </div>
   );
 }

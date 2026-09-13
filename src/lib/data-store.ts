@@ -107,9 +107,20 @@ export interface OrderData {
 }
 
 export interface BankAccount {
+  /** Tipe metode pembayaran: 'BANK' = Transfer Bank, 'QRIS' = QR Code pembayaran universal */
+  type?: 'BANK' | 'QRIS';
+  /** Nama bank (BCA, Mandiri, BNI, dll) atau 'QRIS' */
   bank: string;
+  /** Nomor rekening (transfer bank) atau NMID (QRIS) */
   noRekening: string;
+  /** Nama pemilik rekening atau nama merchant QRIS */
   atasNama: string;
+  /** URL gambar QR Code (hanya untuk type === 'QRIS') */
+  qrImageUrl?: string | null;
+  /** Catatan instruksi tambahan */
+  instructions?: string | null;
+  /** Status aktif metode pembayaran ini */
+  isActive?: boolean;
 }
 
 export interface SiteSettingsData {

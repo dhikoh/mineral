@@ -3,6 +3,7 @@ import './globals.css';
 import { StorefrontShell } from '@/components/layout/StorefrontShell';
 import { getSiteSettings } from '@/lib/data-store';
 import { CartProvider } from '@/lib/cart-context';
+import { PwaProvider } from '@/lib/pwa-context';
 import { BrowserCompatibilityGuard } from '@/components/common/BrowserCompatibilityGuard';
 
 export const viewport: Viewport = {
@@ -129,19 +130,21 @@ export default async function RootLayout({
       </head>
       <body className="flex min-h-screen flex-col antialiased selection:bg-emerald-500 selection:text-white">
         <BrowserCompatibilityGuard />
-        <CartProvider>
-          <StorefrontShell
-            siteName={siteName}
-            tagline={tagline}
-            address={address}
-            csWhatsapp={csWhatsapp}
-            csOperationalHours={csOperationalHours}
-            bankAccounts={bankAccounts}
-            footerText={footerText}
-          >
-            {children}
-          </StorefrontShell>
-        </CartProvider>
+        <PwaProvider>
+          <CartProvider>
+            <StorefrontShell
+              siteName={siteName}
+              tagline={tagline}
+              address={address}
+              csWhatsapp={csWhatsapp}
+              csOperationalHours={csOperationalHours}
+              bankAccounts={bankAccounts}
+              footerText={footerText}
+            >
+              {children}
+            </StorefrontShell>
+          </CartProvider>
+        </PwaProvider>
       </body>
     </html>
   );

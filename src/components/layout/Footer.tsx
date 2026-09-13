@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import { CreditCard, Clock, MapPin, Phone, ShieldCheck } from 'lucide-react';
+import type { BankAccount } from '@/lib/data-store';
+import { FooterPaymentButton } from '@/components/layout/FooterPaymentButton';
 
 interface FooterProps {
   siteName?: string;
@@ -7,7 +9,7 @@ interface FooterProps {
   address?: string;
   csWhatsapp?: string;
   csOperationalHours?: string;
-  bankAccounts?: Array<{ bank: string; noRekening: string; atasNama: string }>;
+  bankAccounts?: BankAccount[];
   footerText?: string;
 }
 
@@ -60,23 +62,26 @@ export function Footer({
               Pembayaran sah hanya ditujukan ke rekening di bawah ini:
             </p>
             <div className="mt-3 space-y-2.5">
-              {bankAccounts.map((b, idx) => (
-                <div
-                  key={idx}
-                  className="rounded-xl border border-surface-200 bg-surface-50 p-2.5 text-xs"
-                >
-                  <div className="flex items-center justify-between font-bold text-slate-800">
-                    <span className="rounded bg-slate-200 px-1.5 py-0.5 text-[10px] text-slate-700">
-                      Bank {b.bank}
-                    </span>
-                    <span className="font-mono text-emerald-700">{b.noRekening}</span>
+              {bankAccounts
+                .filter((b) => b.isActive !== false && b.type !== 'QRIS')
+                .map((b, idx) => (
+                  <div
+                    key={idx}
+                    className="rounded-xl border border-surface-200 bg-surface-50 p-2.5 text-xs"
+                  >
+                    <div className="flex items-center justify-between font-bold text-slate-800">
+                      <span className="rounded bg-slate-200 px-1.5 py-0.5 text-[10px] text-slate-700">
+                        Bank {b.bank}
+                      </span>
+                      <span className="font-mono text-emerald-700">{b.noRekening}</span>
+                    </div>
+                    <div className="mt-1 text-[11px] text-slate-500">
+                      a/n {b.atasNama}
+                    </div>
                   </div>
-                  <div className="mt-1 text-[11px] text-slate-500">
-                    a/n {b.atasNama}
-                  </div>
-                </div>
-              ))}
+                ))}
             </div>
+            <FooterPaymentButton paymentMethods={bankAccounts} />
           </div>
 
           {/* Kolom 3: Navigasi Cepat */}
