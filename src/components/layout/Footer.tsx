@@ -96,6 +96,11 @@ export function Footer({
                 </Link>
               </li>
               <li>
+                <Link href="/jual" prefetch={false} className="flex items-center gap-1 font-semibold text-emerald-600 hover:text-emerald-500 transition-colors">
+                  🪨 Jual Komoditas Anda
+                </Link>
+              </li>
+              <li>
                 <Link href="/lacak-pesanan" prefetch={false} className="hover:text-emerald-600 transition-colors">
                   Pelacakan Status Pesanan
                 </Link>

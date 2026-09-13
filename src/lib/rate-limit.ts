@@ -149,6 +149,11 @@ export const RATE_LIMIT_PRESETS = {
     windowMs: 15 * 60 * 1000,
     maxRequests: 5,
   },
+  // Sesi #21: Penawaran Jual — 3 submit / 1 jam per IP (anti-spam form publik)
+  SELL_OFFER: {
+    windowMs: 60 * 60 * 1000,
+    maxRequests: 3,
+  },
 };
 
 /**
@@ -188,4 +193,11 @@ export function checkLoginRateLimit(key: string): RateLimitResult {
  */
 export function clearLoginAttempts(key: string): void {
   store.delete(`login:${key}`);
+}
+
+/**
+ * Sesi #21: Rate limit untuk form penawaran jual publik — 3 submit / jam per IP.
+ */
+export function checkSellOfferRateLimit(ip: string): RateLimitResult {
+  return checkRateLimit(`sell_offer:${ip}`, RATE_LIMIT_PRESETS.SELL_OFFER);
 }

@@ -268,3 +268,35 @@ model AuditLog {
   @@index([action])
   @@index([createdAt])
 }
+
+// Sesi #21: Fitur Penawaran Jual — pihak yang ingin menawarkan komoditasnya ke platform
+enum SellOfferStatus {
+  BARU
+  DIHUBUNGI
+  DIVERIFIKASI
+  DITOLAK
+}
+
+model SellOffer {
+  id              String          @id @default(cuid())
+  // Info Penawar
+  name            String          // nama kontak person
+  company         String?         // nama perusahaan / instansi
+  phone           String          // nomor WhatsApp
+  email           String?
+  province        String?         // provinsi lokasi komoditas
+  // Info Komoditas yang Ditawarkan
+  commodityName   String          // nama komoditas yang ingin dijual
+  commoditySpec   String?         @db.Text  // spesifikasi teknis (kadar, mesh, dsb.)
+  estimatedVolume String?         // estimasi volume (e.g. "500 ton/bulan")
+  priceExpected   String?         // harga harapan penjual (string bebas, opsional)
+  photoUrls       Json?           // foto sampel komoditas []
+  // Status & Catatan Admin
+  status          SellOfferStatus @default(BARU)
+  adminNotes      String?         @db.Text
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+}

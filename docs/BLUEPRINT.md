@@ -1,5 +1,5 @@
 # BLUEPRINT — Web Marketplace Single-Seller + CMS Artikel + Template Reusable
-Terakhir diupdate: 2026-09-13 (Sesi #25 — Penanganan Error Ekstensi Web Vitals, Eliminasi Peringatan Link Preload, dan Penyempurnaan Hydration Keranjang & PWA Prompt)
+Terakhir diupdate: 2026-09-13 (Sesi #21 — Fitur Penawaran Jual Komoditas + Fix Step Harga Admin)
 
 ---
 
@@ -42,7 +42,7 @@ adably/
 │   │   ├── 20260912000000_init/
 │   │   │   └── migration.sql # Baseline migration lengkap (14 tabel, 5 enum, index & relasi)
 │   │   └── migration_lock.toml
-│   ├── schema.prisma         # Definisi 14 model database & 5 enum
+│   ├── schema.prisma         # Definisi 15 model database & 6 enum (SellOffer ditambah Sesi #21)
 │   └── seed.ts               # Data awal: superadmin, kategori, komoditas, settings, FAQ
 ├── public/
 │   ├── icons/                # Aset PWA Icons & Favicon
@@ -77,6 +77,9 @@ adably/
 │   │   │   ├── login/page.tsx
 │   │   │   ├── pelanggan/
 │   │   │   │   ├── [id]/page.tsx      # Detail CRM, LTV, PIC assignedTo, follow-up & timeline interaksi (Sesi #20)
+│   │   │   │   └── page.tsx
+│   │   │   ├── penawaran-jual/        # Sesi #21: Daftar penawaran jual dari supplier
+│   │   │   │   ├── [id]/page.tsx      # Detail + update status penawaran
 │   │   │   │   └── page.tsx
 │   │   │   ├── pengaturan/page.tsx
 │   │   │   ├── pengguna/page.tsx      # Manajemen Staf/Admin RBAC + toggle isActive (SUPERADMIN). RBAC page-level guard via useEffect: redirect non-SUPERADMIN ke /admin/dashboard (Sesi #19 Fix #3)
@@ -136,6 +139,7 @@ adably/
 │   │   │   │       ├── [id]/route.ts
 │   │   │   │       └── route.ts
 │   │   │   ├── checkout/route.ts
+│   │   │   ├── jual/route.ts             # Sesi #21: POST publik — submit penawaran jual komoditas (rate limited 3/jam)
 │   │   │   ├── lacak-pesanan/route.ts
 │   │   │   ├── leads/route.ts
 │   │   │   ├── pesanan/
@@ -156,6 +160,8 @@ adably/
 │   │   ├── keranjang/
 │   │   │   ├── layout.tsx
 │   │   │   └── page.tsx
+│   │   ├── jual/
+│   │   │   └── page.tsx               # Sesi #21: Form multi-step penawaran jual komoditas (publik)
 │   │   ├── kontak/page.tsx
 │   │   ├── lacak-pesanan/
 │   │   │   ├── OrderTrackingClient.tsx
@@ -511,9 +517,9 @@ model AuditLog {
 
 ---
 
-## 7. Matriks Endpoint API Lengkap (37 Route File — 58 Method Handler)
+## 7. Matriks Endpoint API Lengkap (40 Route File — 62 Method Handler)
 
-> **Catatan:** Blueprint ini menghitung route berdasarkan **file route** (37 file), bukan jumlah method handler (58 handler). Setiap baris tabel di bawah mewakili satu method handler unik.
+> **Catatan:** Blueprint ini menghitung route berdasarkan **file route** (40 file), bukan jumlah method handler (62 handler). Setiap baris tabel di bawah mewakili satu method handler unik.
 
 | Method | Endpoint | Tipe Akses | Deskripsi & Proteksi |
 |---|---|---|---|
@@ -575,6 +581,10 @@ model AuditLog {
 | `DELETE` | `/api/admin/faq/[id]` | Admin Wajib | Hapus item FAQ |
 | `GET` | `/api/admin/pengaturan` | Admin Wajib | Ambil konfigurasi situs & rekening bank |
 | `PUT` | `/api/admin/pengaturan` | Admin Wajib (SUPERADMIN untuk `bankAccounts`) | Perbarui identitas situs, kontak CS, ambang stok. Mutasi `bankAccounts` dikunci khusus SUPERADMIN. Audit log |
+| `POST` | `/api/jual` | **Publik** (rate limit 3/jam/IP) | Submit form penawaran jual komoditas dari supplier; simpan ke `SellOffer`, generate teks notif WA ke CS (Sesi #21) |
+| `GET` | `/api/admin/penawaran-jual` | Admin Wajib | Daftar penawaran jual masuk, filter by status, paginasi (Sesi #21) |
+| `GET` | `/api/admin/penawaran-jual/[id]` | Admin Wajib | Detail satu penawaran jual (Sesi #21) |
+| `PATCH` | `/api/admin/penawaran-jual/[id]` | Admin Wajib | Update status (`BARU`→`DIHUBUNGI`→`DIVERIFIKASI`\|`DITOLAK`) & catatan admin (Sesi #21) |
 
 ---
 

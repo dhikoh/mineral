@@ -11,6 +11,7 @@ import {
   Layers,
   ShieldCheck,
   Download,
+  Gem,
 } from 'lucide-react';
 
 import { useCart } from '@/lib/cart-context';
@@ -56,6 +57,14 @@ export function Navbar({
             </span>
             <span className="text-slate-500">|</span>
             <span>Dukungan Ekspedisi Truk & Kargo FCL/LCL</span>
+            <span className="text-slate-500">|</span>
+            <Link
+              href="/jual"
+              className="flex items-center gap-1 text-emerald-400 font-semibold hover:text-emerald-300 transition-colors"
+            >
+              <Gem className="h-3.5 w-3.5" />
+              Jual Komoditas Anda
+            </Link>
           </div>
           <div className="flex items-center gap-4">
             <Link

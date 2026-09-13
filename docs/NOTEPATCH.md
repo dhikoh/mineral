@@ -1516,6 +1516,45 @@ Audit total, mendalam, dan final terhadap seluruh kodebase Adably sebelum dinyat
 - `docs/NOTEPATCH.md` [MODIFIKASI — entri ini]
 - `docs/BLUEPRINT.md` [MODIFIKASI]
 
+## [2026-09-13] Sesi #21 — Fitur Penawaran Jual Komoditas + Fix Harga Produk
 
+### Ringkasan
+Dua pekerjaan utama: (1) fix bug validasi harga produk di admin — input minimum Rp 1.000 karena `step={1000}`, dan (2) implementasi fitur baru **Penawaran Jual** — form publik bagi supplier/pemilik tambang yang ingin menawarkan komoditasnya ke platform.
 
+### Fix #1 — Step Harga Admin
+- `src/app/admin/produk/baru/page.tsx` — `step={1000}` → `step={1}`, `min={0}` → `min={1}`
+- `src/app/admin/produk/[id]/page.tsx` — idem
+- `src/app/api/admin/produk/route.ts` — validasi `numPrice < 0` → `numPrice <= 0`
 
+### Fitur Baru — Penawaran Jual (`/jual`)
+- Form multi-step publik: Info Kontak → Info Komoditas → Foto & Konfirmasi
+- Rate limit: 3 submit / jam per IP (`SELL_OFFER` preset)
+- Notifikasi: teks WA digenerate otomatis (`buildSellOfferWaMessage`), dikirim ke CS WhatsApp
+- Status: `BARU` → `DIHUBUNGI` → `DIVERIFIKASI` | `DITOLAK`
+- Navigasi: microbar Navbar desktop, kolom Footer, section CTA Homepage
+
+### File Diubah/Dibuat
+
+| File | Tipe |
+|---|---|
+| `prisma/schema.prisma` | MODIFIKASI — `enum SellOfferStatus` + `model SellOffer` |
+| `src/lib/rate-limit.ts` | MODIFIKASI — preset `SELL_OFFER` + `checkSellOfferRateLimit` |
+| `src/lib/wa-notify.ts` | MODIFIKASI — `WaSellOfferContext` + `buildSellOfferWaMessage` |
+| `src/lib/data-store.ts` | MODIFIKASI — CRUD SellOffer: `createSellOffer`, `getSellOffers`, `getSellOfferById`, `updateSellOffer`, `countNewSellOffers` |
+| `src/app/api/jual/route.ts` | BARU — `POST /api/jual` (publik) |
+| `src/app/api/admin/penawaran-jual/route.ts` | BARU — `GET /api/admin/penawaran-jual` |
+| `src/app/api/admin/penawaran-jual/[id]/route.ts` | BARU — `GET`+`PATCH /api/admin/penawaran-jual/:id` |
+| `src/app/jual/page.tsx` | BARU — halaman publik form penawaran jual |
+| `src/app/admin/penawaran-jual/page.tsx` | BARU — admin list penawaran jual |
+| `src/app/admin/penawaran-jual/[id]/page.tsx` | BARU — admin detail + update status |
+| `src/app/admin/layout.tsx` | MODIFIKASI — menu sidebar "Penawaran Jual" |
+| `src/components/layout/Navbar.tsx` | MODIFIKASI — link microbar "Jual Komoditas Anda" |
+| `src/components/layout/Footer.tsx` | MODIFIKASI — link footer "Jual Komoditas Anda" |
+| `src/app/page.tsx` | MODIFIKASI — section CTA supplier |
+| `src/app/admin/produk/baru/page.tsx` | MODIFIKASI — fix step/min harga |
+| `src/app/admin/produk/[id]/page.tsx` | MODIFIKASI — fix step/min harga |
+| `src/app/api/admin/produk/route.ts` | MODIFIKASI — fix validasi harga |
+| `docs/NOTEPATCH.md` | MODIFIKASI — entri ini |
+| `docs/BLUEPRINT.md` | MODIFIKASI |
+
+> **Catatan migrasi:** Jalankan `npx prisma migrate dev --name add_sell_offer` ketika PostgreSQL aktif di localhost:5432.

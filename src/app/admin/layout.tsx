@@ -21,6 +21,7 @@ import {
   X,
   ChevronRight,
   Activity,
+  ShoppingBag,
 } from 'lucide-react';
 
 interface NavItem {
@@ -37,6 +38,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/admin/peruntukan', label: 'Peruntukan', icon: Wrench },
   { href: '/admin/pesanan', label: 'Pesanan', icon: ShoppingCart },
   { href: '/admin/pelanggan', label: 'CRM Leads', icon: Users },
+  { href: '/admin/penawaran-jual', label: 'Penawaran Jual', icon: ShoppingBag },
   { href: '/admin/artikel', label: 'Artikel', icon: FileText },
   { href: '/admin/konten', label: 'Konten', icon: Layout },
   { href: '/admin/faq', label: 'FAQ', icon: HelpCircle },

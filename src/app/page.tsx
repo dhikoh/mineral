@@ -8,6 +8,7 @@ import {
   FileCheck2,
   PhoneCall,
   Sparkles,
+  Gem,
 } from 'lucide-react';
 import {
   getContentBlockByKey,
@@ -243,6 +244,34 @@ export default async function HomePage() {
               />
             );
           })}
+        </div>
+      </section>
+
+      {/* Sell Offer CTA — Untuk Supplier/Penjual Komoditas */}
+      <section className="mx-auto max-w-7xl px-4">
+        <div className="rounded-3xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50 p-8 sm:p-10 flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="max-w-xl space-y-2 text-center md:text-left">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 border border-emerald-200 px-3 py-1 text-xs font-bold text-emerald-700">
+              <Gem className="h-3.5 w-3.5" />
+              Untuk Pemilik Tambang & Supplier
+            </span>
+            <h2 className="text-xl sm:text-2xl font-bold text-slate-900">
+              Punya Stok Komoditas? Jual Melalui Platform Kami
+            </h2>
+            <p className="text-sm text-slate-600 leading-relaxed">
+              Zeolite, Bentonite, Kaolin, Pasir Silika, dan mineral lainnya — isi form penawaran singkat dan tim kami akan menghubungi Anda dalam 1×24 jam.
+            </p>
+          </div>
+          <div className="flex-shrink-0">
+            <Link
+              href="/jual"
+              className="inline-flex items-center gap-2 rounded-full bg-emerald-600 hover:bg-emerald-700 px-7 py-3.5 text-sm font-bold text-white shadow-md transition-all active:scale-95"
+            >
+              <Gem className="h-4 w-4" />
+              Ajukan Penawaran Jual
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
         </div>
       </section>
 

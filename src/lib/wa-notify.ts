@@ -114,3 +114,36 @@ export function buildWhatsAppMessage(
       return null;
   }
 }
+
+/**
+ * Sesi #21: Bangun teks pesan WhatsApp ke admin/CS saat ada penawaran jual baru masuk.
+ * Pesan ini dikirim secara manual oleh sistem atau bisa diintegrasikan ke WA gateway.
+ */
+export interface WaSellOfferContext {
+  name: string;
+  company?: string | null;
+  phone: string;
+  commodityName: string;
+  estimatedVolume?: string | null;
+  priceExpected?: string | null;
+  province?: string | null;
+  siteName?: string;
+}
+
+export function buildSellOfferWaMessage(ctx: WaSellOfferContext): string {
+  const site = ctx.siteName || 'Adably';
+  const lines = [
+    `🔔 *Penawaran Jual Komoditas Baru — ${site}*`,
+    ``,
+    `👤 *Penawar:* ${ctx.name}${ctx.company ? ` (${ctx.company})` : ''}`,
+    `📞 *WhatsApp:* ${ctx.phone}`,
+    ctx.province ? `📍 *Provinsi:* ${ctx.province}` : null,
+    ``,
+    `🪨 *Komoditas:* ${ctx.commodityName}`,
+    ctx.estimatedVolume ? `📦 *Volume:* ${ctx.estimatedVolume}` : null,
+    ctx.priceExpected ? `💰 *Harga Harapan:* ${ctx.priceExpected}` : null,
+    ``,
+    `➡️ Cek detail di Dashboard Admin > Penawaran Jual`,
+  ];
+  return lines.filter(Boolean).join('\n');
+}

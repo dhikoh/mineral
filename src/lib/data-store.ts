@@ -3866,3 +3866,151 @@ export async function getFollowUpsDue(limit = 5): Promise<any[]> {
     return []; // fail-soft: widget dashboard tidak boleh crash halaman
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sesi #21: Penawaran Jual (SellOffer)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type SellOfferStatus = 'BARU' | 'DIHUBUNGI' | 'DIVERIFIKASI' | 'DITOLAK';
+
+export interface SellOfferItem {
+  id: string;
+  name: string;
+  company: string | null;
+  phone: string;
+  email: string | null;
+  province: string | null;
+  commodityName: string;
+  commoditySpec: string | null;
+  estimatedVolume: string | null;
+  priceExpected: string | null;
+  photoUrls: string[];
+  status: SellOfferStatus;
+  adminNotes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateSellOfferInput {
+  name: string;
+  company?: string;
+  phone: string;
+  email?: string;
+  province?: string;
+  commodityName: string;
+  commoditySpec?: string;
+  estimatedVolume?: string;
+  priceExpected?: string;
+  photoUrls?: string[];
+}
+
+function mapSellOffer(raw: any): SellOfferItem {
+  return {
+    id: raw.id,
+    name: raw.name,
+    company: raw.company ?? null,
+    phone: raw.phone,
+    email: raw.email ?? null,
+    province: raw.province ?? null,
+    commodityName: raw.commodityName,
+    commoditySpec: raw.commoditySpec ?? null,
+    estimatedVolume: raw.estimatedVolume ?? null,
+    priceExpected: raw.priceExpected ?? null,
+    photoUrls: Array.isArray(raw.photoUrls) ? raw.photoUrls : [],
+    status: raw.status as SellOfferStatus,
+    adminNotes: raw.adminNotes ?? null,
+    createdAt: raw.createdAt instanceof Date ? raw.createdAt.toISOString() : raw.createdAt,
+    updatedAt: raw.updatedAt instanceof Date ? raw.updatedAt.toISOString() : raw.updatedAt,
+  };
+}
+
+/**
+ * Buat penawaran jual baru dari form publik.
+ */
+export async function createSellOffer(input: CreateSellOfferInput): Promise<SellOfferItem> {
+  const raw = await prisma.sellOffer.create({
+    data: {
+      name: sanitize(input.name.trim()),
+      company: input.company ? sanitize(input.company.trim()) : null,
+      phone: normalizePhone(input.phone),
+      email: input.email ? input.email.trim().toLowerCase() : null,
+      province: input.province ? sanitize(input.province.trim()) : null,
+      commodityName: sanitize(input.commodityName.trim()),
+      commoditySpec: input.commoditySpec ? sanitize(input.commoditySpec.trim()) : null,
+      estimatedVolume: input.estimatedVolume ? input.estimatedVolume.trim() : null,
+      priceExpected: input.priceExpected ? input.priceExpected.trim() : null,
+      photoUrls: Array.isArray(input.photoUrls) ? input.photoUrls : [],
+      status: 'BARU',
+    },
+  });
+  return mapSellOffer(raw);
+}
+
+/**
+ * Ambil daftar penawaran jual (admin).
+ */
+export async function getSellOffers(opts?: {
+  status?: SellOfferStatus;
+  page?: number;
+  limit?: number;
+}): Promise<{ data: SellOfferItem[]; total: number; page: number; totalPages: number }> {
+  const page = opts?.page ?? 1;
+  const limit = opts?.limit ?? 20;
+  const skip = (page - 1) * limit;
+
+  const where: any = {};
+  if (opts?.status) where.status = opts.status;
+
+  const [total, rows] = await Promise.all([
+    prisma.sellOffer.count({ where }),
+    prisma.sellOffer.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take: limit,
+    }),
+  ]);
+
+  return {
+    data: rows.map(mapSellOffer),
+    total,
+    page,
+    totalPages: Math.ceil(total / limit),
+  };
+}
+
+/**
+ * Ambil satu penawaran jual berdasarkan ID.
+ */
+export async function getSellOfferById(id: string): Promise<SellOfferItem | null> {
+  const raw = await prisma.sellOffer.findUnique({ where: { id } });
+  return raw ? mapSellOffer(raw) : null;
+}
+
+/**
+ * Update status atau catatan admin sebuah penawaran jual.
+ */
+export async function updateSellOffer(
+  id: string,
+  data: { status?: SellOfferStatus; adminNotes?: string }
+): Promise<SellOfferItem> {
+  const raw = await prisma.sellOffer.update({
+    where: { id },
+    data: {
+      ...(data.status ? { status: data.status } : {}),
+      ...(data.adminNotes !== undefined ? { adminNotes: sanitize(data.adminNotes) } : {}),
+    },
+  });
+  return mapSellOffer(raw);
+}
+
+/**
+ * Hitung jumlah penawaran dengan status BARU (untuk badge di sidebar admin).
+ */
+export async function countNewSellOffers(): Promise<number> {
+  try {
+    return await prisma.sellOffer.count({ where: { status: 'BARU' } });
+  } catch {
+    return 0;
+  }
+}

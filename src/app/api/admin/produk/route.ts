@@ -60,8 +60,8 @@ export async function POST(req: NextRequest) {
     }
 
     const numPrice = Number(price);
-    if (isNaN(numPrice) || numPrice < 0) {
-      return NextResponse.json({ error: 'Harga produk tidak valid' }, { status: 400 });
+    if (isNaN(numPrice) || numPrice <= 0) {
+      return NextResponse.json({ error: 'Harga produk harus lebih besar dari Rp 0' }, { status: 400 });
     }
 
     const numStock = Number(stock);

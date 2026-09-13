@@ -291,8 +291,8 @@ export default function AdminEditProdukPage({
                 <input
                   type="number"
                   required
-                  min={0}
-                  step={1000}
+                  min={1}
+                  step={1}
                   value={price}
                   onChange={(e) => setPrice(e.target.value)}
                   className="w-full rounded-xl border border-slate-700 bg-slate-800/90 py-2.5 px-3.5 text-xs text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none font-mono"

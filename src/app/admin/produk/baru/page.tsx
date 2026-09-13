@@ -260,8 +260,8 @@ export default function AdminTambahProdukPage() {
                 <input
                   type="number"
                   required
-                  min={0}
-                  step={1000}
+                  min={1}
+                  step={1}
                   placeholder="Contoh: 45000"
                   value={price}
                   onChange={(e) => setPrice(e.target.value)}
