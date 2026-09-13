@@ -1,5 +1,14 @@
 # NOTEPATCH — Log Perubahan
 
+## [2026-09-13] Sesi — Keamanan: Penghapusan Hardcoded Credential Form Login Admin
+
+- **File dimodifikasi:** `src/app/admin/login/page.tsx`
+- **Tindakan:**
+  1. Mengosongkan `useState` bawaan formulir login admin (`email: ''`, `password: ''`). Sebelumnya terisi `'admin@adably.com'` dan `'admin123456'`.
+  2. Menghapus elemen teks bantuan *Kredensial Seed Awal* di bawah kartu login agar kredensial admin tidak terekspos di sisi klien/publik.
+  3. Membersihkan impor `ShieldCheck` yang sudah tidak terpakai.
+- **Dampak Keamanan:** Mencegah kebocoran akun default di antarmuka publik dan mematuhi Aturan Keamanan Wajib AGENTS.md Bagian 2 (larangan backdoor/kredensial default di runtime).
+
 ## [2026-09-13] Sesi — Fix 5 Gap Integrasi: Keranjang ↔ Produk DB
 
 **Masalah yang ditemukan dari audit menyeluruh:**

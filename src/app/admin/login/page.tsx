@@ -2,12 +2,12 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ShieldCheck, Lock, Mail, Eye, EyeOff, Loader2, ArrowRight } from 'lucide-react';
+import { Lock, Mail, Eye, EyeOff, Loader2, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 
 export default function AdminLoginPage() {
-  const [email, setEmail] = useState('admin@adably.com');
-  const [password, setPassword] = useState('admin123456');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -135,16 +135,6 @@ export default function AdminLoginPage() {
             </button>
           </form>
 
-          {/* Helper Credentials Note */}
-          <div className="mt-6 pt-5 border-t border-slate-800/80 text-center">
-            <div className="inline-flex items-center gap-1.5 text-[11px] text-slate-400">
-              <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
-              <span>Kredensial Seed Awal:</span>
-            </div>
-            <p className="mt-1 font-mono text-[11px] text-emerald-400">
-              admin@adably.com / admin123456
-            </p>
-          </div>
         </div>
 
         {/* Back to storefront link */}
