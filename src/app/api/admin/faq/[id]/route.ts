@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { getAdminSession } from '@/lib/auth';
 import { getFAQById, updateFAQ, deleteFAQ } from '@/lib/data-store';
 
@@ -42,6 +43,7 @@ export async function PUT(
   try {
     const body = await request.json();
     const updated = await updateFAQ(id, body);
+    revalidatePath('/faq');
     return NextResponse.json({ success: true, faq: updated });
   } catch (error: any) {
     console.error('Error updating FAQ:', error);
@@ -65,6 +67,7 @@ export async function DELETE(
 
   try {
     await deleteFAQ(id);
+    revalidatePath('/faq');
     return NextResponse.json({ success: true, message: 'FAQ berhasil dihapus.' });
   } catch (error: any) {
     console.error('Error deleting FAQ:', error);

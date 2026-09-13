@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { getAdminSession } from '@/lib/auth';
 import { getContentBlocks, updateContentBlock } from '@/lib/data-store';
 
@@ -38,6 +39,7 @@ export async function PUT(request: Request) {
     }
 
     const updated = await updateContentBlock(key, { title, content });
+    revalidatePath('/');
     return NextResponse.json({ success: true, block: updated });
   } catch (error: any) {
     console.error('Error updating content block:', error);

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { getAdminSession } from '@/lib/auth';
 import { updateUsage, deleteUsage } from '@/lib/data-store';
 
@@ -24,6 +25,7 @@ export async function PUT(
     }
 
     const updated = await updateUsage(id, { name: name.trim() });
+    revalidatePath('/produk');
     return NextResponse.json({
       success: true,
       data: updated,
@@ -48,6 +50,7 @@ export async function DELETE(
   try {
     const { id } = await params;
     await deleteUsage(id);
+    revalidatePath('/produk');
     return NextResponse.json({
       success: true,
       message: 'Peruntukan berhasil dihapus',

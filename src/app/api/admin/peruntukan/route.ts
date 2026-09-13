@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { getAdminSession } from '@/lib/auth';
 import { getUsages, createUsage } from '@/lib/data-store';
 
@@ -36,6 +37,7 @@ export async function POST(req: NextRequest) {
     }
 
     const newUsage = await createUsage({ name: name.trim() });
+    revalidatePath('/produk');
     return NextResponse.json(
       { success: true, data: newUsage, message: 'Peruntukan berhasil ditambahkan' },
       { status: 201 }

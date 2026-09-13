@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { getAdminSession } from '@/lib/auth';
 import { getProductById, updateProduct, deleteProduct } from '@/lib/data-store';
 import { recordAuditLog, AUDIT_ACTIONS } from '@/lib/audit-log';
@@ -126,6 +127,9 @@ export async function PUT(
       await Promise.allSettled(auditPromises);
     }
 
+    revalidatePath('/');
+    revalidatePath('/produk');
+    revalidatePath('/produk/' + updated.slug);
     return NextResponse.json({
       success: true,
       data: updated,
@@ -151,6 +155,8 @@ export async function DELETE(
   try {
     const { id } = await params;
     await deleteProduct(id);
+    revalidatePath('/');
+    revalidatePath('/produk');
     return NextResponse.json({
       success: true,
       message: 'Produk berhasil dihapus',

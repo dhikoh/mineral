@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { getAdminSession } from '@/lib/auth';
 import { getArticles, createArticle } from '@/lib/data-store';
 
@@ -53,6 +54,7 @@ export async function POST(request: Request) {
       isPublished: Boolean(isPublished),
     });
 
+    revalidatePath('/artikel');
     return NextResponse.json({
       success: true,
       article,

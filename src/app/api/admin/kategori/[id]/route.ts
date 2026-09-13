@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { getAdminSession } from '@/lib/auth';
 import { updateCategory, deleteCategory } from '@/lib/data-store';
 
@@ -28,6 +29,8 @@ export async function PUT(
       image: image !== undefined ? image : undefined,
     });
 
+    revalidatePath('/');
+    revalidatePath('/produk');
     return NextResponse.json({
       success: true,
       data: updated,
@@ -52,6 +55,8 @@ export async function DELETE(
   try {
     const { id } = await params;
     await deleteCategory(id);
+    revalidatePath('/');
+    revalidatePath('/produk');
     return NextResponse.json({
       success: true,
       message: 'Kategori berhasil dihapus',

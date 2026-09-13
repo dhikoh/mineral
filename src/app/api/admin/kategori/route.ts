@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { getAdminSession } from '@/lib/auth';
 import { getCategories, createCategory } from '@/lib/data-store';
 
@@ -40,6 +41,8 @@ export async function POST(req: NextRequest) {
       image: image ? image.trim() : undefined,
     });
 
+    revalidatePath('/');
+    revalidatePath('/produk');
     return NextResponse.json(
       { success: true, data: newCategory, message: 'Kategori berhasil ditambahkan' },
       { status: 201 }

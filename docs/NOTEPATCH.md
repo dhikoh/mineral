@@ -1,5 +1,37 @@
 # NOTEPATCH — Log Perubahan
 
+## [2026-09-13] Sesi — Fix Cache: revalidatePath di Semua Mutation Route
+
+**Masalah:** Homepage (`/`) adalah Static Route tanpa `force-dynamic`. Next.js menyimpan hasil render sebagai Full Route Cache saat build. Akibatnya, item yang dihapus admin di database masih tampil di homepage karena cache belum di-invalidasi.
+
+**Solusi: Opsi B — `revalidatePath` per-mutation** (lebih optimal dari `force-dynamic`):
+- Homepage tetap di-cache untuk pengunjung biasa → performa optimal
+- Saat admin melakukan mutasi data, cache di-invalidasi secara selektif → data langsung segar
+
+**File dimodifikasi (12 route handler):**
+
+| Route | Method | Path di-revalidate |
+|-------|--------|--------------------|
+| `admin/produk/route.ts` | POST | `/`, `/produk` |
+| `admin/produk/[id]/route.ts` | PUT, DELETE | `/`, `/produk`, `/produk/[slug]` |
+| `admin/kategori/route.ts` | POST | `/`, `/produk` |
+| `admin/kategori/[id]/route.ts` | PUT, DELETE | `/`, `/produk` |
+| `admin/peruntukan/route.ts` | POST | `/produk` |
+| `admin/peruntukan/[id]/route.ts` | PUT, DELETE | `/produk` |
+| `admin/artikel/route.ts` | POST | `/artikel` |
+| `admin/artikel/[id]/route.ts` | PUT, DELETE | `/artikel`, `/artikel/[slug]` |
+| `admin/faq/route.ts` | POST | `/faq` |
+| `admin/faq/[id]/route.ts` | PUT, DELETE | `/faq` |
+| `admin/konten/route.ts` | PUT | `/` |
+| `admin/pengaturan/route.ts` | PUT | `/`, `/produk` |
+
+**Verifikasi:**
+- Audit otomatis 12 route → ✅ 12/12 PASS
+- `npx tsc --noEmit` → ✅ 0 errors
+- `npm run build` → ✅ Exit Code 0
+
+---
+
 ## [2026-09-13] Sesi Terbaru — Integrasi Metode Pembayaran (Bank+QRIS) & PWA Enhancements
 
 **Dikerjakan:**

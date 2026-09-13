@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { getAdminSession, requireSuperAdminSession } from '@/lib/auth';
 import { getSiteSettings, updateSiteSettings } from '@/lib/data-store';
 import { recordAuditLog, AUDIT_ACTIONS } from '@/lib/audit-log';
@@ -68,6 +69,8 @@ export async function PUT(request: Request) {
         : { updatedFields: Object.keys(body) },
     });
 
+    revalidatePath('/');
+    revalidatePath('/produk');
     return NextResponse.json({ success: true, settings: updated });
   } catch (error: any) {
     console.error('Error updating site settings:', error);

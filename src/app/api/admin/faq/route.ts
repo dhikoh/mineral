@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { getAdminSession } from '@/lib/auth';
 import { getFAQs, createFAQ } from '@/lib/data-store';
 
@@ -44,6 +45,7 @@ export async function POST(request: Request) {
       isActive: isActive !== undefined ? Boolean(isActive) : true,
     });
 
+    revalidatePath('/faq');
     return NextResponse.json({ success: true, faq: created }, { status: 201 });
   } catch (error: any) {
     console.error('Error creating FAQ:', error);

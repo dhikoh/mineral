@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { getAdminSession } from '@/lib/auth';
 import { getProducts, createProduct } from '@/lib/data-store';
 
@@ -84,6 +85,8 @@ export async function POST(req: NextRequest) {
       isActive: isActive !== undefined ? Boolean(isActive) : true,
     });
 
+    revalidatePath('/');
+    revalidatePath('/produk');
     return NextResponse.json(
       { success: true, data: newProduct, message: 'Produk berhasil ditambahkan' },
       { status: 201 }
