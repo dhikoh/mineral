@@ -1624,3 +1624,60 @@ Dua pekerjaan utama: (1) fix bug validasi harga produk di admin — input minimu
 | `docs/BLUEPRINT.md` | MODIFIKASI | Dokumentasi arsitektur Sesi #26 |
 | `docs/NOTEPATCH.md` | MODIFIKASI | Entri ini |
 
+---
+
+## [2026-09-14] Sesi #27 — Galeri Multi-Gambar Interaktif Shopee-Style PWA Touch Swipe & Relokasi CTA Penawaran Jual ke Hero Gelap CMS
+
+### 1. Latar Belakang & Kebutuhan Pengguna
+1. **Opsi Gambar Produk Lebih dari 1 (Shopee-Style & Touch Swipe PWA)**:
+   - Pada halaman detail produk (`/produk/[slug]`), pengguna meminta tampilan gambar utama beresolusi tinggi dengan thumbnail card kecil di bawahnya persis seperti Shopee (dengan border aktif emerald menyala).
+   - Untuk perangkat mobile/PWA, wajib mendukung navigasi geser sentuh (touch swipe gesture).
+   - Pengunggah gambar di admin (`ImageUploader.tsx`) harus mendukung pemilihan dan upload banyak file sekaligus (batch multi-file upload).
+2. **Relokasi Kartu Penawaran Jual ke Bagian Hero Gelap & CMS**:
+   - Memindahkan kartu *"Punya Stok Komoditas? Jual Melalui Platform Kami"* dari posisi terpisah di bawah katalog ke dalam section Hero gelap di beranda (`/`), tepat di bawah 3 badge keunggulan (*Spesifikasi Transparan*, *Pengiriman Fleksibel*, *Transaksi Aman*).
+   - Mengadopsi desain glassmorphism emerald gelap yang elegan dan selaras dengan nuansa hero.
+   - Terintegrasi penuh dengan CMS (`/admin/konten`) via ContentBlock `supplier_cta`.
+
+### 2. Pekerjaan & Solusi Yang Diterapkan
+1. **Komponen `ProductGallery.tsx` (`src/components/storefront/ProductGallery.tsx`)**:
+   - Tampilan utama 4:3 dengan efek fade halus saat pergantian gambar.
+   - Indikator counter slide (`1 / N`), badge kategori produk, dan tombol navigasi desktop (`<` dan `>`).
+   - Handler gesture sentuh `onTouchStart`, `onTouchMove`, dan `onTouchEnd` dengan toleransi 45px serta pengecekan `Math.abs(diffX) > Math.abs(diffY)` untuk navigasi slide tanpa mengganggu vertical scroll pada PWA mobile.
+   - Baris thumbnail Shopee-style di bawah foto utama dengan border tebal emerald (`border-2 border-emerald-600 ring-2 ring-emerald-500/30 scale-105`), tombol geser thumbnail, dan auto-scroll thumbnail ke tengah layar saat foto berganti.
+2. **Batch Multi-Upload pada `ImageUploader.tsx`**:
+   - Menambahkan atribut `multiple` pada file input dan handler `handleMultipleFilesUpload(files: File[])` untuk memproses banyak file secara paralel.
+3. **Relokasi & Dark Glassmorphism CTA Penawaran Jual (`src/app/page.tsx`)**:
+   - Dipindahkan ke dalam `<section className="relative overflow-hidden bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 ...">` tepat di bawah 3 badge keunggulan.
+   - Desain dark glassmorphism: `border-emerald-500/30 bg-gradient-to-r from-emerald-950/60 via-slate-900/80 to-teal-950/60 p-6 sm:p-8 backdrop-blur-md shadow-soft-xl`, teks putih & abu-abu terang, serta tombol aksi emerald cerah `bg-emerald-500 hover:bg-emerald-400 text-slate-950`.
+4. **Integrasi CMS `supplier_cta`**:
+   - Didaftarkan di `BLOCK_TABS` pada `src/app/admin/konten/page.tsx` dengan ikon `Gem`.
+   - Disediakan data default di `DEFAULT_CONTENT_BLOCKS` (`data-store.ts`), `prisma/seed.ts`, dan `.local-store.json`.
+   - `src/app/page.tsx` memuat blok secara dinamis via `getContentBlockByKey('supplier_cta')`.
+5. **Penyediaan Multi-Image Contoh**:
+   - Memperkaya seluruh produk komoditas di `.local-store.json`, `data-store.ts`, dan `seed.ts` dengan 3-4 foto riil agar galeri langsung tampil maksimal dengan thumbnail.
+
+### 3. Matriks Pengujian & Verifikasi Kualitas
+| Uji Mutu | Perintah | Hasil |
+|---|---|---|
+| **Kompilasi TypeScript** | `npx tsc --noEmit` | Exit Code 0 (0 error) ✅ |
+| **Audit Phase 7 Lifecycle** | `tsx scripts/test-phase7-e2e.ts` | 40/40 PASSED (100%) ✅ |
+| **CRM & Customer Database** | `tsx scripts/test-crm-module.ts` | 42/42 PASSED (100%) ✅ |
+| **Audit P0, P1 & Security** | `tsx scripts/test-audit-p0-p1.ts` | 23/23 PASSED (100%) ✅ |
+| **Total Test Suite** | `npm test` | **105/105 PASSED (100%)** ✅ |
+| **Production Build** | `npm run build` | Exit Code 0 (55 routes compiled successfully) ✅ |
+
+### 4. File Yang Dibuat & Diubah
+| File | Status | Keterangan |
+|---|---|---|
+| `src/components/storefront/ProductGallery.tsx` | BARU | Komponen galeri multi-gambar Shopee-style dengan touch swipe PWA |
+| `src/components/storefront/ProductDetailClient.tsx` | MODIFIKASI | Integrasi `ProductGallery` pada halaman detail produk |
+| `src/components/ui/ImageUploader.tsx` | MODIFIKASI | Dukungan pemilihan & upload multiple files sekaligus |
+| `src/app/page.tsx` | MODIFIKASI | Relokasi CTA penawaran jual ke hero gelap & query `supplier_cta` |
+| `src/app/admin/konten/page.tsx` | MODIFIKASI | Penambahan tab CMS `supplier_cta` dengan icon `Gem` |
+| `src/lib/data-store.ts` | MODIFIKASI | Definisi default `supplier_cta` & multi-images untuk produk |
+| `prisma/seed.ts` | MODIFIKASI | Seeding default `supplier_cta` & multi-images produk |
+| `.local-store.json` | MODIFIKASI | Penambahan block `supplier_cta` & multi-images produk komoditas |
+| `docs/BLUEPRINT.md` | MODIFIKASI | Dokumentasi arsitektur Sesi #27 |
+| `docs/NOTEPATCH.md` | MODIFIKASI | Entri log historis ini |
+
+

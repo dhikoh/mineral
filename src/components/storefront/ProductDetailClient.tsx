@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { RichTextRenderer } from '@/components/editor/RichTextRenderer';
+import { ProductGallery } from '@/components/storefront/ProductGallery';
 import {
   ShoppingCart,
   PhoneCall,
@@ -52,7 +53,6 @@ export function ProductDetailClient({
     ? product.images
     : ['https://images.unsplash.com/photo-1578749556568-bc2c40e68b61?auto=format&fit=crop&w=800&q=80'];
 
-  const [activeImage, setActiveImage] = useState(images[0]);
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -135,50 +135,13 @@ export function ProductDetailClient({
 
       {/* Main Product Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
-        {/* Gallery Column (5 Cols) */}
-        <div className="lg:col-span-6 space-y-3">
-          {/* Active Big Image */}
-          <div className="relative aspect-[4/3] w-full overflow-hidden rounded-3xl border border-surface-200 bg-white shadow-soft-sm">
-            <Image
-              src={activeImage}
-              alt={product.name}
-              fill
-              sizes="(max-width: 1024px) 100vw, 50vw"
-              priority
-              className="object-cover transition-all duration-300"
-            />
-            {product.category && (
-              <span className="absolute top-4 left-4 rounded-full bg-slate-900/80 px-3 py-1 text-xs font-bold text-white backdrop-blur-sm">
-                {product.category.name}
-              </span>
-            )}
-          </div>
-
-          {/* Thumbnails Row */}
-          {images.length > 1 && (
-            <div className="flex items-center gap-2.5 overflow-x-auto pb-1">
-              {images.map((img, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => setActiveImage(img)}
-                  className={`relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-2xl border-2 transition-all ${
-                    activeImage === img
-                      ? 'border-emerald-600 shadow-soft-sm scale-105'
-                      : 'border-surface-200 opacity-70 hover:opacity-100'
-                  }`}
-                >
-                  <Image
-                    src={img}
-                    alt={`Thumb ${idx + 1}`}
-                    fill
-                    sizes="80px"
-                    className="object-cover"
-                  />
-                </button>
-              ))}
-            </div>
-          )}
+        {/* Gallery Column (6 Cols) */}
+        <div className="lg:col-span-6">
+          <ProductGallery
+            images={images}
+            productName={product.name}
+            categoryName={product.category?.name}
+          />
         </div>
 
         {/* Product Details & Actions Column (6 Cols) */}

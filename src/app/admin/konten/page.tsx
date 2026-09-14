@@ -15,6 +15,7 @@ import {
   HelpCircle,
   Eye,
   Edit3,
+  Gem,
 } from 'lucide-react';
 import { sanitize } from '@/lib/sanitize';
 import { RichTextEditor } from '@/components/editor/RichTextEditor';
@@ -29,6 +30,7 @@ interface ContentBlockItem {
 
 const BLOCK_TABS = [
   { key: 'homepage_hero', label: 'Banner Beranda', icon: Sparkles, desc: 'Judul & deskripsi utama pada header beranda' },
+  { key: 'supplier_cta', label: 'CTA Penawaran Jual', icon: Gem, desc: 'Banner ajakan suplai/pemilik tambang di hero beranda' },
   { key: 'about_us', label: 'Tentang Kami', icon: FileText, desc: 'Profil perusahaan, komitmen pasokan, dan spesifikasi' },
   { key: 'why_us', label: 'Keunggulan Kami', icon: ShieldCheck, desc: '4 pilar keunggulan pasokan komoditas' },
   { key: 'shipping_info', label: 'Pengiriman & Logistik', icon: Truck, desc: 'Opsi ekspedisi truk, kargo kontainer, dan pelabuhan muat' },

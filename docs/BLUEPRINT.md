@@ -796,3 +796,30 @@ Seluruh 5 tahap audit total telah dijalankan terhadap kodebase Adably di Sesi #2
 | `npm test` | Exit Code 0, 105/105 tests passed (100%) ✅ |
 | `npm run build` | Exit Code 0, 49/49 routes compiled successfully ✅ |
 
+---
+
+## Sesi #27 Update — Shopee-Style Multi-Image Gallery, PWA Touch Swipe & Integrasi Hero CTA Penawaran Jual ke CMS
+
+### 1. Galeri Multi-Gambar Interaktif Shopee-Style (`ProductGallery.tsx`)
+- **Komponen Galeri Khusus**: `src/components/storefront/ProductGallery.tsx` menyajikan tampilan produk modern:
+  - Display gambar utama beresolusi tinggi dengan rasio 4:3, transisi fade halus (`opacity-100 duration-300`), badge indikator slide (`1 / N`), badge kategori produk, dan tombol navigasi desktop (`<` dan `>`).
+  - **Dukungan Touch Swipe PWA/Mobile**: Menggunakan handler `onTouchStart`, `onTouchMove`, dan `onTouchEnd` dengan threshold 45px dan deteksi sumbu `Math.abs(diffX) > Math.abs(diffY)` untuk memastikan swipe gambar horizontal intuitif pada perangkat layar sentuh/PWA tanpa mengganggu scroll vertikal halaman.
+  - **Baris Thumbnail Shopee-Style**: Deretan kartu thumbnail kecil di bawah gambar utama dengan border emerald tebal (`border-2 border-emerald-600 ring-2 ring-emerald-500/30 scale-105`) pada item aktif, hover scaling, scroll horizontal responsif, tombol navigasi baris thumbnail, dan auto-scroll thumbnail ke tengah viewport saat gambar aktif berganti.
+  - **Batch Multi-Image Uploader**: `src/components/ui/ImageUploader.tsx` telah disempurnakan dengan `multiple` file picker dan pemrosesan multi-file secara serentak (`handleMultipleFilesUpload`).
+
+### 2. Relokasi Card Penawaran Jual (CTA Supplier) ke Hero Gelap & Integrasi CMS
+- **Relokasi ke Hero Gelap**: Memindahkan kartu ajakan *"Punya Stok Komoditas? Jual Melalui Platform Kami"* dari posisi lama di bawah katalog ke dalam section Hero gelap di beranda (`src/app/page.tsx`), tepat di bawah 3 badge keunggulan (*Spesifikasi Transparan*, *Pengiriman Fleksibel*, *Transaksi Aman*).
+- **Estetika Glassmorphism Gelap**: Mengadopsi styling glassmorphism emerald gelap yang selaras dengan hero beranda (`border-emerald-500/30 bg-gradient-to-r from-emerald-950/60 via-slate-900/80 to-teal-950/60 backdrop-blur-md shadow-soft-xl`), badge emerald transparan, judul tebal, serta tombol aksi *"Ajukan Penawaran Jual"* berkilau emerald (`bg-emerald-500 hover:bg-emerald-400 text-slate-950`).
+- **Integrasi CMS `supplier_cta`**:
+  - Didaftarkan ContentBlock key `'supplier_cta'` pada `BLOCK_TABS` di `/admin/konten` lengkap dengan icon `Gem` dari `lucide-react`.
+  - Disediakan data default di `DEFAULT_CONTENT_BLOCKS` (`src/lib/data-store.ts`), `prisma/seed.ts`, dan `.local-store.json`.
+  - Beranda secara dinamis memuat judul dan deskripsi dari CMS dengan fallback fail-safe dan dukungan render paragraf HTML tersanitasi.
+
+### Verifikasi Kualitas Sesi #27
+| Perintah | Hasil |
+|---|---|
+| `npx tsc --noEmit` | Exit Code 0, 0 TypeScript error ✅ |
+| `npm test` | Exit Code 0, 105/105 tests passed (100%) ✅ |
+| `npm run build` | Exit Code 0, 55 routes compiled successfully ✅ |
+
+

@@ -19,13 +19,17 @@ import {
 import { sanitize } from '@/lib/sanitize';
 
 export default async function HomePage() {
-  const [heroBlock, whyUsBlock, categories, allProducts, settings] = await Promise.all([
+  const [heroBlock, whyUsBlock, supplierCtaBlock, categories, allProducts, settings] = await Promise.all([
     getContentBlockByKey('homepage_hero'),
     getContentBlockByKey('why_us'),
+    getContentBlockByKey('supplier_cta'),
     getCategories(),
     getProducts(),
     getSiteSettings(),
   ]);
+
+  const supplierTitle = supplierCtaBlock?.title || 'Punya Stok Komoditas? Jual Melalui Platform Kami';
+  const supplierContent = supplierCtaBlock?.content || 'Zeolite, Bentonite, Kaolin, Pasir Silika, dan mineral lainnya — isi form penawaran singkat dan tim kami akan menghubungi Anda dalam 1×24 jam.';
 
   const products = (allProducts as any[]).filter((p: any) => p.isActive !== false).slice(0, 8);
 
@@ -163,6 +167,41 @@ export default async function HomePage() {
               </div>
             </div>
           </div>
+
+          {/* Sell Offer CTA — Untuk Supplier/Penjual Komoditas (Dark Glassmorphism) */}
+          <div className="mt-8 max-w-4xl mx-auto">
+            <div className="rounded-2xl sm:rounded-3xl border border-emerald-500/30 bg-gradient-to-r from-emerald-950/60 via-slate-900/80 to-teal-950/60 p-6 sm:p-8 backdrop-blur-md shadow-soft-xl flex flex-col md:flex-row items-center justify-between gap-6 text-left">
+              <div className="space-y-2 max-w-xl">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 px-3 py-1 text-xs font-bold text-emerald-300">
+                  <Gem className="h-3.5 w-3.5" />
+                  Untuk Pemilik Tambang & Supplier
+                </span>
+                <h3 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
+                  {supplierTitle}
+                </h3>
+                {supplierContent.includes('<p>') ? (
+                  <div
+                    className="text-xs sm:text-sm text-slate-300 leading-relaxed [&>p]:mb-1 [&>ul]:list-disc [&>ul]:pl-4"
+                    dangerouslySetInnerHTML={{ __html: sanitize(supplierContent) }}
+                  />
+                ) : (
+                  <p className="text-xs sm:text-sm text-slate-300 leading-relaxed whitespace-pre-line">
+                    {supplierContent}
+                  </p>
+                )}
+              </div>
+              <div className="flex-shrink-0 w-full md:w-auto">
+                <Link
+                  href="/jual"
+                  className="w-full md:w-auto inline-flex items-center justify-center gap-2 rounded-full bg-emerald-500 hover:bg-emerald-400 px-7 py-3.5 text-sm font-bold text-slate-950 shadow-soft-md transition-all active:scale-95"
+                >
+                  <Gem className="h-4 w-4" />
+                  <span>Ajukan Penawaran Jual</span>
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -254,33 +293,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Sell Offer CTA — Untuk Supplier/Penjual Komoditas */}
-      <section className="mx-auto max-w-7xl px-4">
-        <div className="rounded-3xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50 p-8 sm:p-10 flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="max-w-xl space-y-2 text-center md:text-left">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 border border-emerald-200 px-3 py-1 text-xs font-bold text-emerald-700">
-              <Gem className="h-3.5 w-3.5" />
-              Untuk Pemilik Tambang & Supplier
-            </span>
-            <h2 className="text-xl sm:text-2xl font-bold text-slate-900">
-              Punya Stok Komoditas? Jual Melalui Platform Kami
-            </h2>
-            <p className="text-sm text-slate-600 leading-relaxed">
-              Zeolite, Bentonite, Kaolin, Pasir Silika, dan mineral lainnya — isi form penawaran singkat dan tim kami akan menghubungi Anda dalam 1×24 jam.
-            </p>
-          </div>
-          <div className="flex-shrink-0">
-            <Link
-              href="/jual"
-              className="inline-flex items-center gap-2 rounded-full bg-emerald-600 hover:bg-emerald-700 px-7 py-3.5 text-sm font-bold text-white shadow-md transition-all active:scale-95"
-            >
-              <Gem className="h-4 w-4" />
-              Ajukan Penawaran Jual
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </div>
-        </div>
-      </section>
+
 
       {/* Wholesale & Custom Specification Banner */}
       <section className="mx-auto max-w-7xl px-4">

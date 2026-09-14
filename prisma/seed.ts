@@ -64,6 +64,11 @@ async function main() {
       content: '<p>Kami menyediakan komoditas mineral tambang mentah dan olahan berstandar industri dengan spesifikasi transparan. Siap melayani kebutuhan pengadaan industri domestik maupun ekspor.</p>',
     },
     {
+      key: 'supplier_cta',
+      title: 'Punya Stok Komoditas? Jual Melalui Platform Kami',
+      content: '<p>Zeolite, Bentonite, Kaolin, Pasir Silika, dan mineral lainnya — isi form penawaran singkat dan tim kami akan menghubungi Anda dalam 1×24 jam.</p>',
+    },
+    {
       key: 'about_us',
       title: 'Tentang Adably',
       content: '<p>Adably adalah platform pengadaan mineral dan hasil alam terintegrasi. Kami melayani kebutuhan pelaku industri kimia, pertanian, konstruksi, dan manufaktur melalui kemitraan rantai pasok terpercaya dengan komitmen transparansi spesifikasi fisik dan uji sampel.</p>',
@@ -190,6 +195,9 @@ async function main() {
       stock: 500,
       images: [
         'https://images.unsplash.com/photo-1578749556568-bc2c40e68b61?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1599818448831-2954a79b29cb?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1590402494587-44b71d7772f6?auto=format&fit=crop&w=800&q=80',
       ],
       tags: ['zeolite', 'mineralalam', 'penyaringair', 'pupukorganik'],
       categoryId: catMineral.id,
@@ -203,6 +211,8 @@ async function main() {
       stock: 350,
       images: [
         'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1578749556568-bc2c40e68b61?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1590402494682-cd3fb53b1f70?auto=format&fit=crop&w=800&q=80',
       ],
       tags: ['bentonite', 'clay', 'drillingmud', 'catlitter'],
       categoryId: catMineral.id,
@@ -216,6 +226,8 @@ async function main() {
       stock: 120,
       images: [
         'https://images.unsplash.com/photo-1535813547-99c456a41d4a?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1504917599217-d4dc5ebe6122?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=800&q=80',
       ],
       tags: ['timah', 'tin', 'logam', 'ekspor'],
       categoryId: catMineral.id,
@@ -229,6 +241,8 @@ async function main() {
       stock: 45,
       images: [
         'https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1513836279014-a89f7a76ae86?auto=format&fit=crop&w=800&q=80',
       ],
       tags: ['gaharu', 'agarwood', 'parfum', 'dupa'],
       categoryId: catHutan.id,

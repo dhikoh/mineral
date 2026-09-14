@@ -82,6 +82,42 @@ export function ImageUploader({
     }
   };
 
+  const handleMultipleFilesUpload = async (files: File[]) => {
+    setError(null);
+    setSuccessMsg(null);
+    setLoading(true);
+
+    try {
+      const uploadedUrls: string[] = [];
+      for (const file of files) {
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await fetch(uploadEndpoint, {
+          method: 'POST',
+          body: formData,
+        });
+        const data = await res.json();
+        if (res.ok && data.url) {
+          uploadedUrls.push(data.url);
+        }
+      }
+
+      if (uploadedUrls.length > 0) {
+        const nextValues = [...values, ...uploadedUrls];
+        onChange(nextValues);
+        setSuccessMsg(`${uploadedUrls.length} gambar berhasil diunggah`);
+        setTimeout(() => setSuccessMsg(null), 3000);
+      } else {
+        setError('Gagal mengunggah beberapa file gambar');
+      }
+    } catch {
+      setError('Terjadi kesalahan saat mengunggah file gambar');
+    } finally {
+      setLoading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
   const handleUrlSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!urlInput.trim()) return;
@@ -191,10 +227,15 @@ export function ImageUploader({
           <input
             ref={fileInputRef}
             type="file"
+            multiple={multiple}
             accept="image/jpeg,image/png,image/webp,image/svg+xml"
             onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) handleFileUpload(file);
+              if (!e.target.files || e.target.files.length === 0) return;
+              if (multiple && e.target.files.length > 1) {
+                handleMultipleFilesUpload(Array.from(e.target.files));
+              } else {
+                handleFileUpload(e.target.files[0]);
+              }
             }}
             className="hidden"
           />
