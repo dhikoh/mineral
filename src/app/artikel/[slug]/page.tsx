@@ -4,7 +4,7 @@ import Image from 'next/image';
 import type { Metadata } from 'next';
 import { getArticleBySlug, getProducts } from '@/lib/data-store';
 import { formatDate, formatRupiah } from '@/lib/utils';
-import { sanitize } from '@/lib/sanitize';
+import { RichTextRenderer } from '@/components/editor/RichTextRenderer';
 import {
   Clock,
   ArrowLeft,
@@ -87,7 +87,6 @@ export default async function ArtikelDetailPage({
     notFound();
   }
 
-  const cleanHtml = sanitize(article.htmlContent);
   const readTime = estimateReadingTime(article.htmlContent);
 
   // Find related products (e.g. products matching tags or title keywords)
@@ -254,21 +253,13 @@ export default async function ArtikelDetailPage({
       )}
 
       {/* Sanitized HTML Body with styled typography */}
-      <div
-        className="rounded-3xl border border-surface-200 bg-white p-6 sm:p-10 shadow-soft-sm text-slate-800 leading-relaxed text-sm sm:text-base space-y-4
-          [&>h2]:text-xl [&>h2]:sm:text-2xl [&>h2]:font-black [&>h2]:text-slate-900 [&>h2]:mt-8 [&>h2]:mb-3 [&>h2]:tracking-tight
-          [&>h3]:text-base [&>h3]:sm:text-lg [&>h3]:font-bold [&>h3]:text-slate-900 [&>h3]:mt-6 [&>h3]:mb-2
-          [&>p]:my-3.5 [&>p]:leading-relaxed [&>p]:text-slate-700
-          [&>ul]:my-4 [&>ul]:list-disc [&>ul]:pl-6 [&>ul]:space-y-1.5 [&>ul>li]:text-slate-700
-          [&>ol]:my-4 [&>ol]:list-decimal [&>ol]:pl-6 [&>ol]:space-y-1.5 [&>ol>li]:text-slate-700
-          [&>blockquote]:my-6 [&>blockquote]:rounded-2xl [&>blockquote]:border-l-4 [&>blockquote]:border-emerald-500 [&>blockquote]:bg-emerald-50/50 [&>blockquote]:p-4 [&>blockquote]:italic [&>blockquote]:text-emerald-950
-          [&>table]:my-6 [&>table]:w-full [&>table]:text-xs [&>table]:border-collapse [&>table]:rounded-xl [&>table]:overflow-hidden
-          [&>table_th]:bg-surface-100 [&>table_th]:p-3 [&>table_th]:font-bold [&>table_th]:text-slate-800 [&>table_th]:border [&>table_th]:border-surface-200
-          [&>table_td]:p-3 [&>table_td]:border [&>table_td]:border-surface-200 [&>table_td]:text-slate-700
-          [&>strong]:font-bold [&>strong]:text-slate-900
-          [&>a]:text-emerald-600 [&>a]:underline [&>a]:font-semibold hover:[&>a]:text-emerald-700"
-        dangerouslySetInnerHTML={{ __html: cleanHtml }}
-      />
+      <div className="rounded-3xl border border-surface-200 bg-white p-6 sm:p-10 shadow-soft-sm">
+        <RichTextRenderer
+          html={article.htmlContent}
+          theme="light"
+          className="text-sm sm:text-base leading-relaxed"
+        />
+      </div>
 
       {/* Bottom CTA / Related Commodities */}
       <div className="rounded-3xl border border-surface-200 bg-surface-50 p-6 sm:p-8 space-y-6">

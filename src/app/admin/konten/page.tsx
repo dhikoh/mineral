@@ -17,6 +17,7 @@ import {
   Edit3,
 } from 'lucide-react';
 import { sanitize } from '@/lib/sanitize';
+import { RichTextEditor } from '@/components/editor/RichTextEditor';
 
 interface ContentBlockItem {
   id: string;
@@ -291,22 +292,17 @@ export default function AdminKontenPage() {
 
                 {/* Content */}
                 <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-xs font-bold text-slate-700">
-                      Isi Konten Teks / Paragraf
-                    </label>
-                    <span className="text-[11px] text-slate-400">
-                      Mendukung format baris baru & HTML aman
-                    </span>
-                  </div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Isi Konten Teks / Paragraf
+                  </label>
 
                   {!previewMode ? (
-                    <textarea
-                      rows={12}
+                    <RichTextEditor
                       value={editContent}
-                      onChange={(e) => setEditContent(e.target.value)}
+                      onChange={setEditContent}
                       placeholder="Ketik konten teks atau informasi detail di sini..."
-                      className="w-full rounded-2xl border border-surface-200 bg-surface-50/50 p-4 font-sans text-xs text-slate-900 leading-relaxed placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      theme="light"
+                      minHeight={220}
                     />
                   ) : (
                     <div className="min-h-[280px] rounded-2xl border border-surface-200 bg-surface-50/30 p-5">
@@ -319,7 +315,7 @@ export default function AdminKontenPage() {
                         </h3>
                       )}
                       <div
-                        className="prose prose-sm max-w-none text-xs leading-relaxed text-slate-700 whitespace-pre-line"
+                        className="prose prose-sm max-w-none text-xs leading-relaxed text-slate-700"
                         dangerouslySetInnerHTML={{ __html: sanitize(editContent) }}
                       />
                     </div>

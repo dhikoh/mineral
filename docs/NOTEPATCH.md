@@ -1558,3 +1558,69 @@ Dua pekerjaan utama: (1) fix bug validasi harga produk di admin — input minimu
 | `docs/BLUEPRINT.md` | MODIFIKASI |
 
 > **Catatan migrasi:** Jalankan `npx prisma migrate dev --name add_sell_offer` ketika PostgreSQL aktif di localhost:5432.
+
+---
+
+## [2026-09-14] Sesi #26 — Integrasi Tiptap Rich Text Editor, Tailwind Typography Plugin, Standarisasi Storefront & Migrasi Next.js 16 Proxy
+
+**Sesi:** #26  
+**Tanggal:** 14/9/2026  
+**Status Build:** Exit Code 0 (`npx tsc --noEmit` + `npm test` [105/105 tests pass] + `npm run build` [49 routes], 0 error)
+
+### 1. Latar Belakang & Masalah Yang Diselesaikan
+1. **Peningkatan Pengalaman CMS & Admin Form:**
+   - Sebelumnya, form artikel (`ArticleForm.tsx`), konten statis (`admin/konten`), dan deskripsi produk (`admin/produk/baru`, `admin/produk/[id]`) masih menggunakan `<textarea>` polos atau tombol snippet HTML manual yang rentan typo format dan kurang user-friendly bagi operator non-teknis.
+2. **Ketiadaan Plugin `@tailwindcss/typography`:**
+   - Komponen sebelumnya menuliskan utility classes `prose` dan `prose-*`, namun plugin resmi `@tailwindcss/typography` belum terpasang di `tailwind.config.ts`, menyebabkan rendering HTML artikel tidak memiliki hierarchy style tipografi yang optimal.
+3. **Peringatan Deprecation Next.js 16 (Middleware ke Proxy):**
+   - Build Next.js 16 mengeluarkan peringatan resmi: `The "middleware" file convention is deprecated. Please use "proxy" instead`. Sesuai aturan pengembangan di `AGENTS.md` ("Heed deprecation notices"), arsitektur edge request handler harus dimigrasikan ke konvensi Next.js 16 `src/proxy.ts`.
+4. **Artefak Layout `whitespace-pre-line` pada Halaman Publik:**
+   - Halaman `tentang-kami` dan `syarat-ketentuan` memakai class `whitespace-pre-line` pada `dangerouslySetInnerHTML`. Ketika konten diedit dengan Rich Text Editor yang menghasilkan tag `<p>`, karakter newline antar-tag menyebabkan spasi vertikal ganda yang tidak diinginkan.
+
+### 2. Pekerjaan & Solusi Yang Diterapkan
+1. **Implementasi Tiptap WYSIWYG Suite:**
+   - Dibuat `src/components/editor/RichTextEditor.tsx`: Editor visual lengkap berbasis `@tiptap/react` dan ekstensi pendukung (Heading H1-H3, Paragraph, Bold, Italic, Underline, Strikethrough, Text Color 16 palet, Alignment, Bullet/Number List, Blockquote, Divider, Hyperlink, dan Server Image Upload langsung via `/api/admin/upload`).
+   - Tersedia dua tema: `dark` (untuk form produk komoditas gelap) dan `light` (untuk artikel dan CMS).
+2. **Standardisasi Komponen Render HTML (`RichTextRenderer.tsx`):**
+   - Dibuat `src/components/editor/RichTextRenderer.tsx`: Membungkus sanitasi XSS (`sanitize-html`) secara internal, menerapkan `@tailwindcss/typography` (`prose`, `prose-invert`), dan menambahkan styling bawaan untuk tabel border-collapse responsif.
+   - Dipasang ke `src/app/artikel/[slug]/page.tsx`, `src/app/tentang-kami/page.tsx`, `src/app/syarat-ketentuan/page.tsx`, dan `src/components/storefront/ProductDetailClient.tsx`.
+3. **Pemasangan Plugin `@tailwindcss/typography`:**
+   - Diinstal paket `@tailwindcss/typography` dan didaftarkan di `tailwind.config.ts` (`plugins: [require('@tailwindcss/typography')]`).
+4. **Migrasi Konvensi Next.js 16 `src/proxy.ts`:**
+   - Menggantikan `src/middleware.ts` dengan `src/proxy.ts` yang mengekspor fungsi `export async function proxy(req: NextRequest)`.
+   - Menghilangkan deprecation warning 100%, menjaga keamanan otentikasi admin dua lapis (`proxy.ts` edge guard + `getAdminSession()` in-handler guard).
+5. **Penguatan Sanitizer Stored XSS (`src/lib/sanitize.ts`):**
+   - Ditambahkan whitelist atribut style spesifik (`text-align`, `color`, `font-weight`, `font-style`, `max-width`) menggunakan regex terverifikasi tanpa membuka celah eksekusi script.
+
+### 3. Matriks Pengujian & Verifikasi Kualitas
+| Uji Mutu | Perintah | Hasil |
+|---|---|---|
+| **Kompilasi TypeScript** | `npx tsc --noEmit` | Exit Code 0 (0 error) ✅ |
+| **Audit Phase 7 Lifecycle** | `tsx scripts/test-phase7-e2e.ts` | 40/40 PASSED (100%) ✅ |
+| **CRM & Customer Database** | `tsx scripts/test-crm-module.ts` | 42/42 PASSED (100%) ✅ |
+| **Audit P0, P1 & Security** | `tsx scripts/test-audit-p0-p1.ts` | 23/23 PASSED (100%) ✅ |
+| **Total Test Suite** | `npm test` | **105/105 PASSED (100%)** ✅ |
+| **Production Build** | `npm run build` | Exit Code 0 (49 routes compiled, zero deprecation warning) ✅ |
+
+### 4. File Yang Dibuat & Diubah
+| File | Status | Keterangan |
+|---|---|---|
+| `src/components/editor/RichTextEditor.tsx` | BARU | Komponen WYSIWYG editor Tiptap (light & dark theme) |
+| `src/components/editor/RichTextRenderer.tsx` | BARU | Komponen render HTML aman terintegrasi Tailwind Typography |
+| `src/proxy.ts` | BARU | Edge guard resmi Next.js 16 (pengganti `src/middleware.ts`) |
+| `src/middleware.ts` | DIHAPUS | Migrasi tuntas ke `src/proxy.ts` |
+| `tailwind.config.ts` | MODIFIKASI | Penambahan plugin `@tailwindcss/typography` |
+| `src/lib/sanitize.ts` | MODIFIKASI | Whitelist style attributes Tiptap (color, alignment, etc.) |
+| `src/components/admin/ArticleForm.tsx` | MODIFIKASI | Penggantian textarea HTML dengan `RichTextEditor` |
+| `src/app/admin/konten/page.tsx` | MODIFIKASI | Integrasi `RichTextEditor` pada editor konten CMS |
+| `src/app/admin/produk/baru/page.tsx` | MODIFIKASI | Integrasi `RichTextEditor` (dark theme) pada deskripsi produk baru |
+| `src/app/admin/produk/[id]/page.tsx` | MODIFIKASI | Integrasi `RichTextEditor` (dark theme) pada edit produk |
+| `src/app/artikel/[slug]/page.tsx` | MODIFIKASI | Render artikel dengan `RichTextRenderer` |
+| `src/app/tentang-kami/page.tsx` | MODIFIKASI | Render konten profil dengan `RichTextRenderer` |
+| `src/app/syarat-ketentuan/page.tsx` | MODIFIKASI | Render klausul & regulasi dengan `RichTextRenderer` |
+| `src/components/storefront/ProductDetailClient.tsx` | MODIFIKASI | Render deskripsi produk dengan `RichTextRenderer` |
+| `src/app/page.tsx` | MODIFIKASI | Render hero block tersanitasi |
+| `AGENTS.md` | MODIFIKASI | Sinkronisasi aturan rujukan `src/proxy.ts` |
+| `docs/BLUEPRINT.md` | MODIFIKASI | Dokumentasi arsitektur Sesi #26 |
+| `docs/NOTEPATCH.md` | MODIFIKASI | Entri ini |
+

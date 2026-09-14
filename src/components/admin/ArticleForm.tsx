@@ -4,22 +4,19 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { slugify } from '@/lib/utils';
-import { sanitize } from '@/lib/sanitize'; // Sesi #17 (Temuan M): Proteksi Stored XSS
+import { sanitize } from '@/lib/sanitize';
 import { ImageUploader } from '@/components/ui/ImageUploader';
+import { RichTextEditor } from '@/components/editor/RichTextEditor';
 import {
   FileText,
   Save,
   ArrowLeft,
   Loader2,
   Eye,
-  Code,
+  Pencil,
   Sparkles,
   CheckCircle2,
   AlertCircle,
-  Heading,
-  List,
-  Quote,
-  Table,
 } from 'lucide-react';
 
 interface ArticleFormProps {
@@ -54,9 +51,7 @@ export function ArticleForm({ initialData, isEditing = false }: ArticleFormProps
     }
   };
 
-  const insertHtmlSnippet = (snippet: string) => {
-    setHtmlContent((prev: string) => (prev ? prev + '\n' + snippet : snippet));
-  };
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -228,88 +223,43 @@ export function ArticleForm({ initialData, isEditing = false }: ArticleFormProps
             </div>
           </div>
 
-          {/* HTML Content Editor with Live Preview Tab */}
+          {/* Rich Text Editor with Live Preview Tab */}
           <div className="rounded-3xl border border-surface-200 bg-white p-6 sm:p-8 shadow-soft-sm space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-surface-200">
-              <div className="flex items-center gap-1 rounded-xl bg-surface-100 p-1">
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('editor')}
-                  className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all cursor-pointer ${
-                    activeTab === 'editor'
-                      ? 'bg-white text-slate-900 shadow-soft-xs'
-                      : 'text-slate-500 hover:text-slate-800'
-                  }`}
-                >
-                  <Code className="h-3.5 w-3.5" />
-                  <span>Tulis HTML</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('preview')}
-                  className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all cursor-pointer ${
-                    activeTab === 'preview'
-                      ? 'bg-white text-emerald-700 shadow-soft-xs'
-                      : 'text-slate-500 hover:text-slate-800'
-                  }`}
-                >
-                  <Eye className="h-3.5 w-3.5" />
-                  <span>Pratinjau Langsung</span>
-                </button>
-              </div>
-
-              {/* Quick Snippet Buttons */}
-              {activeTab === 'editor' && (
-                <div className="flex flex-wrap items-center gap-1 text-slate-600">
-                  <button
-                    type="button"
-                    onClick={() => insertHtmlSnippet('<h2>Subjudul Baru</h2>\n<p>Isi penjelasan subjudul...</p>')}
-                    className="inline-flex items-center gap-1 rounded-lg border border-surface-200 bg-surface-50 px-2 py-1 text-[11px] font-semibold hover:bg-surface-100"
-                    title="Sisipkan Subjudul H2"
-                  >
-                    <Heading className="h-3 w-3" />
-                    <span>H2</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => insertHtmlSnippet('<p>Paragraf baru artikel...</p>')}
-                    className="inline-flex items-center gap-1 rounded-lg border border-surface-200 bg-surface-50 px-2 py-1 text-[11px] font-semibold hover:bg-surface-100"
-                    title="Sisipkan Paragraf"
-                  >
-                    <span>P</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => insertHtmlSnippet('<ul>\n  <li>Poin manfaat pertama</li>\n  <li>Poin manfaat kedua</li>\n</ul>')}
-                    className="inline-flex items-center gap-1 rounded-lg border border-surface-200 bg-surface-50 px-2 py-1 text-[11px] font-semibold hover:bg-surface-100"
-                    title="Sisipkan Daftar List"
-                  >
-                    <List className="h-3 w-3" />
-                    <span>List</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => insertHtmlSnippet('<blockquote>Kutipan penting atau data riset laboratorium...</blockquote>')}
-                    className="inline-flex items-center gap-1 rounded-lg border border-surface-200 bg-surface-50 px-2 py-1 text-[11px] font-semibold hover:bg-surface-100"
-                    title="Sisipkan Kutipan"
-                  >
-                    <Quote className="h-3 w-3" />
-                    <span>Quote</span>
-                  </button>
-                </div>
-              )}
+            <div className="flex items-center gap-1 rounded-xl bg-surface-100 p-1 w-fit">
+              <button
+                type="button"
+                onClick={() => setActiveTab('editor')}
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === 'editor'
+                    ? 'bg-white text-slate-900 shadow-soft-xs'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                <span>Editor</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('preview')}
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === 'preview'
+                    ? 'bg-white text-emerald-700 shadow-soft-xs'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <Eye className="h-3.5 w-3.5" />
+                <span>Pratinjau</span>
+              </button>
             </div>
 
-            {/* Editor Textarea or Live Preview */}
             {activeTab === 'editor' ? (
               <div>
-                <textarea
-                  rows={14}
-                  required
+                <RichTextEditor
                   value={htmlContent}
-                  onChange={(e) => setHtmlContent(e.target.value)}
-                  placeholder="Tulis konten artikel dalam format HTML standar: <p>, <h2>, <h3>, <ul>, <li>, <strong>, dsb..."
-                  className="w-full rounded-2xl border border-surface-300 bg-white p-4 font-mono text-xs text-slate-800 placeholder-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 leading-relaxed"
+                  onChange={setHtmlContent}
+                  placeholder="Tulis konten artikel: heading, paragraf, list, gambar, link..."
+                  theme="light"
+                  minHeight={350}
                 />
                 <p className="mt-1.5 text-[11px] text-slate-400">
                   Konten otomatis disanitasi dari skrip berbahaya (XSS-safe).

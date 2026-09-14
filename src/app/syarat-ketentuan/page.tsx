@@ -2,7 +2,7 @@ import { Metadata } from 'next';
 import Link from 'next/link';
 import { FileText, ShieldCheck, Truck, HelpCircle } from 'lucide-react';
 import { getContentBlockByKey } from '@/lib/data-store';
-import { sanitize } from '@/lib/sanitize';
+import { RichTextRenderer } from '@/components/editor/RichTextRenderer';
 
 export const metadata: Metadata = {
   title: 'Syarat & Ketentuan — Adably',
@@ -49,14 +49,13 @@ export default async function SyaratKetentuanPage() {
             <FileText className="h-5 w-5" />
             <h2>{termsBlock?.title || 'Syarat & Ketentuan Pemesanan'}</h2>
           </div>
-          <div
-            className="prose prose-sm max-w-none text-xs sm:text-sm leading-relaxed text-slate-600 whitespace-pre-line"
-            dangerouslySetInnerHTML={{
-              __html: sanitize(
-                termsBlock?.content ||
-                  'Pemesanan komoditas mineral tunduk pada verifikasi pembayaran transfer bank resmi dan ketersediaan stok tambang.'
-              ),
-            }}
+          <RichTextRenderer
+            html={
+              termsBlock?.content ||
+              '<p>Pemesanan komoditas mineral tunduk pada verifikasi pembayaran transfer bank resmi dan ketersediaan stok tambang.</p>'
+            }
+            theme="light"
+            className="text-xs sm:text-sm text-slate-600"
           />
         </div>
 
@@ -66,14 +65,13 @@ export default async function SyaratKetentuanPage() {
             <Truck className="h-5 w-5" />
             <h2>{shippingBlock?.title || 'Informasi Pengiriman & Logistik Komoditas'}</h2>
           </div>
-          <div
-            className="prose prose-sm max-w-none text-xs sm:text-sm leading-relaxed text-slate-600 whitespace-pre-line"
-            dangerouslySetInnerHTML={{
-              __html: sanitize(
-                shippingBlock?.content ||
-                  'Pengiriman dikoordinasikan menggunakan ekspedisi kargo darat dan laut atau opsi pengambilan mandiri (Loco).'
-              ),
-            }}
+          <RichTextRenderer
+            html={
+              shippingBlock?.content ||
+              '<p>Pengiriman dikoordinasikan menggunakan ekspedisi kargo darat dan laut atau opsi pengambilan mandiri (Loco).</p>'
+            }
+            theme="light"
+            className="text-xs sm:text-sm text-slate-600"
           />
         </div>
 
@@ -83,14 +81,13 @@ export default async function SyaratKetentuanPage() {
             <ShieldCheck className="h-5 w-5" />
             <h2>{privacyBlock?.title || 'Kebijakan Privasi & Perlindungan Data'}</h2>
           </div>
-          <div
-            className="prose prose-sm max-w-none text-xs sm:text-sm leading-relaxed text-slate-600 whitespace-pre-line"
-            dangerouslySetInnerHTML={{
-              __html: sanitize(
-                privacyBlock?.content ||
-                  'Data pribadi dan transaksi seluruh mitra kami lindungi dengan standar kerahasiaan tinggi.'
-              ),
-            }}
+          <RichTextRenderer
+            html={
+              privacyBlock?.content ||
+              '<p>Data pribadi dan transaksi seluruh mitra kami lindungi dengan standar kerahasiaan tinggi.</p>'
+            }
+            theme="light"
+            className="text-xs sm:text-sm text-slate-600"
           />
         </div>
 

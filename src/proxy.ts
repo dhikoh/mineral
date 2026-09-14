@@ -13,7 +13,11 @@ function getJwtSecretKey(): Uint8Array {
 
 const COOKIE_NAME = 'adably_admin_token';
 
-export async function middleware(req: NextRequest) {
+/**
+ * Next.js 16 Proxy Convention (sebelumnya Middleware)
+ * Menjalankan proteksi edge/proxy layer sebelum routing diserahkan ke RSC/API handler.
+ */
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // 1. Proteksi endpoint API Admin (/api/admin/*)
@@ -82,6 +86,9 @@ export async function middleware(req: NextRequest) {
 
   return NextResponse.next();
 }
+
+// Support both named export and default export for Next.js proxy
+export default proxy;
 
 export const config = {
   matcher: ['/admin/:path*', '/api/admin/:path*'],

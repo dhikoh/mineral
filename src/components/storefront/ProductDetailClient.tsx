@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { RichTextRenderer } from '@/components/editor/RichTextRenderer';
 import {
   ShoppingCart,
   PhoneCall,
@@ -229,10 +230,12 @@ export function ProductDetailClient({
               </div>
             </div>
 
-            {/* Description Short */}
-            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-              {product.description}
-            </p>
+            {/* Description */}
+            <RichTextRenderer
+              html={product.description || ''}
+              theme="light"
+              className="text-xs sm:text-sm"
+            />
 
             {/* Hashtag Badges */}
             {product.tags?.length > 0 && (

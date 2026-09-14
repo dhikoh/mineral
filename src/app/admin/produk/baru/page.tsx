@@ -16,6 +16,7 @@ import {
 import { ImageUploader } from '@/components/ui/ImageUploader';
 import { TagInput } from '@/components/ui/TagInput';
 import { formatRupiah } from '@/lib/utils';
+import { RichTextEditor } from '@/components/editor/RichTextEditor';
 
 export default function AdminTambahProdukPage() {
   const router = useRouter();
@@ -235,12 +236,12 @@ export default function AdminTambahProdukPage() {
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
                   Deskripsi & Spesifikasi Teknis
                 </label>
-                <textarea
-                  rows={4}
-                  placeholder="Jelaskan karakteristik komoditas, mesh size, kapasitas tukar kation, kadar kemurnian, atau aplikasi industri..."
+                <RichTextEditor
                   value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-800/90 py-2.5 px-3.5 text-xs text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none"
+                  onChange={setDescription}
+                  placeholder="Jelaskan karakteristik komoditas, mesh size, kapasitas tukar kation, kadar kemurnian, atau aplikasi industri..."
+                  theme="dark"
+                  minHeight={200}
                 />
               </div>
             </div>

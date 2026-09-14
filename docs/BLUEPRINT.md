@@ -768,3 +768,31 @@ Seluruh 5 tahap audit total telah dijalankan terhadap kodebase Adably di Sesi #2
 | `src/app/api/admin/pesanan/[id]/route.ts` | MODIFIKASI — integrasi `wa_message` order_shipped + order_completed |
 | `docs/BLUEPRINT.md` | MODIFIKASI — header, Bagian 3 (wa-notify.ts + upload-validate.ts), Bagian 7 (fix rate limit + judul), Bagian 9 (poin 13-27), Sesi #22 section |
 | `docs/NOTEPATCH.md` | MODIFIKASI — append entri Sesi #22 |
+
+---
+
+## Sesi #26 Update — Tiptap Rich Text Editor, Tailwind Typography & Migrasi Next.js 16 Proxy
+
+### 1. Tiptap WYSIWYG Rich Text Suite
+- **`RichTextEditor.tsx`**: Editor WYSIWYG multi-fitur berbasis paket Tiptap modern (`@tiptap/react`, `@tiptap/starter-kit`, `@tiptap/extension-text-align`, `@tiptap/extension-link`, `@tiptap/extension-image`, `@tiptap/extension-underline`, `@tiptap/extension-placeholder`, `@tiptap/extension-text-style`, `@tiptap/extension-color`).
+  - Fitur format: Headings (H1, H2, H3), Paragraf, Bold, Italic, Underline, Strikethrough, Text Color (16 preset palette), Text Align (kiri, tengah, kanan, justify), Bullet/Ordered List, Blockquote, Divider (HR), Link URL, Upload Gambar ke server endpoint (`/api/admin/upload`), Undo/Redo, dan Clear Formatting.
+  - Mendukung tema adaptif (`dark` untuk form produk komoditas tambang, `light` untuk form artikel & CMS).
+- **`RichTextRenderer.tsx`**: Komponen render HTML tersanitasi yang terintegrasi dengan plugin `@tailwindcss/typography` (`prose`, `prose-invert`) dengan custom styling untuk heading, paragraf, blockquote, link, gambar, list, code block, dan tabel border-collapse responsif.
+- **Sanitizer Whitelist**: `src/lib/sanitize.ts` diperluas untuk memperbolehkan atribut style spesifik yang dihasilkan Tiptap (`text-align`, `color`, `font-weight`, `font-style`, `max-width`) dengan regex ketat, menjamin keamanan mutlak dari Stored XSS.
+
+### 2. Migrasi Konvensi Resmi Next.js 16 (Middleware ke Proxy)
+- Menggantikan `src/middleware.ts` dengan `src/proxy.ts` (`export async function proxy(req: NextRequest)`) sesuai konvensi resmi Next.js 16.
+- Mengeliminasi warning deprecation build (`⚠ The "middleware" file convention is deprecated. Please use "proxy" instead`).
+- Proteksi otentikasi admin dua lapis tetap terjaga penuh: layer proxy edge guard (`/admin/:path*` dan `/api/admin/:path*`) + in-handler session guard (`getAdminSession()`).
+
+### 3. Standardisasi Tampilan Storefront & CMS
+- `src/app/artikel/[slug]/page.tsx`, `src/app/tentang-kami/page.tsx`, `src/app/syarat-ketentuan/page.tsx`, dan `src/components/storefront/ProductDetailClient.tsx` telah distandardisasi menggunakan `RichTextRenderer`, mengeliminasi bug layout `whitespace-pre-line` pada konten HTML.
+- Admin CMS dan katalog (`admin/konten`, `admin/artikel`, `admin/produk/baru`, `admin/produk/[id]`) telah terintegrasi dengan `RichTextEditor`.
+
+### Verifikasi Kualitas Sesi #26
+| Perintah | Hasil |
+|---|---|
+| `npx tsc --noEmit` | Exit Code 0, 0 TypeScript error ✅ |
+| `npm test` | Exit Code 0, 105/105 tests passed (100%) ✅ |
+| `npm run build` | Exit Code 0, 49/49 routes compiled successfully ✅ |
+

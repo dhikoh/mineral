@@ -11,7 +11,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { getContentBlockByKey, getSiteSettings } from '@/lib/data-store';
-import { sanitize } from '@/lib/sanitize';
+import { RichTextRenderer } from '@/components/editor/RichTextRenderer';
 
 export const metadata: Metadata = {
   title: 'Tentang Kami — Adably',
@@ -83,14 +83,13 @@ export default async function TentangKamiPage() {
             <h2 className="text-xl font-bold text-slate-900 sm:text-2xl">
               Visi Keberlanjutan & Keunggulan Pasokan
             </h2>
-            <div
-              className="mt-4 prose prose-sm max-w-none text-xs sm:text-sm leading-relaxed text-slate-600 whitespace-pre-line"
-              dangerouslySetInnerHTML={{
-                __html: sanitize(
-                  aboutBlock?.content ||
-                    'Adably berdedikasi menyediakan komoditas mineral dan hasil hutan non-kayu berkualitas tinggi dengan standar transparansi tertinggi.'
-                ),
-              }}
+            <RichTextRenderer
+              html={
+                aboutBlock?.content ||
+                '<p>Adably berdedikasi menyediakan komoditas mineral dan hasil hutan non-kayu berkualitas tinggi dengan standar transparansi tertinggi.</p>'
+              }
+              theme="light"
+              className="mt-4 text-xs sm:text-sm text-slate-600"
             />
           </div>
 

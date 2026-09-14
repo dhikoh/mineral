@@ -16,6 +16,7 @@ import {
   getProducts,
   getSiteSettings,
 } from '@/lib/data-store';
+import { sanitize } from '@/lib/sanitize';
 
 export default async function HomePage() {
   const [heroBlock, whyUsBlock, categories, allProducts, settings] = await Promise.all([
@@ -107,10 +108,16 @@ export default async function HomePage() {
             {heroBlock?.title || 'Pasokan Mineral Tambang & Komoditas Alam Berkualitas'}
           </h1>
 
-          <p className="mt-6 text-sm sm:text-lg text-slate-300 max-w-3xl mx-auto leading-relaxed whitespace-pre-line">
-            {heroBlock?.content ||
-              'Menyediakan Zeolite alam, Bentonite swelling, Timah murni, dan Gaharu alami langsung dari sentra tambang. Dilengkapi hasil uji laboratorium dan jaminan pengiriman skala industri.'}
-          </p>
+          {heroBlock?.content ? (
+            <div
+              className="mt-6 text-sm sm:text-lg text-slate-300 max-w-3xl mx-auto leading-relaxed prose prose-invert prose-p:text-slate-300 prose-p:leading-relaxed prose-strong:text-white prose-em:text-slate-300 max-w-none"
+              dangerouslySetInnerHTML={{ __html: sanitize(heroBlock.content) }}
+            />
+          ) : (
+            <p className="mt-6 text-sm sm:text-lg text-slate-300 max-w-3xl mx-auto leading-relaxed">
+              Menyediakan Zeolite alam, Bentonite swelling, Timah murni, dan Gaharu alami langsung dari sentra tambang. Dilengkapi hasil uji laboratorium dan jaminan pengiriman skala industri.
+            </p>
+          )}
 
           {/* CTAs */}
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">

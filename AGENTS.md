@@ -16,7 +16,7 @@ Aplikasi marketplace *single-seller* B2B + Mini-CRM Lead Prospek + CMS Komoditas
 ## 2. Aturan Keamanan Wajib (Non-Negotiable)
 1. **Otorisasi Endpoint Admin**:
    - Seluruh endpoint API di bawah `/api/admin/**` WAJIB terotentikasi menggunakan guard `const session = await getAdminSession(); if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });`.
-   - `src/middleware.ts` memproteksi rute `/admin/:path*` (redirect login) dan `/api/admin/:path*` (HTTP 401 instan, kecuali `/api/admin/auth/login`).
+   - `src/proxy.ts` (konvensi resmi Next.js 16, sebelumnya `src/middleware.ts`) memproteksi rute `/admin/:path*` (redirect login) dan `/api/admin/:path*` (HTTP 401 instan, kecuali `/api/admin/auth/login`).
 2. **Secret & Kredensial**:
    - Dilarang keras menaruh fallback string rahasia untuk `AUTH_SECRET` di kode. Variabel lingkungan wajib divalidasi fail-fast (minimal 32 karakter acak).
    - Dilarang memasang backdoor kredensial login default pada runtime produksi.
