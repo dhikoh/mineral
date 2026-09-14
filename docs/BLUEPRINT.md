@@ -1,5 +1,5 @@
 # BLUEPRINT — Web Marketplace Single-Seller + CMS Artikel + Template Reusable
-Terakhir diupdate: 2026-09-13 (Sesi #21 — Fitur Penawaran Jual Komoditas + Fix Step Harga Admin)
+Terakhir diupdate: 2026-09-14 (Sesi #28 — Fitur Generator PDF Katalog Produk & B2B Sales Offer)
 
 ---
 
@@ -73,6 +73,7 @@ adably/
 │   │   │   ├── dashboard/page.tsx
 │   │   │   ├── faq/page.tsx
 │   │   │   ├── kategori/page.tsx
+│   │   │   ├── katalog-pdf/page.tsx   # Sesi #28: Generator & download PDF katalog produk B2B
 │   │   │   ├── konten/page.tsx
 │   │   │   ├── login/page.tsx
 │   │   │   ├── pelanggan/
@@ -111,6 +112,8 @@ adably/
 │   │   │   │   ├── kategori/
 │   │   │   │   │   ├── [id]/route.ts
 │   │   │   │   │   └── route.ts
+│   │   │   │   ├── katalog-pdf/
+│   │   │   │   │   └── route.ts       # Sesi #28: GET streaming PDF katalog produk B2B
 │   │   │   │   ├── konten/route.ts
 │   │   │   │   ├── pelanggan/
 │   │   │   │   │   ├── [id]/
@@ -212,6 +215,8 @@ adably/
 │   │   ├── data-store.ts     # Data access layer (Prisma + local dev fallback, retry collision, status gate)
 │   │   ├── db.ts             # Prisma Client instance & circuit-breaker proxy
 │   │   ├── order-security.ts # PII masking, pencocokan nomor HP (min 8 digit), transisi status pesanan strict
+│   │   ├── pdf/
+│   │   │   └── catalog-template.tsx # Sesi #28: Template dokumen PDF (@react-pdf/renderer)
 │   │   ├── rate-limit.ts     # In-memory rate limiting per-IP terpusat dengan preset endpoint (LOGIN, API publik)
 │   │   ├── sanitize.ts       # HTML sanitizer (sanitize-html, digunakan di semua preview & render HTML publik)
 │   │   ├── storage.ts        # Storage driver modular (local, S3/R2 SigV4, Cloudinary signed upload)
@@ -514,10 +519,13 @@ model AuditLog {
 | Dashboard Ringkasan Superadmin | Selesai | Fase 6: /admin/dashboard metrik live omset terverifikasi, pending verifikasi |
 | Polish: SEO, PWA/Mobile Bottom Nav, End-to-End | Selesai (Terverifikasi Sesi #18) | Aset ikon PWA (192px, 512px, svg, apple-touch) valid PNG (magic bytes `89 50 4E 47`) & >0 byte |
 | Database Pelanggan & CRM Prospek/Leads (B2B) | Selesai (Siklus Benar) | Sesi #10: Checkout mencatat PROSPECT (belum lunas), promosi DEAL & akumulasi LTV hanya saat PAID |
+| Penawaran Jual Komoditas (Supplier B2B) | Selesai | Sesi #21: Form publik /jual + manajemen admin /admin/penawaran-jual |
+| Galeri Multi-Gambar & Touch Swipe PWA | Selesai | Sesi #27: ProductGallery Shopee-style dengan swipe & multi-upload |
+| Generator PDF Katalog Produk & Sales Offer (B2B) | Selesai | Sesi #28: Halaman /admin/katalog-pdf & endpoint streaming /api/admin/katalog-pdf dengan @react-pdf/renderer. Filter kategori/peruntukan/search, toggle harga, & personalisasi nama/perusahaan pembeli |
 
 ---
 
-## 7. Matriks Endpoint API Lengkap (40 Route File — 62 Method Handler)
+## 7. Matriks Endpoint API Lengkap (41 Route File — 63 Method Handler)
 
 > **Catatan:** Blueprint ini menghitung route berdasarkan **file route** (40 file), bukan jumlah method handler (62 handler). Setiap baris tabel di bawah mewakili satu method handler unik.
 
@@ -585,6 +593,7 @@ model AuditLog {
 | `GET` | `/api/admin/penawaran-jual` | Admin Wajib | Daftar penawaran jual masuk, filter by status, paginasi (Sesi #21) |
 | `GET` | `/api/admin/penawaran-jual/[id]` | Admin Wajib | Detail satu penawaran jual (Sesi #21) |
 | `PATCH` | `/api/admin/penawaran-jual/[id]` | Admin Wajib | Update status (`BARU`→`DIHUBUNGI`→`DIVERIFIKASI`\|`DITOLAK`) & catatan admin (Sesi #21) |
+| `GET` | `/api/admin/katalog-pdf` | Admin Wajib | Stream berkas PDF katalog produk komoditas terfilter dengan personalisasi buyer & opsi sembunyikan harga (Sesi #28) |
 
 ---
 

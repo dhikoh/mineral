@@ -22,6 +22,7 @@ import {
   ChevronRight,
   Activity,
   ShoppingBag,
+  FileDown,
 } from 'lucide-react';
 
 interface NavItem {
@@ -41,6 +42,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/admin/penawaran-jual', label: 'Penawaran Jual', icon: ShoppingBag },
   { href: '/admin/artikel', label: 'Artikel', icon: FileText },
   { href: '/admin/konten', label: 'Konten', icon: Layout },
+  { href: '/admin/katalog-pdf', label: 'Katalog PDF', icon: FileDown },
   { href: '/admin/faq', label: 'FAQ', icon: HelpCircle },
   { href: '/admin/pengguna', label: 'Pengguna', icon: UserCheck, superadminOnly: true },
   { href: '/admin/pengaturan', label: 'Pengaturan', icon: Settings, superadminOnly: true },

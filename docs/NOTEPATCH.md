@@ -1680,4 +1680,61 @@ Dua pekerjaan utama: (1) fix bug validasi harga produk di admin — input minimu
 | `docs/BLUEPRINT.md` | MODIFIKASI | Dokumentasi arsitektur Sesi #27 |
 | `docs/NOTEPATCH.md` | MODIFIKASI | Entri log historis ini |
 
+---
+
+## [2026-09-14] Sesi #28 — Fitur Generator PDF Katalog Produk & B2B Sales Offer dengan Filter Kategori/Peruntukan & Personalisasi Buyer
+
+### 1. Latar Belakang & Kebutuhan Pengguna
+1. **Kebutuhan Sales Komoditas B2B**:
+   - Tim sales/admin membutuhkan kemampuan untuk membuat dan mengunduh berkas PDF katalog produk siap cetak atau siap kirim via email/WhatsApp kepada calon pembeli institusi/korporasi.
+   - Seringkali harga perlu disembunyikan (misal saat negosiasi terbuka / harga fluktuatif) atau ditampilkan secara transparan.
+   - Diperlukan personalisasi penawaran langsung di halaman cover/header katalog (nama prospek & nama perusahaan calon pembeli).
+   - Diperlukan filter produk berdasarkan Kategori Utama, Taksonomi Peruntukan (*Usage*), serta pencarian kata kunci nama produk agar katalog fokus pada kebutuhan spesifik buyer.
+
+### 2. Pekerjaan & Solusi Yang Diterapkan
+1. **Instalasi Paket React-PDF**:
+   - Menginstal `@react-pdf/renderer` (`^3.4.5`) menggunakan flag `--legacy-peer-deps` untuk kompatibilitas penuh dengan React 19.
+2. **Komponen Dokumen PDF Reusable (`src/lib/pdf/catalog-template.tsx`)**:
+   - Dibuat menggunakan primitif React-PDF (`Document`, `Page`, `View`, `Text`, `Image`, `StyleSheet`).
+   - Header profesional dengan branding perusahaan (nama platform, slogan/kategori, tanggal cetak).
+   - Kotak personalisasi penawaran resmi (*"Penawaran Khusus Untuk: [Nama] - [Perusahaan]"*) jika parameter buyer diisi.
+   - Tata letak grid 2 kolom dengan card produk rapi: gambar produk, badge kategori, badge peruntukan (*usage tags*), harga satuan komoditas (dengan opsi sembunyikan harga), serta deskripsi singkat.
+   - Footer tetap (*fixed footer*) pada setiap halaman dengan nomor halaman dinamis (*render prop* `pageNumber / totalPages`) serta informasi kontak dan disclaimer resmi.
+3. **Endpoint API Streaming PDF (`src/app/api/admin/katalog-pdf/route.ts`)**:
+   - Metode `GET` dengan otentikasi ketat `getAdminSession()` (menolak request tanpa sesi admin dengan HTTP 401).
+   - Menerima parameter query: `categoryId`, `usageId`, `q`, `showPrice`, `buyerName`, `buyerCompany`.
+   - Sanitasi input: `trim()` dan pembatasan panjang string maksimal 100 karakter untuk mencegah penyalahgunaan memori.
+   - Mengambil produk komoditas aktif dan menerapkan pemfilteran in-memory yang presisi.
+   - Render PDF ke buffer memori menggunakan `renderToBuffer`, mengonversi ke `Uint8Array`, dan mengembalikan response stream dengan header `Content-Type: application/pdf` dan `Content-Disposition: inline; filename="katalog-produk-adably-...pdf"`.
+4. **Halaman Dashboard Admin (`src/app/admin/katalog-pdf/page.tsx`)**:
+   - Panel kontrol filter interaktif: Dropdown Kategori, Dropdown Peruntukan, dan input pencarian teks secara real-time.
+   - Panel opsi konfigurasi: Toggle tampilkan/sembunyikan harga komoditas, input nama calon pembeli, dan input nama perusahaan calon pembeli.
+   - Pratinjau (*live preview*) grid produk terfilter secara langsung di layar sebelum admin mengunduh PDF.
+   - Tombol unduh *"Download PDF Katalog"* dengan efek loading status dan membuka PDF di tab browser baru atau download langsung.
+   - Penanganan status 401 Unauthorized dengan redirect otomatis ke login admin.
+5. **Navigasi Sidebar Admin (`src/app/admin/layout.tsx`)**:
+   - Menambahkan menu navigasi baru: `{ href: '/admin/katalog-pdf', label: 'Katalog PDF', icon: FileDown }` setelah menu Konten CMS.
+
+### 3. Matriks Pengujian & Verifikasi Kualitas
+| Uji Mutu | Perintah | Hasil |
+|---|---|---|
+| **Kompilasi TypeScript** | `npx tsc --noEmit` | Exit Code 0 (0 error) ✅ |
+| **Audit Phase 7 Lifecycle** | `tsx scripts/test-phase7-e2e.ts` | 40/40 PASSED (100%) ✅ |
+| **CRM & Customer Database** | `tsx scripts/test-crm-module.ts` | 42/42 PASSED (100%) ✅ |
+| **Audit P0, P1 & Security** | `tsx scripts/test-audit-p0-p1.ts` | 23/23 PASSED (100%) ✅ |
+| **Total Test Suite** | `npm test` | **105/105 PASSED (100%)** ✅ |
+| **Production Build** | `npm run build` | Exit Code 0 (57 routes compiled successfully: `○ /admin/katalog-pdf`, `ƒ /api/admin/katalog-pdf`) ✅ |
+
+### 4. File Yang Dibuat & Diubah
+| File | Status | Keterangan |
+|---|---|---|
+| `src/lib/pdf/catalog-template.tsx` | BARU | Template PDF katalog produk B2B berbasis `@react-pdf/renderer` |
+| `src/app/api/admin/katalog-pdf/route.ts` | BARU | Endpoint API GET streaming PDF katalog dengan otentikasi admin |
+| `src/app/admin/katalog-pdf/page.tsx` | BARU | Halaman antarmuka admin untuk konfigurasi, filter & download PDF |
+| `src/app/admin/layout.tsx` | MODIFIKASI | Penambahan item menu sidebar 'Katalog PDF' dengan icon `FileDown` |
+| `package.json` & `package-lock.json` | MODIFIKASI | Penambahan dependensi `@react-pdf/renderer` |
+| `docs/BLUEPRINT.md` | MODIFIKASI | Sinkronisasi arsitektur, tree folder, fitur, dan matriks API Sesi #28 |
+| `docs/NOTEPATCH.md` | MODIFIKASI | Entri log historis ini |
+
+
 
