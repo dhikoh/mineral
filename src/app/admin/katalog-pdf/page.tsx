@@ -106,10 +106,31 @@ export default function AdminKatalogPdfPage() {
           prodRes.json(),
         ]);
 
-        setCategories(catData.categories || catData || []);
-        setUsages(usageData.usages || usageData || []);
-        const prods = prodData.products || prodData || [];
-        setAllProducts(prods.filter((p: ProductPreview) => p.isActive !== false));
+        const rawCats = Array.isArray(catData?.data)
+          ? catData.data
+          : Array.isArray(catData?.categories)
+          ? catData.categories
+          : Array.isArray(catData)
+          ? catData
+          : [];
+        const rawUsages = Array.isArray(usageData?.data)
+          ? usageData.data
+          : Array.isArray(usageData?.usages)
+          ? usageData.usages
+          : Array.isArray(usageData)
+          ? usageData
+          : [];
+        const rawProds = Array.isArray(prodData?.data)
+          ? prodData.data
+          : Array.isArray(prodData?.products)
+          ? prodData.products
+          : Array.isArray(prodData)
+          ? prodData
+          : [];
+
+        setCategories(rawCats);
+        setUsages(rawUsages);
+        setAllProducts(rawProds.filter((p: ProductPreview) => p && p.isActive !== false));
       } catch (err) {
         setErrorMsg('Gagal memuat data. Silakan refresh halaman.');
       } finally {
@@ -123,6 +144,7 @@ export default function AdminKatalogPdfPage() {
   // ── Filter produk client-side (preview real-time) ────────────────────────
 
   const filteredProducts = useMemo(() => {
+    if (!Array.isArray(allProducts)) return [];
     let result = allProducts;
 
     if (categoryId) {
@@ -258,7 +280,7 @@ export default function AdminKatalogPdfPage() {
                 className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/30 transition-colors"
               >
                 <option value="">Semua Kategori</option>
-                {categories.map((c) => (
+                {Array.isArray(categories) && categories.map((c) => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
@@ -277,7 +299,7 @@ export default function AdminKatalogPdfPage() {
                 className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/30 transition-colors"
               >
                 <option value="">Semua Peruntukan</option>
-                {usages.map((u) => (
+                {Array.isArray(usages) && usages.map((u) => (
                   <option key={u.id} value={u.id}>{u.name}</option>
                 ))}
               </select>
@@ -438,7 +460,7 @@ export default function AdminKatalogPdfPage() {
             ) : (
               /* Product list */
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-                {filteredProducts.map((product) => (
+                {Array.isArray(filteredProducts) && filteredProducts.map((product) => (
                   <div
                     key={product.id}
                     className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-800/40 p-3 hover:border-emerald-500/30 transition-colors"

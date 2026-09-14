@@ -363,7 +363,7 @@ export default function AdminDashboardPage() {
         </div>
 
         {/* Low Stock Alerts */}
-        {stats?.lowStockProducts && stats.lowStockProducts.length > 0 && (
+        {Array.isArray(stats?.lowStockProducts) && stats.lowStockProducts.length > 0 && (
           <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50/70 p-5">
             <div className="flex items-center gap-2 text-amber-800 font-bold text-sm">
               <AlertTriangle className="h-5 w-5 text-amber-600" />
@@ -415,7 +415,7 @@ export default function AdminDashboardPage() {
           </div>
 
           <div className="mt-4 overflow-hidden rounded-2xl border border-surface-200 bg-white shadow-soft-xs">
-            {stats?.recentOrders && stats.recentOrders.length > 0 ? (
+            {Array.isArray(stats?.recentOrders) && stats.recentOrders.length > 0 ? (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead className="border-b border-surface-200 bg-surface-50 font-bold uppercase tracking-wider text-slate-500">
@@ -660,7 +660,7 @@ export default function AdminDashboardPage() {
         </div>
 
         {/* Sesi #20: Widget Follow-up Hari Ini */}
-        {followUps.length > 0 && (
+        {Array.isArray(followUps) && followUps.length > 0 && (
           <div className="mt-6 rounded-2xl border border-orange-200 bg-orange-50 p-5">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-bold text-orange-800 flex items-center gap-2">

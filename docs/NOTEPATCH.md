@@ -1777,6 +1777,50 @@ Paket `@react-pdf/renderer@3.4.5` hanya mendeklarasikan peer dependency untuk Re
 | `.npmrc` | BARU | Flag `legacy-peer-deps=true` untuk proteksi build container |
 | `docs/NOTEPATCH.md` | MODIFIKASI | Entri log historis ini |
 
+---
+
+## [2026-09-14] Sesi #30 — Bugfix Runtime: Resolusi TypeError `A.map is not a function` di Halaman Admin Katalog PDF & Dashboard
+
+### 1. Akar Masalah (Root Cause)
+Pada browser client saat membuka `/admin/katalog-pdf` atau `/admin/dashboard`, muncul error:
+```
+TypeError: A.map is not a function at 20d51wlh8-wfv.js:1:6641
+```
+Investigasi terhadap bundle `20d51wlh8-wfv.js` (rute `/admin/katalog-pdf`) menemukan:
+- Endpoint API admin (`/api/admin/kategori`, `/api/admin/peruntukan`, `/api/admin/produk`) mengembalikan respons dengan envelope `{ success: true, data: [...] }`.
+- Di `src/app/admin/katalog-pdf/page.tsx`, kode sebelumnya mem-parse:
+  `setCategories(catData.categories || catData || []);`
+  Karena `catData.categories` bernilai `undefined`, fallback mengambil `catData` (yaitu object respons lengkap `{ success: true, data: [...] }`, bukan array).
+- Saat rendering JSX dipanggil: `categories.map(...)`, objek dieksekusi sebagai array sehingga memicu runtime error `TypeError: A.map is not a function`.
+- Hal serupa juga berpotensi terjadi pada `usages` dan `allProducts` jika properti wrapper API tidak terbaca dengan tepat.
+
+### 2. Solusi & Perubahan
+1. **Normalisasi Ekstraksi Data Respons API di `src/app/admin/katalog-pdf/page.tsx`**:
+   - Menggunakan pengecekan hirarkis yang defensif:
+     ```ts
+     const rawCats = Array.isArray(catData?.data) ? catData.data : Array.isArray(catData?.categories) ? catData.categories : Array.isArray(catData) ? catData : [];
+     const rawUsages = Array.isArray(usageData?.data) ? usageData.data : Array.isArray(usageData?.usages) ? usageData.usages : Array.isArray(usageData) ? usageData : [];
+     const rawProds = Array.isArray(prodData?.data) ? prodData.data : Array.isArray(prodData?.products) ? prodData.products : Array.isArray(prodData) ? prodData : [];
+     ```
+   - Menambahkan guard `Array.isArray(allProducts)` pada hook `filteredProducts`.
+2. **Safeguard `Array.isArray` di Level Template JSX**:
+   - Membungkus seluruh pemanggilan `.map(...)` dengan `Array.isArray(...) && ...` di `katalog-pdf/page.tsx` (`categories`, `usages`, `filteredProducts`).
+   - Memperkuat pengecekan `Array.isArray` di `src/app/admin/dashboard/page.tsx` untuk `stats.lowStockProducts`, `stats.recentOrders`, dan `followUps`.
+
+### 3. Matriks Pengujian & Verifikasi
+| Uji Mutu | Perintah | Hasil |
+|---|---|---|
+| **Audit Test Suite** | `npm test` | **23/23 PASSED (100%)** ✅ |
+| **Production Build** | `npm run build` | Exit Code 0 (57 routes compiled successfully) ✅ |
+
+### 4. File Yang Diubah
+| File | Status | Keterangan |
+|---|---|---|
+| `src/app/admin/katalog-pdf/page.tsx` | MODIFIKASI | Normalisasi ekstraksi data API & guard `Array.isArray` |
+| `src/app/admin/dashboard/page.tsx` | MODIFIKASI | Penguatan guard `Array.isArray` pada alert stok, pesanan & follow-up |
+| `docs/NOTEPATCH.md` | MODIFIKASI | Entri log historis ini |
+
+
 
 
 
