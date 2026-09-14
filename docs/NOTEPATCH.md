@@ -1736,5 +1736,47 @@ Dua pekerjaan utama: (1) fix bug validasi harga produk di admin — input minimu
 | `docs/BLUEPRINT.md` | MODIFIKASI | Sinkronisasi arsitektur, tree folder, fitur, dan matriks API Sesi #28 |
 | `docs/NOTEPATCH.md` | MODIFIKASI | Entri log historis ini |
 
+---
+
+## [2026-09-14] Sesi #29 — Hotfix Deployment Coolify: Resolusi Peer Dependency @react-pdf/renderer & React 19
+
+### 1. Akar Masalah (Root Cause)
+Pada log deployment Coolify/Nixpacks di server produksi (`dhikoh/mineral:main`), proses build gagal pada langkah:
+```
+#11 [stage-0 7/11] RUN npm install
+npm error code ERESOLVE
+npm error While resolving: @react-pdf/renderer@3.4.5
+npm error Found: react@19.2.8
+npm error Could not resolve dependency:
+npm error peer react@"^16.8.0 || ^17.0.0 || ^18.0.0" from @react-pdf/renderer@3.4.5
+npm error Conflicting peer dependency: react@18.3.1
+```
+Paket `@react-pdf/renderer@3.4.5` hanya mendeklarasikan peer dependency untuk React 16/17/18, sedangkan proyek berjalan pada Next.js 16 + React 19 (`react@^19.2.8`). Akibatnya, `npm install` pada environment container yang mengevaluasi dependensi secara ketat (strict peer resolution) terhenti dengan error `ERESOLVE`.
+
+### 2. Solusi & Perubahan
+1. **Peningkatan Versi `@react-pdf/renderer` ke `^4.3.0` (resmi mendukung React 19)**:
+   - `@react-pdf/renderer` versi 4.x (`^4.3.0` / `4.9.0`) secara resmi mendeklarasikan dukungan `peerDependencies: { react: '^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0' }`.
+   - `package.json` dan `package-lock.json` diperbarui ke versi `^4.3.0`.
+2. **Konfigurasi Proteksi Docker/CI `.npmrc` (`legacy-peer-deps=true`)**:
+   - Dibuat file `.npmrc` di root proyek dengan isi `legacy-peer-deps=true` untuk menjamin proses `npm install` dalam pipeline Coolify/Nixpacks/Docker tidak gagal jika terdapat potensi ketidakcocokan peer dependency di masa mendatang.
+3. **Peringatan Lingkungan Build Coolify (`NODE_ENV=production`)**:
+   - Diberikan panduan pengaturan Coolify untuk memastikan `NODE_ENV=production` diset sebagai **Runtime only** (uncheck "Available at Buildtime") agar `devDependencies` yang dibutuhkan Turbopack/TypeScript tidak terlewat saat proses build di container.
+
+### 3. Matriks Pengujian & Verifikasi
+| Uji Mutu | Perintah | Hasil |
+|---|---|---|
+| **Resolusi Dependensi** | `npm install` | Exit Code 0 (Resolusi bersih, Prisma Client regenerated) ✅ |
+| **Audit Test Suite** | `npm test` | **23/23 PASSED (100%)** ✅ |
+| **Production Build** | `npm run build` | Exit Code 0 (57 routes compiled successfully) ✅ |
+
+### 4. File Yang Dibuat & Diubah
+| File | Status | Keterangan |
+|---|---|---|
+| `package.json` | MODIFIKASI | Update `@react-pdf/renderer` dari `^3.4.5` ke `^4.3.0` |
+| `package-lock.json` | MODIFIKASI | Lockfile tersinkronisasi bersih dengan resolusi React 19 |
+| `.npmrc` | BARU | Flag `legacy-peer-deps=true` untuk proteksi build container |
+| `docs/NOTEPATCH.md` | MODIFIKASI | Entri log historis ini |
+
+
 
 
