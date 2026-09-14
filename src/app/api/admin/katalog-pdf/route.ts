@@ -20,6 +20,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { renderToBuffer } from '@react-pdf/renderer';
 import React from 'react';
+import fs from 'fs';
+import path from 'path';
 import { getAdminSession } from '@/lib/auth';
 import { getProducts, getCategories, getUsages, getSiteSettings } from '@/lib/data-store';
 import type { ProductItem } from '@/lib/data-store';
@@ -117,9 +119,57 @@ export async function GET(request: NextRequest) {
     const refNumber   = buildRefNumber();
     const generatedAt = formatDate(new Date());
 
+    // Resolusi gambar: konversi file lokal ke base64 data URI atau absolute URL
+    const baseUrl =
+      process.env.COOLIFY_URL ||
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      request.nextUrl.origin ||
+      'https://adably.id';
+
+    const resolvedProducts: ProductItem[] = await Promise.all(
+      products.map(async (p) => {
+        const rawImg = p.images?.[0];
+        let resolvedImg: string | null = null;
+
+        if (rawImg) {
+          if (rawImg.startsWith('/')) {
+            // Coba baca langsung dari disk container Next.js
+            const localPath = path.join(process.cwd(), 'public', rawImg);
+            try {
+              if (fs.existsSync(localPath)) {
+                const ext = path.extname(localPath).toLowerCase();
+                const mime =
+                  ext === '.png'
+                    ? 'image/png'
+                    : ext === '.webp'
+                    ? 'image/webp'
+                    : 'image/jpeg';
+                const fileBuf = await fs.promises.readFile(localPath);
+                resolvedImg = `data:${mime};base64,${fileBuf.toString('base64')}`;
+              }
+            } catch (err) {
+              console.warn('[katalog-pdf] Gagal membaca gambar lokal:', err);
+            }
+
+            // Jika file tidak ada di disk lokal, bentuk URL absolut
+            if (!resolvedImg) {
+              resolvedImg = `${baseUrl.replace(/\/$/, '')}${rawImg}`;
+            }
+          } else {
+            resolvedImg = rawImg;
+          }
+        }
+
+        return {
+          ...p,
+          images: resolvedImg ? [resolvedImg, ...(p.images?.slice(1) || [])] : [],
+        };
+      })
+    );
+
     const pdfBuffer = await renderToBuffer(
       React.createElement(CatalogDocument, {
-        products,
+        products: resolvedProducts,
         settings,
         showPrice,
         buyerName: buyerName || undefined,

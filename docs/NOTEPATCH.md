@@ -1820,6 +1820,42 @@ Investigasi terhadap bundle `20d51wlh8-wfv.js` (rute `/admin/katalog-pdf`) menem
 | `src/app/admin/dashboard/page.tsx` | MODIFIKASI | Penguatan guard `Array.isArray` pada alert stok, pesanan & follow-up |
 | `docs/NOTEPATCH.md` | MODIFIKASI | Entri log historis ini |
 
+---
+
+## [2026-09-14] Sesi #31 — Polish & Fix Output Dokumen PDF: Stripping Tag HTML Tiptap & Resolusi Gambar Lokal Base64
+
+### 1. Masalah Yang Ditemukan Dari Hasil Download PDF Nyata
+Berdasarkan screenshot dokumen PDF yang diunduh user di lingkungan produksi:
+1. **Tag HTML Mentah di Deskripsi Produk**: Teks deskripsi menampilkan tag mentah seperti `<p><strong>Limestone</strong> atau batu kapur...</p>` karena konten berasal dari editor WYSIWYG Tiptap (Sesi #26). Primitif `<Text>` `@react-pdf/renderer` tidak mem-parsing tag HTML, melainkan mencetaknya secara literal.
+2. **Gambar Produk Kosong / Blank**: Gambar produk yang diunggah tersimpan dengan path relatif `/uploads/admin_...jpg`. Di lingkungan Node.js server saat `renderToBuffer` berjalan, `@react-pdf/renderer` tidak memiliki origin/domain web sehingga gagal me-resolve path relatif dan menampilkan box kosong.
+3. **Pemisahan Kartu Antar-Halaman (Page Split)**: Kartu produk (`ProductCard`) belum memiliki atribut `wrap={false}`, sehingga berisiko terpotong di batas halaman jika teks deskripsi bertambah panjang.
+
+### 2. Solusi & Perbaikan
+1. **Fungsi `stripHtml` pada `src/lib/pdf/catalog-template.tsx`**:
+   - Menghapus semua tag HTML (`<p>`, `<strong>`, `<em>`, dll.) dan menormalisasi HTML entities (`&nbsp;`, `&amp;`, `&quot;`, `&#39;`).
+   - Deskripsi produk kini dicetak sebagai plain text yang rapi, padat, dan elegan.
+2. **Pre-Resolusi Gambar Produk pada `src/app/api/admin/katalog-pdf/route.ts`**:
+   - Untuk path relatif `/uploads/...`, server membaca langsung file fisik dari disk lokal container (`public/uploads/...`) dan mengonversinya menjadi `data:image/...;base64,...` (mendukung JPEG, PNG, dan WebP).
+   - Menghindari ketergantungan network round-trip dan menjamin gambar ter-embed 100% sempurna ke dalam binary PDF.
+   - Sebagai fallback jika file tidak ada di disk lokal, path diprefix dengan `baseUrl` (`process.env.COOLIFY_URL` / `https://adably.id`).
+3. **Proteksi Layout Kartu (`wrap={false}`)**:
+   - Menambahkan `wrap={false}` pada container `<View style={styles.card} wrap={false}>` agar kartu produk selalu utuh dalam satu halaman dan tidak terbelah.
+   - Merapikan margin bawah kartu menjadi 10pt untuk breathing room yang lebih estetik.
+
+### 3. Matriks Pengujian & Verifikasi
+| Uji Mutu | Perintah | Hasil |
+|---|---|---|
+| **Audit Test Suite** | `npm test` | **23/23 PASSED (100%)** ✅ |
+| **Production Build** | `npm run build` | Exit Code 0 (57 routes compiled successfully) ✅ |
+
+### 4. File Yang Diubah
+| File | Status | Keterangan |
+|---|---|---|
+| `src/lib/pdf/catalog-template.tsx` | MODIFIKASI | Tambah `stripHtml`, `wrap={false}`, dan optimasi styling kartu |
+| `src/app/api/admin/katalog-pdf/route.ts` | MODIFIKASI | Pre-resolusi gambar lokal ke base64 Data URI & absolute URL |
+| `docs/NOTEPATCH.md` | MODIFIKASI | Entri log historis ini |
+
+
 
 
 

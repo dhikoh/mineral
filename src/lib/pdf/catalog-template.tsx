@@ -136,30 +136,30 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   card: {
-    width: '47.8%',
+    width: '48%',
     borderWidth: 1,
     borderColor: '#E2E8F0',
     borderRadius: 6,
     overflow: 'hidden',
     backgroundColor: '#FFFFFF',
-    marginBottom: 4,
+    marginBottom: 10,
   },
   cardImage: {
     width: '100%',
-    height: 100,
+    height: 105,
     objectFit: 'cover',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F8FAFC',
   },
   cardImagePlaceholder: {
     width: '100%',
-    height: 100,
-    backgroundColor: '#F1F5F9',
+    height: 105,
+    backgroundColor: '#F8FAFC',
     alignItems: 'center',
     justifyContent: 'center',
   },
   cardImagePlaceholderText: {
-    color: '#CBD5E1',
-    fontSize: 20,
+    color: '#94A3B8',
+    fontSize: 14,
   },
   cardBody: {
     padding: 8,
@@ -284,6 +284,26 @@ function truncate(text: string, maxLen: number): string {
   return text.length > maxLen ? text.slice(0, maxLen) + '...' : text;
 }
 
+// Helper — bersihkan tag HTML (dari Tiptap WYSIWYG editor)
+function stripHtml(html: string | null | undefined): string {
+  if (!html) return '';
+  return html
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<br\s*[\/]?>/gi, ' ')
+    .replace(/<\/p>/gi, ' ')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&apos;/gi, "'")
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 // ---------------------------------------------------------------------------
 // Props Interface
 // ---------------------------------------------------------------------------
@@ -309,9 +329,10 @@ function ProductCard({
 }) {
   const imageUrl = product.images?.[0] || null;
   const usages = product.usages?.map((u) => u.usage?.name).filter(Boolean) || [];
+  const cleanDesc = stripHtml(product.description);
 
   return (
-    <View style={styles.card}>
+    <View style={styles.card} wrap={false}>
       {/* Gambar */}
       {imageUrl ? (
         <Image style={styles.cardImage} src={imageUrl} />
@@ -330,9 +351,9 @@ function ProductCard({
         {/* Nama */}
         <Text style={styles.cardName}>{product.name}</Text>
 
-        {/* Deskripsi singkat */}
+        {/* Deskripsi singkat — bersih dari tag HTML */}
         <Text style={styles.cardDesc}>
-          {truncate(product.description, 160)}
+          {truncate(cleanDesc, 130)}
         </Text>
 
         {/* Peruntukan chips */}
