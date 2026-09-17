@@ -129,20 +129,26 @@ const styles = StyleSheet.create({
     fontFamily: 'Helvetica',
     marginLeft: 4,
   },
-  // --- Product grid (2 columns) ---
-  grid: {
+  // --- Product grid (Row-based for multi-page stability) ---
+  gridContainer: {
+    flexDirection: 'column',
+  },
+  cardRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 10,
   },
   card: {
-    width: '48%',
+    width: '48.5%',
     borderWidth: 1,
     borderColor: '#E2E8F0',
     borderRadius: 6,
     overflow: 'hidden',
     backgroundColor: '#FFFFFF',
-    marginBottom: 10,
+  },
+  cardEmptyPlaceholder: {
+    width: '48.5%',
   },
   cardImage: {
     width: '100%',
@@ -327,12 +333,13 @@ function ProductCard({
   product: ProductItem;
   showPrice: boolean;
 }) {
-  const imageUrl = product.images?.[0] || null;
+  const rawImageUrl = product.images?.[0];
+  const imageUrl = typeof rawImageUrl === 'string' && rawImageUrl.trim().length > 0 ? rawImageUrl.trim() : null;
   const usages = product.usages?.map((u) => u.usage?.name).filter(Boolean) || [];
   const cleanDesc = stripHtml(product.description);
 
   return (
-    <View style={styles.card} wrap={false}>
+    <View style={styles.card}>
       {/* Gambar */}
       {imageUrl ? (
         <Image style={styles.cardImage} src={imageUrl} />
@@ -458,12 +465,24 @@ export function CatalogDocument({
         <View style={{ borderBottomWidth: 1, borderBottomColor: '#E2E8F0', marginBottom: 12 }} />
 
         {/* ================================================================
-            PRODUCT GRID
+            PRODUCT GRID (ROW-BASED CHUNKING FOR MULTI-PAGE STABILITY)
         ================================================================ */}
-        <View style={styles.grid}>
-          {products.map((product) => (
-            <ProductCard key={product.id} product={product} showPrice={showPrice} />
-          ))}
+        <View style={styles.gridContainer}>
+          {(() => {
+            const rows: ProductItem[][] = [];
+            for (let i = 0; i < products.length; i += 2) {
+              rows.push(products.slice(i, i + 2));
+            }
+            return rows.map((row, rowIdx) => (
+              <View key={rowIdx} style={styles.cardRow} wrap={false}>
+                {row.map((product) => (
+                  <ProductCard key={product.id} product={product} showPrice={showPrice} />
+                ))}
+                {/* Spacer agar kartu tunggal tetap berukuran 48.5% jika baris ganjil */}
+                {row.length === 1 && <View style={styles.cardEmptyPlaceholder} />}
+              </View>
+            ));
+          })()}
         </View>
 
         {/* ================================================================

@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import Link from 'next/link';
 import Image from 'next/image';
@@ -254,9 +254,11 @@ export default function KeranjangPage() {
                             </span>
                           )}
                         </p>
-                        <p className="text-[11px] text-slate-400 mt-0.5">
-                          Stok tersedia: {item.stock} {item.unit || 'kg'}
-                        </p>
+                        {item.qty >= 1000 && (item.unit || 'kg').toLowerCase() === 'kg' && (
+                          <p className="text-[10px] font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded w-fit mt-1">
+                            ⇄ {(item.qty / 1000).toLocaleString('id-ID')} TON
+                          </p>
+                        )}
                       </div>
                     </div>
 
@@ -270,9 +272,21 @@ export default function KeranjangPage() {
                         >
                           <Minus className="h-3.5 w-3.5" />
                         </button>
-                        <span className="w-10 text-center text-xs font-bold text-slate-900">
-                          {item.qty}
-                        </span>
+                        <input
+                          type="number"
+                          min="1"
+                          max={item.stock}
+                          disabled={isFatal}
+                          value={item.qty}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value, 10);
+                            if (!isNaN(val) && val >= 1) {
+                              updateQty(item.id, Math.min(item.stock, val));
+                            }
+                          }}
+                          aria-label={`Jumlah ${item.name}`}
+                          className="w-14 text-center text-xs font-bold text-slate-900 bg-transparent focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        />
                         <button
                           type="button"
                           disabled={isMaxStock || isFatal}

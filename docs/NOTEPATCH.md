@@ -1855,6 +1855,63 @@ Berdasarkan screenshot dokumen PDF yang diunduh user di lingkungan produksi:
 | `src/app/api/admin/katalog-pdf/route.ts` | MODIFIKASI | Pre-resolusi gambar lokal ke base64 Data URI & absolute URL |
 | `docs/NOTEPATCH.md` | MODIFIKASI | Entri log historis ini |
 
+---
+
+## [2026-09-17] Sesi #32 — UX Transaksi Storefront (Input Kuantitas Langsung & Konversi KG ↔ TON), Reposisi Layout Transaksi, & Perbaikan Multi-Page PDF Katalog
+
+### 1. Masalah Yang Ditemukan Dari Hasil Audit Menyeluruh
+1. **Kuantitas Produk Hanya Bisa Klik `+` / `-`**: Di halaman detail produk (`ProductDetailClient.tsx`) dan keranjang belanja (`/keranjang`), angka kuantitas dirender menggunakan elemen `<span>` statis. Pembeli tidak bisa mengetikkan angka secara langsung, sangat menyulitkan pembeli B2B yang memesan dalam volume besar (misal 100 kg harus klik 99 kali).
+2. **Tata Letak Transaksi Tersembunyi di Bawah Deskripsi**: Kotak aksi transaksi (input kuantitas, subtotal, tombol *Tambah ke Keranjang*, *Beli Sekarang*, *WA*, dan *RFQ*) berada di bawah teks deskripsi dan hashtag tags. Pada produk dengan deskripsi panjang, pembeli harus scroll jauh ke bawah untuk bertransaksi.
+3. **Produk Baru Tidak Muncul di PDF Katalog**: Pada generator PDF katalog (`@react-pdf/renderer`), kontainer produk menggunakan `flexWrap: 'wrap'` di dalam `<Page wrap>`. Saat jumlah produk melebihi kapasitas 1 halaman (produk ke-6 dst.), kartu produk di perbatasan halaman hilang/terpotong di luar kanvas render dan tidak otomatis berpindah ke halaman 2.
+4. **Ketiadaan Konversi Satuan B2B (KG ↔ TON)**: Pembeli industri terbiasa bertransaksi dalam Ton, sedangkan harga dasar komoditas tersimpan dalam Rupiah per Kilogram (KG). Pembeli harus menghitung konversi manual.
+
+### 2. Solusi & Implementasi Teknis
+1. **Input Kuantitas Interaktif & Berpenjaga Stok**:
+   - Mengganti `<span>` menjadi `<input type="number">` pada `ProductDetailClient.tsx` dan `/keranjang/page.tsx`.
+   - Pembeli dapat mengetik angka kuantitas secara langsung dari keyboard (misal: `50`, `100`, `500`).
+   - Dilengkapi validasi otomatis (`onBlur`): input kosong atau `< 1` otomatis dinormalisasi ke `1`, dan input melebihi kapasitas stok otomatis di-clamp ke batas stok maksimal.
+   - Tombol `-` dan `+` tetap dipertahankan untuk penyesuaian bertahap yang cepat.
+2. **Fitur Pemilihan & Konversi Satuan Fleksibel B2B (KG ↔ TON)**:
+   - Menambahkan toggle selector `[ Kilogram (KG) ]` dan `[ Ton (TON) ]` untuk produk dengan satuan berat (`kg` / `ton`).
+   - Saat opsi **TON** dipilih:
+     - Rasio `1 TON = 1.000 KG`.
+     - Harga resmi otomatis dikalikan 1.000 (misal: Rp 1.300/kg → Rp 1.300.000/ton).
+     - Subtotal dihitung instan sesuai kuantitas Ton yang dipilih.
+     - Indikator konversi real-time: `⇄ Setara X.000 KG`.
+     - Batas stok disesuaikan ke Ton (`Math.floor(stock / 1000)`).
+   - Integrasi Keranjang & Database: Item dinormalisasi ke satuan dasar database (`kg`) dengan kuantitas `qtyInput * 1000`, sehingga 100% aman dan kompatibel dengan transaksi atomik checkout `prisma.$transaction` tanpa mengubah skema database.
+   - Halaman keranjang menampilkan badge konversi otomatis `⇄ X TON` saat kuantitas >= 1.000 kg.
+3. **Reposisi Hirarki Layout Transaksi**:
+   - Memindahkan seluruh blok aksi transaksi (Unit Switcher, Input Jumlah, Subtotal, Tombol Keranjang & Beli Sekarang, WhatsApp, RFQ, dan Trust Points) naik ke posisi tepat di bawah kotak **Harga Resmi & Status Stok**.
+   - Deskripsi dan spesifikasi produk diposisikan di bawah blok transaksi, memberikan alur belanja modern standar e-commerce internasional.
+4. **Perbaikan Multi-Page PDF Katalog (@react-pdf/renderer)**:
+   - Mengganti kontainer `flexWrap: 'wrap'` dengan arsitektur **Row-Based Paired Chunking**: `chunk(products, 2)`.
+   - Setiap baris dibungkus dalam `<View style={styles.cardRow} wrap={false}>` berisi 2 kartu produk (`width: '48.5%'`).
+   - Dengan `wrap={false}` pada level baris, `@react-pdf/renderer` dapat mengukur tinggi baris secara deterministik dan otomatis mendorong baris ke-3, ke-4 (halaman 2, 3, dst.) tanpa ada kartu yang terpotong atau hilang.
+   - Menyediakan `cardEmptyPlaceholder` agar kartu tunggal pada baris ganjil tetap stabil pada lebar 48.5%.
+   - Menambahkan safeguard validasi URL gambar dan fallback placeholder di `ProductCard`.
+5. **Stabilisasi API Endpoint `/api/admin/katalog-pdf`**:
+   - Menambahkan `export const dynamic = 'force-dynamic'`.
+   - Menguatkan header respons `Cache-Control: 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0'` agar browser selalu menerima unduhan PDF terbaru.
+   - Memperkuat filter peruntukan in-memory untuk mencocokkan `usageId` baik pada relasi objek maupun join table ID.
+
+### 3. Matriks Pengujian & Verifikasi
+| Uji Mutu | Perintah | Hasil |
+|---|---|---|
+| **E2E & Module Tests** | `npm test` | **40/40 PASSED & 23/23 AUDIT PASSED (100%)** ✅ |
+| **Production Build** | `npm run build` | Exit Code 0 (57 routes compiled successfully) ✅ |
+
+### 4. File Yang Diubah
+| File | Status | Keterangan |
+|---|---|---|
+| `src/components/storefront/ProductDetailClient.tsx` | MODIFIKASI | Input kuantitas teks, toggle KG/TON, reposisi layout transaksi ke atas deskripsi |
+| `src/app/keranjang/page.tsx` | MODIFIKASI | Input kuantitas interaktif dan badge konversi `⇄ X TON` |
+| `src/lib/pdf/catalog-template.tsx` | MODIFIKASI | Row-based paired chunking multi-page PDF & safeguard gambar |
+| `src/app/api/admin/katalog-pdf/route.ts` | MODIFIKASI | `force-dynamic`, header cache no-store, perbaikan filter peruntukan |
+| `docs/BLUEPRINT.md` | MODIFIKASI | Sinkronisasi fitur B2B Unit Switcher & Multi-Page PDF Katalog |
+| `docs/NOTEPATCH.md` | MODIFIKASI | Entri log historis Sesi #32 ini |
+
+
 
 
 

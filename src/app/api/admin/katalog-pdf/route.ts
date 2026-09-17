@@ -20,6 +20,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { renderToBuffer } from '@react-pdf/renderer';
 import React from 'react';
+
+export const dynamic = 'force-dynamic';
 import fs from 'fs';
 import path from 'path';
 import { getAdminSession } from '@/lib/auth';
@@ -93,7 +95,7 @@ export async function GET(request: NextRequest) {
     if (usageId) {
       products = products.filter((p) =>
         p.usageIds?.includes(usageId) ||
-        p.usages?.some((u) => u.usage?.id === usageId)
+        p.usages?.some((u: any) => u.usage?.id === usageId || u.usageId === usageId)
       );
     }
 
@@ -193,7 +195,9 @@ export async function GET(request: NextRequest) {
         'Content-Disposition': `attachment; filename="${filename}"`,
         'Content-Length': String(uint8.length),
         'X-Content-Type-Options': 'nosniff',
-        'Cache-Control': 'no-store',
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+        Pragma: 'no-cache',
+        Expires: '0',
       },
     });
   } catch (error) {

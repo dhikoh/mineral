@@ -1,5 +1,5 @@
 # BLUEPRINT — Web Marketplace Single-Seller + CMS Artikel + Template Reusable
-Terakhir diupdate: 2026-09-14 (Sesi #28 — Fitur Generator PDF Katalog Produk & B2B Sales Offer)
+Terakhir diupdate: 2026-09-17 (Sesi #32 — UX Transaksi Storefront KG ↔ TON, Reposisi Kontrol Transaksi, & Fix Multi-Page PDF Katalog)
 
 ---
 
@@ -522,6 +522,7 @@ model AuditLog {
 | Penawaran Jual Komoditas (Supplier B2B) | Selesai | Sesi #21: Form publik /jual + manajemen admin /admin/penawaran-jual |
 | Galeri Multi-Gambar & Touch Swipe PWA | Selesai | Sesi #27: ProductGallery Shopee-style dengan swipe & multi-upload |
 | Generator PDF Katalog Produk & Sales Offer (B2B) | Selesai | Sesi #28: Halaman /admin/katalog-pdf & endpoint streaming /api/admin/katalog-pdf dengan @react-pdf/renderer. Filter kategori/peruntukan/search, toggle harga, & personalisasi nama/perusahaan pembeli |
+| UX Transaksi B2B (KG ↔ TON, Input Angka, Layout Reposisi) & Multi-Page PDF Fix | Selesai | Sesi #32: Input kuantitas interaktif bisa diketik keyboard, fitur toggle KG ↔ TON dengan konversi harga & stok instan, reposisi layout blok transaksi di atas deskripsi produk, serta perbaikan multi-page PDF katalog via row-based paired chunking (wrap={false}) |
 
 ---
 
