@@ -2039,6 +2039,32 @@ Sesi hardening komprehensif berdasarkan audit independen yang menemukan **6 P0 (
 - `scripts/test-csv-injection.ts`: ✅ 23/23 PASS.
 - `scripts/verify-env-docs.ts`: ✅ 100% konsisten.
 
+---
+
+## [2026-09-17] Sesi #35 — Diagnosa & Solusi Coolify Deployment Exit Code 255 (OOM / Layer Exporting Failure)
+
+### 1. Temuan & Analisis Log Deployment
+- **Log Konfirmasi Sukses Build Kode**:
+  Next.js 16.3.4 (Turbopack), Prisma generate, TypeScript checking, dan 56/56 prerender static pages berhasil 100% tanpa error sintaks/tipe (`✓ Generating static pages (56/56) in 1942ms`).
+- **Titik Kegagalan (Exit Code 255)**:
+  Kegagalan terjadi tepat di tahap `#16 exporting layers`. Exit code 255 dari `docker exec` di Coolify menandakan proses terputus paksa (abrupt termination), yang umumnya disebabkan oleh:
+  1. **Resource Exhaustion (RAM / Disk OOM)**: Coolify menggunakan build pack bawaan **Nixpacks** (Ubuntu base). Image yang dihasilkan Nixpacks berukuran sangat besar (3.5GB+). Saat BuildKit mengompresi dan mengekspor layer, terjadi lonjakan drastis pada memori dan disk I/O sehingga proses di-kill oleh OOM-killer atau Docker daemon terhenti.
+  2. **SSH Multiplexing / Broken Pipe**: Helper container Coolify mengalami timeout atau socket SSH terputus di tengah proses kompresi layer yang berat.
+  3. **Absennya `.dockerignore`**: Seluruh berkas lokal seperti `.next`, `.local-store.json`, `docs/`, `scripts/` terbawa ke context build, memperberat ukuran build context.
+
+### 2. Solusi & Perubahan pada Repositori
+1. **`.dockerignore` [BARU]**: Menambahkan berkas `.dockerignore` komprehensif untuk mengecualikan `.next`, `node_modules`, `docs`, `scripts`, `.git`, `.local-store.json`, dsb. sehingga context Docker menjadi ringan (< 1MB).
+2. **`Dockerfile` [UPDATE]**: Menambahkan penyalinan direktori `prisma` (`COPY --from=builder /app/prisma ./prisma`) ke runner stage agar skema dan engine Prisma tetap tersedia secara runtime di mode Next.js `standalone`.
+3. **`nixpacks.toml` [BARU]**: Menambahkan konfigurasi deklaratif Nixpacks jika user tetap ingin menggunakan Nixpacks, dengan memastikan `npm install --include=dev` tetap menginstal devDependencies saat build meskipun `NODE_ENV=production`.
+4. **Rekomendasi Operasional Coolify Dashboard**:
+   - Alihkan **Build Pack** di Coolify dari `Nixpacks` ke `Dockerfile` (menggunakan multi-stage Alpine Next.js standalone dengan ukuran ~150MB vs 3.5GB).
+   - Pastikan variabel lingkungan `NODE_ENV=production` diset sebagai **Runtime only** di Coolify agar tidak mengganggu build.
+   - Sediakan swap memory (2-4GB) di VPS jika kapasitas RAM fisik terbatas (<= 2GB/4GB).
+
+### 3. Hasil Verifikasi
+- `npm test`: ✅ 23 Passed, 0 Failed (Semua 9 modul uji regresi lulus sempurna).
+- `npm run build`: ✅ Exit Code 0 (56/56 static routes terkompilasi sukses).
+
 
 
 

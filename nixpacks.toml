@@ -1,0 +1,14 @@
+# Konfigurasi Nixpacks untuk Coolify
+# Memastikan devDependencies tetap terinstall saat build meski NODE_ENV=production
+
+[phases.setup]
+nixPkgs = ['nodejs_22', 'openssl']
+
+[phases.install]
+cmds = ['npm install --include=dev']
+
+[phases.build]
+cmds = ['npx prisma generate', 'npm run build']
+
+[start]
+cmd = 'npm start'

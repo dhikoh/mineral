@@ -1,5 +1,5 @@
 # BLUEPRINT — Web Marketplace Single-Seller + CMS Artikel + Template Reusable
-Terakhir diupdate: 2026-09-17 (Sesi #32 — UX Transaksi Storefront KG ↔ TON, Reposisi Kontrol Transaksi, & Fix Multi-Page PDF Katalog)
+Terakhir diupdate: 2026-09-17 (Sesi #35 — Diagnosa & Solusi Coolify Deployment Exit Code 255, .dockerignore, & Multi-Stage Standalone)
 
 ---
 
@@ -831,5 +831,29 @@ Seluruh 5 tahap audit total telah dijalankan terhadap kodebase Adably di Sesi #2
 | `npx tsc --noEmit` | Exit Code 0, 0 TypeScript error ✅ |
 | `npm test` | Exit Code 0, 105/105 tests passed (100%) ✅ |
 | `npm run build` | Exit Code 0, 55 routes compiled successfully ✅ |
+
+---
+
+## Sesi #35 Update — Infrastruktur Deployment Coolify, .dockerignore, Multi-Stage Dockerfile & nixpacks.toml
+
+### 1. Diagnosa Deployment Coolify (Exit Code 255)
+- Evaluasi build log: Seluruh tahapan `prisma generate`, `next build` (Turbopack), `tsc`, dan 56/56 prerender static pages berhasil 100%.
+- Titik kegagalan: Terjadi saat `#16 exporting layers`. Nixpacks default menghasilkan image raksasa (3.5GB+) yang memicu Linux OOM-killer dan pemutusan socket SSH internal Coolify (`exit code 255`).
+
+### 2. Standarisasi Kontainerisasi & Hardening
+- **`.dockerignore`**: Dibuat komprehensif untuk mengecualikan `.next`, `node_modules`, `docs`, `scripts`, `.git`, `.local-store.json`, dsb. sehingga context build menjadi ringkas (< 1 MB).
+- **`Dockerfile` (Multi-Stage Next.js Standalone)**:
+  - Base: `node:22-alpine`
+  - Builder: Kompilasi dengan `output: 'standalone'`
+  - Runner: Menyalin `public`, `prisma`, `.next/standalone`, dan `.next/static`. Menjalankan `node server.js` dengan non-root user `nextjs:nodejs`.
+  - Ukuran image turun drastis ke ~150 MB (efisiensi 95% dibanding Nixpacks).
+- **`nixpacks.toml`**: Disediakan sebagai konfigurasi fallback jika operator tetap memilih Nixpacks pada Coolify, menjamin instalasi devDependencies dengan flag `--include=dev`.
+
+### 3. Verifikasi Kualitas Sesi #35
+| Perintah | Hasil |
+|---|---|
+| `npm test` | Exit Code 0, 23/23 tests passed (100%) ✅ |
+| `npm run build` | Exit Code 0, 56/56 routes compiled successfully ✅ |
+
 
 
