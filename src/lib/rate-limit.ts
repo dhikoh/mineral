@@ -177,3 +177,7 @@ export function checkValidateCartRateLimit(key: string) {
 export function checkPublicSettingsRateLimit(key: string) {
   return checkRateLimit(key, RATE_LIMIT_PRESETS.PUBLIC_SETTINGS);
 }
+export const checkLeadsRateLimit = checkRfqRateLimit;
+export function checkTrackingRateLimit(key: string) {
+  return checkRateLimit(key, { windowMs: 60 * 1000, maxRequests: 20 });
+}

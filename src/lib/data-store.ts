@@ -55,9 +55,12 @@ export interface ProductItem {
 export interface OrderItemData {
   id: string;
   orderId: string;
-  productId: string;
+  productId: string | null;
   qty: number;
   price: number;
+  productName?: string;
+  productSlug?: string | null;
+  productUnit?: string;
   product?: {
     id: string;
     name: string;
@@ -101,6 +104,11 @@ export interface OrderData {
     | 'REJECTED'
     | 'CANCELLED';
   total: number;
+  grandTotal?: number | null;
+  subtotal?: number | null;
+  taxAmount?: number | null;
+  shippingCost?: number | null;
+  adminNotes?: string | null;
   items: OrderItemData[];
   proof?: PaymentProofData | null;
   createdAt: string;
@@ -136,6 +144,9 @@ export interface SiteSettingsData {
   bankAccounts: BankAccount[];
   footerText?: string | null;
   lowStockAlertThreshold?: number | null;
+  paymentToleranceAmount?: number | null;
+  taxPercentage?: number | null;
+  minOrderTotalAmount?: number | null;
 }
 
 export interface ContentBlockItem {
@@ -1713,8 +1724,8 @@ export async function getOrders(options?: {
       prisma.order.count({ where }),
     ]);
 
-    // Targeted product lookup untuk halaman ini saja
-    const productIds = [...new Set(orders.flatMap((o) => o.items.map((i) => i.productId)))];
+    // Targeted product lookup untuk halaman ini saja (filter null productId)
+    const productIds = [...new Set(orders.flatMap((o) => o.items.map((i) => i.productId)).filter((id): id is string => Boolean(id)))];
     const products = productIds.length > 0
       ? await prisma.product.findMany({
           where: { id: { in: productIds } },
@@ -1726,12 +1737,12 @@ export async function getOrders(options?: {
     const data = orders.map((order) => ({
       ...order,
       items: order.items.map((it) => {
-        const prod = productMap.get(it.productId);
+        const prod = it.productId ? productMap.get(it.productId) : undefined;
         return {
           ...it,
           product: prod
             ? { id: prod.id, name: prod.name, slug: prod.slug, images: prod.images as string[], unit: (prod.unit as string) || 'kg' }
-            : { id: it.productId, name: '[Komoditas Diarsipkan]', slug: '#', images: [], unit: 'kg' },
+            : { id: it.productId || '', name: it.productName || '[Komoditas Diarsipkan]', slug: it.productSlug || '#', images: [], unit: it.productUnit || 'kg' },
         };
       }),
     })) as unknown as OrderData[];
@@ -2023,6 +2034,7 @@ export async function updateOrderStatus(
       // R-5: Kembalikan stok jika pesanan dibatalkan atau ditolak permanen
       if (isCancelling && currentOrder.items && currentOrder.items.length > 0) {
         for (const item of currentOrder.items) {
+          if (!item.productId) continue;
           await tx.product.update({
             where: { id: item.productId },
             data: { stock: { increment: item.qty } },

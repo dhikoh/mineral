@@ -42,7 +42,7 @@ const formulaStarters = ['=SUM(A1)', '+1+1', '-1+1', '@SUM', '\t=cmd', '\r=cmd']
 for (const f of formulaStarters) {
   const result = escapeCsvField(f);
   expectContains(`"${f}" diawali apostrof`, result, "'");
-  expectNotContains(`"${f}" tidak bisa langsung dieksekusi Excel`, result, f.charAt(0) === result.charAt(1) ? '' : f);
+  expect(`"${f}" diawali quote-apostrof agar aman di Excel`, result.startsWith("\"'"), true);
 }
 
 console.log('\nescapeCsvField — normal values:');

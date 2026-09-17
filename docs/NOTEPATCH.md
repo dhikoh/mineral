@@ -2011,6 +2011,34 @@ Sesi hardening komprehensif berdasarkan audit independen yang menemukan **6 P0 (
 | Production Build | `npm run build` | ✅ |
 | Test regresi | `npm test` | ✅ |
 
+---
+
+## [2026-09-17] Sesi #34 — Hotfix Deployment Coolify & Build Stabilization
+
+### 1. Masalah yang Ditemukan saat Deployment Coolify
+- **Prisma Data Loss Error**: Pipeline build Coolify menjalankan `npx prisma db push && npm run build`. Saat enum `REJECTED` dihapus dari `schema.prisma`, Prisma menghentikan build non-interaktif dengan `exit code 1` karena mendeteksi potensi data loss (`Use the --accept-data-loss flag to ignore`).
+- **Next.js Config Import Error**: `next.config.mjs` mengimpor `./src/lib/config.js` yang tidak ada dalam bentuk file kompilasi saat build berjalan di runtime Node.js murni.
+- **Missing Module Error (Turbopack)**: `src/lib/utils.ts` mengimpor package `clsx` dan `tailwind-merge` yang tidak terdaftar di dependencies.
+- **Export Gap di rate-limit.ts**: `src/app/api/leads/route.ts` dan `src/app/api/lacak-pesanan/route.ts` membutuhkan `checkLeadsRateLimit` dan `checkTrackingRateLimit`.
+- **TypeScript Type Inconsistencies**: `OrderItemData.productId` nullable (`string | null`), `OrderData.grandTotal`, dan `SiteSettingsData.paymentToleranceAmount` belum lengkap di tipe fallback `data-store.ts`.
+- **Env Documentation**: `NEXT_PUBLIC_SITE_URL` belum tercatat di `.env.example`.
+
+### 2. Solusi & Perubahan
+1. `prisma/schema.prisma`: Pertahankan `REJECTED` di `enum OrderStatus` sebagai `@deprecated` agar `npx prisma db push` langsung sukses tanpa flagging data loss di database produksi Coolify yang sudah ada.
+2. `next.config.mjs`: Inline helper `getAllowedImageHostnames()` sehingga tidak membutuhkan loader modul TypeScript saat Next.js mengevaluasi konfigurasi.
+3. `src/lib/utils.ts`: Implementasi `cn()` mandiri (zero-dependency) tanpa ketergantungan `clsx`/`tailwind-merge`.
+4. `src/lib/rate-limit.ts`: Ekspor `checkLeadsRateLimit` dan `checkTrackingRateLimit`.
+5. `src/lib/data-store.ts`: Lengkapi interface `OrderItemData`, `OrderData`, dan `SiteSettingsData`, serta guard `if (!item.productId) continue;` pada restock.
+6. `.env.example`: Tambahkan `NEXT_PUBLIC_SITE_URL`.
+7. `scripts/test-csv-injection.ts`: Koreksi assertion awalan quote-apostrof formula injection.
+
+### 3. Hasil Verifikasi
+- `npm run build`: ✅ Exit Code 0 (Turbopack build standalone selesai sempurna).
+- `scripts/test-uom.ts`: ✅ 29/29 PASS.
+- `scripts/test-order-state-machine.ts`: ✅ 20/20 PASS.
+- `scripts/test-csv-injection.ts`: ✅ 23/23 PASS.
+- `scripts/verify-env-docs.ts`: ✅ 100% konsisten.
+
 
 
 

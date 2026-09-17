@@ -1,7 +1,31 @@
 /** @type {import('next').NextConfig} */
-import { getAllowedImageHostnames } from './src/lib/config.js';
 
-// Kumpulkan hostname yang diizinkan dari env vars
+// Kumpulkan hostname yang diizinkan dari env vars (inlined agar tidak bergantung pada loader TS)
+function getAllowedImageHostnames() {
+  const hosts = [];
+
+  if (process.env.S3_PUBLIC_URL) {
+    try {
+      hosts.push(new URL(process.env.S3_PUBLIC_URL).hostname);
+    } catch { /* abaikan URL tidak valid */ }
+  }
+
+  if (process.env.CLOUDINARY_CLOUD_NAME) {
+    hosts.push('res.cloudinary.com');
+  }
+
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    try {
+      hosts.push(new URL(process.env.NEXT_PUBLIC_APP_URL).hostname);
+    } catch { /* abaikan */ }
+  }
+
+  // Domain aplikasi produksi dan asset eksternal
+  hosts.push('adably.id', 'cdn.adably.id', 'images.unsplash.com', 'localhost');
+
+  return [...new Set(hosts.filter(Boolean))];
+}
+
 const allowedHostnames = getAllowedImageHostnames();
 
 const nextConfig = {

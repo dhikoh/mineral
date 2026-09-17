@@ -12,7 +12,9 @@ enum Role {
   ADMIN
 }
 
-// P1-05: REJECTED dihapus — state orphan tidak pernah dicapai (migrasi 20260917000002)
+// P1-05: REJECTED berstatus deprecated — dipertahankan di skema DB agar prisma db push
+// tidak memicu peringatan data loss pada pipeline deployment (Coolify/Nixpacks).
+// Seluruh logika aplikasi (order-security.ts & data-store.ts) telah memblokir pembuatan status REJECTED (gunakan CANCELLED).
 enum OrderStatus {
   PENDING_PAYMENT
   PENDING_VERIFICATION
@@ -21,6 +23,7 @@ enum OrderStatus {
   SHIPPED
   COMPLETED
   CANCELLED
+  REJECTED // Deprecated: backward-compatible dengan enum PostgreSQL yang ada
 }
 
 model User {
