@@ -1,9 +1,10 @@
 /**
- * Order Security, PII Masking, Phone Matching & State Machine Module
- * Memusatkan logika proteksi data pembeli, pencocokan nomor telepon,
- * dan mesin status alur pemesanan untuk menghindari drift & celah keamanan.
+ * src/lib/order-security.ts
+ * P1-05: REJECTED dihapus dari VALID_ORDER_STATUSES dan ALLOWED_ORDER_TRANSITIONS
+ * P0-04: Tambah canVerifyPayment() dan canRejectPayment() sebagai helper UI+API
  */
 
+// P1-05: REJECTED dihapus — state orphan yang tidak pernah dicapai
 export const VALID_ORDER_STATUSES = [
   'PENDING_PAYMENT',
   'PENDING_VERIFICATION',
@@ -11,32 +12,28 @@ export const VALID_ORDER_STATUSES = [
   'PROCESSING',
   'SHIPPED',
   'COMPLETED',
-  'REJECTED',
   'CANCELLED',
 ] as const;
 
 export type OrderStatusType = (typeof VALID_ORDER_STATUSES)[number];
 
 /**
- * Whitelist transisi status pesanan yang sah (State Machine).
- * Catatan: Transisi ke status 'PAID' tidak diizinkan melalui endpoint generik PATCH /api/admin/pesanan/[id],
- * melainkan WAJIB melalui alur resmi verifikasi bukti transfer POST /api/admin/pesanan/[id]/verifikasi
- * untuk menjamin efek samping stok dan LTV CRM tereksekusi secara konsisten.
+ * State machine transisi status pesanan yang sah.
+ * Catatan: Perubahan ke PAID HANYA melalui alur verifikasi bukti transfer
+ * POST /api/admin/pesanan/[id]/verifikasi — tidak melalui PATCH generik.
  */
 export const ALLOWED_ORDER_TRANSITIONS: Record<string, string[]> = {
-  PENDING_PAYMENT: ['PENDING_VERIFICATION', 'CANCELLED'],
-  PENDING_VERIFICATION: ['CANCELLED'], // Perubahan ke PAID / REJECTED melalui alur verifikasi bukti
-  PAID: ['PROCESSING', 'SHIPPED', 'CANCELLED'],
-  PROCESSING: ['SHIPPED', 'CANCELLED'],
-  SHIPPED: ['COMPLETED', 'CANCELLED'],
-  COMPLETED: [], // Terminal
-  REJECTED: ['PENDING_PAYMENT', 'PENDING_VERIFICATION', 'CANCELLED'],
-  CANCELLED: [], // Terminal
+  PENDING_PAYMENT:      ['PENDING_VERIFICATION', 'CANCELLED'],
+  PENDING_VERIFICATION: ['CANCELLED'], // PAID hanya via alur verifikasi resmi
+  PAID:                 ['PROCESSING', 'SHIPPED', 'CANCELLED'],
+  PROCESSING:           ['SHIPPED', 'CANCELLED'],
+  SHIPPED:              ['COMPLETED', 'CANCELLED'],
+  COMPLETED:            [], // Terminal
+  CANCELLED:            [], // Terminal
 };
 
 /**
- * Validasi apakah transisi dari status A ke status B diizinkan.
- * Jika status tujuan sama dengan status awal (mis. hanya update nomor resi/catatan), selalu diizinkan.
+ * Validasi apakah transisi dari status A ke B diizinkan.
  */
 export function isValidOrderTransition(
   currentStatus: string,
@@ -49,12 +46,25 @@ export function isValidOrderTransition(
 }
 
 /**
+ * P0-04: Apakah pesanan boleh di-approve pembayarannya?
+ * Hanya dari PENDING_VERIFICATION.
+ */
+export function canVerifyPayment(status: string): boolean {
+  return status === 'PENDING_VERIFICATION';
+}
+
+/**
+ * P0-04: Apakah pesanan boleh ditolak bukti bayarnya?
+ * Hanya dari PENDING_VERIFICATION.
+ */
+export function canRejectPayment(status: string): boolean {
+  return status === 'PENDING_VERIFICATION';
+}
+
+/**
  * Pencocokan nomor telepon terpadu.
- * Membandingkan digit numerik murni dan mencocokkan akhiran 8 digit
- * untuk mengakomodasi perbedaan format (contoh: 0812 vs 62812 vs +62812).
- *
- * Sesi #17 (Temuan N): Input dengan panjang < 8 digit langsung ditolak
- * untuk mencegah brute-force menebak nomor pembeli via input sangat pendek.
+ * Membandingkan digit numerik murni dan mencocokkan akhiran 8 digit.
+ * Input < 8 digit langsung ditolak (anti brute-force).
  */
 export function isPhoneMatch(
   inputPhone: string | null | undefined,
@@ -65,7 +75,6 @@ export function isPhoneMatch(
   const cleanInput = inputPhone.replace(/\D/g, '');
   const cleanTarget = targetPhone.replace(/\D/g, '');
 
-  // Validasi panjang minimum: kurang dari 8 digit langsung ditolak
   if (!cleanInput || cleanInput.length < 8 || !cleanTarget) return false;
 
   return (
@@ -76,24 +85,20 @@ export function isPhoneMatch(
 }
 
 /**
- * Penyamaran PII (Personally Identifiable Information) Pembeli
- * Digunakan untuk endpoint publik detail pesanan & pelacakan jika nomor kontak belum terverifikasi
+ * Penyamaran PII pembeli untuk endpoint publik.
  */
-export function maskOrderPII(order: any, isVerified: boolean = false) {
+export function maskOrderPII(order: Record<string, unknown>, isVerified: boolean = false) {
   if (isVerified) {
-    return {
-      ...order,
-      isVerified: true,
-    };
+    return { ...order, isVerified: true };
   }
 
-  const rawName = order.buyerName || '';
+  const rawName = String(order.buyerName || '');
   const maskedName =
     rawName.length > 2
       ? rawName[0] + '*'.repeat(Math.max(1, rawName.length - 2)) + rawName.slice(-1)
       : '*'.repeat(rawName.length || 4);
 
-  const cleanPhone = (order.buyerPhone || '').replace(/\D/g, '');
+  const cleanPhone = String(order.buyerPhone || '').replace(/\D/g, '');
   const maskedPhone =
     cleanPhone.length > 4
       ? cleanPhone.slice(0, 3) + '****' + cleanPhone.slice(-3)
@@ -104,14 +109,15 @@ export function maskOrderPII(order: any, isVerified: boolean = false) {
     orderCode: order.orderCode,
     status: order.status,
     total: order.total,
+    grandTotal: order.grandTotal ?? order.total,
     trackingNumber: order.trackingNumber,
     createdAt: order.createdAt,
     items: order.items,
     proof: order.proof
       ? {
-          status: order.proof.status,
-          uploadedAt: order.proof.uploadedAt,
-          rejectionReason: order.proof.rejectionReason,
+          status: (order.proof as Record<string, unknown>).status,
+          uploadedAt: (order.proof as Record<string, unknown>).uploadedAt,
+          rejectionReason: (order.proof as Record<string, unknown>).rejectionReason,
         }
       : null,
     buyerName: maskedName,

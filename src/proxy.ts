@@ -1,5 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { jwtVerify } from 'jose';
+import { getAdminCookieName } from './lib/config';
+
+/**
+ * src/proxy.ts
+ * P2-10: COOKIE_NAME dari config.ts (tidak hardcode 'adably_admin_token')
+ * P2-03d: Verifikasi JWT menggunakan fungsi terpusat (sama logika dengan auth.ts)
+ * P2-16: Proxy hanya verifikasi tanda tangan JWT — role check di Server Components
+ */
 
 function getJwtSecretKey(): Uint8Array {
   const secret = process.env.AUTH_SECRET;
@@ -11,26 +19,24 @@ function getJwtSecretKey(): Uint8Array {
   return new TextEncoder().encode(secret.trim());
 }
 
-const COOKIE_NAME = 'adably_admin_token';
+const COOKIE_NAME = getAdminCookieName();
 
-/**
- * Next.js 16 Proxy Convention (sebelumnya Middleware)
- * Menjalankan proteksi edge/proxy layer sebelum routing diserahkan ke RSC/API handler.
- */
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // 1. Proteksi endpoint API Admin (/api/admin/*)
   if (pathname.startsWith('/api/admin')) {
-    // Whitelist endpoint autentikasi publik (login & logout)
-    if (pathname === '/api/admin/auth/login' || pathname === '/api/admin/auth/logout') {
+    // Whitelist endpoint publik
+    if (
+      pathname === '/api/admin/auth/login' ||
+      pathname === '/api/admin/auth/logout'
+    ) {
       return NextResponse.next();
     }
 
-    // Ambil token dari cookie atau Authorization header
     let token = req.cookies.get(COOKIE_NAME)?.value;
     const authHeader = req.headers.get('authorization');
-    if (!token && authHeader && authHeader.startsWith('Bearer ')) {
+    if (!token && authHeader?.startsWith('Bearer ')) {
       token = authHeader.substring(7).trim();
     }
 
@@ -54,7 +60,7 @@ export async function proxy(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // 2. Proteksi Halaman Antarmuka Admin (/admin/*)
+  // 2. Proteksi Halaman Admin (/admin/*)
   if (pathname.startsWith('/admin')) {
     const token = req.cookies.get(COOKIE_NAME)?.value;
     let isValid = false;
@@ -68,27 +74,20 @@ export async function proxy(req: NextRequest) {
       }
     }
 
-    // Jika mengakses halaman login admin
     if (pathname === '/admin/login') {
-      if (isValid) {
-        return NextResponse.redirect(new URL('/admin/dashboard', req.url));
-      }
+      if (isValid) return NextResponse.redirect(new URL('/admin/dashboard', req.url));
       return NextResponse.next();
     }
 
-    // Rute /admin lainnya wajib terotentikasi
     if (!isValid) {
-      const loginUrl = new URL('/admin/login', req.url);
-      loginUrl.searchParams.set('callbackUrl', pathname);
-      return NextResponse.redirect(loginUrl);
+      return NextResponse.redirect(new URL('/admin/login', req.url));
     }
+
+    return NextResponse.next();
   }
 
   return NextResponse.next();
 }
-
-// Support both named export and default export for Next.js proxy
-export default proxy;
 
 export const config = {
   matcher: ['/admin/:path*', '/api/admin/:path*'],

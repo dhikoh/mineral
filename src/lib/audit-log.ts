@@ -1,11 +1,7 @@
 /**
- * Audit Log Helper — Sesi #17 (Temuan K)
- * Helper terpusat untuk mencatat aksi admin secara persisten ke tabel AuditLog.
- *
- * Fitur:
- * - Fallback graceful: jika DB tidak tersedia, tulis ke console.warn (tidak throw)
- * - Tidak pernah mencatat field 'password' ke metadata
- * - Snapshot actorName & actorRole agar riwayat tidak berubah meski data staf diperbarui
+ * src/lib/audit-log.ts
+ * P2-12: Tambah konstanta audit untuk semua operasi PII berisiko
+ * P2-02: LOGOUT + CREATE_PRODUCT + DELETE_PRODUCT sudah ada, pastikan dipakai
  */
 
 import { prisma } from '@/lib/db';
@@ -21,12 +17,12 @@ export interface AuditLogParams {
   metadata?: Record<string, unknown> | null;
 }
 
-// Konstanta aksi audit — gunakan ini agar action string konsisten
+// Konstanta aksi audit — gunakan konstanta ini, bukan string literal
 export const AUDIT_ACTIONS = {
   // Auth
   LOGIN_SUCCESS: 'LOGIN_SUCCESS',
   LOGIN_FAILED: 'LOGIN_FAILED',
-  LOGOUT: 'LOGOUT',
+  LOGOUT: 'LOGOUT',                                    // P2-02 + P2-12
 
   // User management
   CREATE_USER: 'CREATE_USER',
@@ -39,20 +35,41 @@ export const AUDIT_ACTIONS = {
   UPDATE_ORDER_STATUS: 'UPDATE_ORDER_STATUS',
   VERIFY_PAYMENT_APPROVED: 'VERIFY_PAYMENT_APPROVED',
   VERIFY_PAYMENT_REJECTED: 'VERIFY_PAYMENT_REJECTED',
+  VERIFY_PAYMENT_AMOUNT_MISMATCH: 'VERIFY_PAYMENT_AMOUNT_MISMATCH', // P1-03
 
   // Produk & Katalog
-  CREATE_PRODUCT: 'CREATE_PRODUCT',
+  CREATE_PRODUCT: 'CREATE_PRODUCT',                   // P2-02
   UPDATE_PRODUCT: 'UPDATE_PRODUCT',
-  // Sesi #19 (Fix #7): Granular audit untuk perubahan harga dan stok produk
   UPDATE_PRODUCT_PRICE: 'UPDATE_PRODUCT_PRICE',
   UPDATE_PRODUCT_STOCK: 'UPDATE_PRODUCT_STOCK',
+  DELETE_PRODUCT: 'DELETE_PRODUCT',                   // P2-02
 
-  DELETE_PRODUCT: 'DELETE_PRODUCT',
+  // Stok
+  RESTOCK_FAILED: 'RESTOCK_FAILED',                   // P1-08
 
-  // Pengaturan Situs
+  // Pelanggan / CRM — P2-12
+  CREATE_CUSTOMER: 'CREATE_CUSTOMER',
+  UPDATE_CUSTOMER: 'UPDATE_CUSTOMER',
+  DELETE_CUSTOMER: 'DELETE_CUSTOMER',
+  DELETE_INTERACTION: 'DELETE_INTERACTION',
+
+  // Ekspor Data — P2-12 (operasi PII berisiko tinggi)
+  EXPORT_CUSTOMERS: 'EXPORT_CUSTOMERS',
+  EXPORT_ORDERS: 'EXPORT_ORDERS',
+  EXPORT_CATALOG_PDF: 'EXPORT_CATALOG_PDF',
+
+  // Konten & Pengaturan
   UPDATE_SITE_SETTINGS: 'UPDATE_SITE_SETTINGS',
   UPDATE_BANK_ACCOUNTS: 'UPDATE_BANK_ACCOUNTS',
+  CREATE_ARTICLE: 'CREATE_ARTICLE',
+  UPDATE_ARTICLE: 'UPDATE_ARTICLE',
+  DELETE_ARTICLE: 'DELETE_ARTICLE',
+
+  // SellOffer
+  UPDATE_SELL_OFFER_STATUS: 'UPDATE_SELL_OFFER_STATUS',
 } as const;
+
+export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];
 
 /**
  * Hapus field sensitif sebelum disimpan ke metadata.
@@ -61,7 +78,7 @@ function sanitizeMetadata(
   meta: Record<string, unknown> | null | undefined
 ): Record<string, unknown> | null {
   if (!meta) return null;
-  const SENSITIVE_KEYS = ['password', 'token', 'secret', 'accessKey', 'secretKey'];
+  const SENSITIVE_KEYS = ['password', 'token', 'secret', 'accessKey', 'secretKey', 'authorization'];
   const cleaned = { ...meta };
   for (const key of SENSITIVE_KEYS) {
     if (key in cleaned) delete cleaned[key];
@@ -71,7 +88,7 @@ function sanitizeMetadata(
 
 /**
  * Rekam satu entri audit log.
- * Gagal secara graceful (tidak throw) agar tidak mengganggu alur bisnis utama.
+ * Gagal secara graceful (console.warn, tidak throw) agar tidak mengganggu alur bisnis utama.
  */
 export async function recordAuditLog(params: AuditLogParams): Promise<void> {
   const safeMetadata = sanitizeMetadata(params.metadata ?? null);
@@ -89,16 +106,13 @@ export async function recordAuditLog(params: AuditLogParams): Promise<void> {
       },
     });
   } catch (err) {
-    // Fallback: tulis ke console agar tidak ada blackhole — tidak throw
-    console.warn(
-      JSON.stringify({
-        level: 'WARN',
-        event: 'AUDIT_LOG_WRITE_FAILED',
-        action: params.action,
-        actorId: params.actorId,
-        error: err instanceof Error ? err.message : String(err),
-        timestamp: new Date().toISOString(),
-      })
-    );
+    console.warn(JSON.stringify({
+      level: 'WARN',
+      event: 'AUDIT_LOG_WRITE_FAILED',
+      action: params.action,
+      actorId: params.actorId,
+      error: err instanceof Error ? err.message : String(err),
+      timestamp: new Date().toISOString(),
+    }));
   }
 }

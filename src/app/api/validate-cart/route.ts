@@ -1,106 +1,104 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
-import { getProductById } from '@/lib/data-store';
+/**
+ * POST /api/validate-cart
+ * P2-05: Tambah rate limit VALIDATE_CART, batasi maks 50 item, ganti N query → findMany
+ * P2-08: Perbaiki N+1 query — satu findMany menggantikan loop
+ */
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/db';
+import { getClientIp, checkValidateCartRateLimit } from '@/lib/rate-limit';
 
-// POST /api/validate-cart
-// Validasi semua item keranjang terhadap kondisi DB terkini.
-// Endpoint publik (tanpa auth) karena keranjang adalah fitur storefront.
+const MAX_CART_ITEMS = 50;
+
 export async function POST(req: NextRequest) {
+  const clientIp = getClientIp(req);
+  const rateLimit = checkValidateCartRateLimit(`validate_cart:${clientIp}`);
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: 'Terlalu banyak permintaan. Coba lagi sebentar.' },
+      { status: 429 }
+    );
+  }
+
   try {
     const body = await req.json();
-    const items: { id: string; name: string; qty: number; price: number; stock: number }[] =
-      body.items || [];
+    const { items } = body;
 
     if (!Array.isArray(items) || items.length === 0) {
-      return NextResponse.json({ valid: true, invalidItems: [] });
+      return NextResponse.json({ valid: true, items: [] });
     }
 
-    const invalidItems: {
-      id: string;
-      name: string;
-      reason: 'DELETED' | 'INACTIVE' | 'STOCK_CHANGED' | 'PRICE_CHANGED';
-      message: string;
-      newPrice?: number;
-      availableStock?: number;
-    }[] = [];
-
-    const results = await Promise.allSettled(
-      items.map((item) => getProductById(item.id))
-    );
-
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i];
-      const result = results[i];
-
-      if (result.status === 'rejected') {
-        invalidItems.push({
-          id: item.id,
-          name: item.name,
-          reason: 'DELETED',
-          message: `Produk "${item.name}" tidak dapat diverifikasi. Silakan hapus dari keranjang.`,
-        });
-        continue;
-      }
-
-      const product = result.value;
-
-      // 1. Produk dihapus dari DB
-      if (!product) {
-        invalidItems.push({
-          id: item.id,
-          name: item.name,
-          reason: 'DELETED',
-          message: `Produk "${item.name}" sudah tidak tersedia di katalog.`,
-        });
-        continue;
-      }
-
-      // 2. Produk dinonaktifkan admin (Gap #1 & #4)
-      if ((product as any).isActive === false) {
-        invalidItems.push({
-          id: item.id,
-          name: item.name,
-          reason: 'INACTIVE',
-          message: `Produk "${item.name}" saat ini tidak aktif dan tidak dapat dipesan.`,
-        });
-        continue;
-      }
-
-      const currentPrice = (product as any).price ?? 0;
-      const currentStock = (product as any).stock ?? 0;
-
-      // 3. Harga berubah (Gap #3) — non-fatal, server tetap pakai harga DB
-      if (Math.abs(currentPrice - item.price) > 0.01) {
-        invalidItems.push({
-          id: item.id,
-          name: item.name,
-          reason: 'PRICE_CHANGED',
-          message: `Harga "${item.name}" telah berubah menjadi ${currentPrice.toLocaleString('id-ID')}. Harga terbaru akan digunakan saat checkout.`,
-          newPrice: currentPrice,
-        });
-        // Tidak stop — lanjut cek stok
-      }
-
-      // 4. Stok tidak cukup (Gap #2)
-      if (currentStock < item.qty) {
-        invalidItems.push({
-          id: item.id,
-          name: item.name,
-          reason: 'STOCK_CHANGED',
-          message: `Stok "${item.name}" berkurang. Tersisa ${currentStock} ${(product as any).unit || 'unit'}, qty Anda: ${item.qty}.`,
-          availableStock: currentStock,
-        });
-      }
+    // P2-05: Batasi maks item per request
+    if (items.length > MAX_CART_ITEMS) {
+      return NextResponse.json(
+        { error: `Keranjang belanja melebihi batas maksimum ${MAX_CART_ITEMS} item.` },
+        { status: 400 }
+      );
     }
 
-    return NextResponse.json({
-      valid: invalidItems.length === 0,
-      invalidItems,
+    const productIds = [...new Set(items.map((i: { productId: string }) => i.productId))];
+
+    // P2-08: Satu query findMany menggantikan N query individual
+    const products = await prisma.product.findMany({
+      where: { id: { in: productIds }, isActive: true },
+      select: { id: true, name: true, price: true, stock: true, unit: true, isActive: true, minOrderQty: true, incrementQty: true },
     });
-  } catch (error: any) {
-    console.error('Error validating cart:', error);
-    return NextResponse.json(
-      { error: error.message || 'Gagal memvalidasi keranjang.' },
-      { status: 500 }
-    );
+
+    const productMap = new Map(products.map(p => [p.id, p]));
+
+    const validatedItems = items.map((item: { productId: string; qty: number }) => {
+      const product = productMap.get(item.productId);
+
+      if (!product) {
+        return {
+          productId: item.productId,
+          valid: false,
+          reason: 'Produk tidak tersedia atau telah dihapus.',
+          qty: item.qty,
+        };
+      }
+
+      if (item.qty > product.stock) {
+        return {
+          productId: item.productId,
+          valid: false,
+          reason: `Stok tidak mencukupi. Stok tersedia: ${product.stock} ${product.unit}.`,
+          availableStock: product.stock,
+          qty: item.qty,
+          product: { name: product.name, price: product.price, unit: product.unit },
+        };
+      }
+
+      if (item.qty < product.minOrderQty) {
+        return {
+          productId: item.productId,
+          valid: false,
+          reason: `Minimum order ${product.minOrderQty} ${product.unit}.`,
+          qty: item.qty,
+          product: { name: product.name, price: product.price, unit: product.unit, minOrderQty: product.minOrderQty },
+        };
+      }
+
+      return {
+        productId: item.productId,
+        valid: true,
+        qty: item.qty,
+        availableStock: product.stock,
+        product: {
+          name: product.name,
+          price: product.price,
+          unit: product.unit,
+          minOrderQty: product.minOrderQty,
+          incrementQty: product.incrementQty,
+        },
+      };
+    });
+
+    const allValid = validatedItems.every(i => i.valid);
+
+    return NextResponse.json({ valid: allValid, items: validatedItems });
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.error('Error validating cart:', err);
+    return NextResponse.json({ error: 'Gagal memvalidasi keranjang belanja.' }, { status: 500 });
   }
 }

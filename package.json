@@ -6,8 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "test": "tsx scripts/test-phase7-e2e.ts && tsx scripts/test-crm-module.ts && tsx scripts/test-crm-http.ts && tsx scripts/test-audit-p0-p1.ts",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx scripts/test-phase7-e2e.ts && tsx scripts/test-crm-module.ts && tsx scripts/test-crm-http.ts && tsx scripts/test-audit-p0-p1.ts && tsx scripts/test-uom.ts && tsx scripts/test-order-state-machine.ts && tsx scripts/test-csv-injection.ts && tsx scripts/verify-api-matrix.ts && tsx scripts/verify-env-docs.ts",
     "postinstall": "prisma generate"
   },
   "prisma": {
@@ -28,27 +29,27 @@
     "@tiptap/react": "^3.31.3",
     "@tiptap/starter-kit": "^3.31.3",
     "bcryptjs": "^3.0.3",
-    "clsx": "^2.1.1",
     "jose": "^6.2.12",
-    "lucide-react": "^1.42.0",
+    "lucide-react": "^0.460.0",
     "next": "^16.3.4",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "sanitize-html": "^2.17.7",
-    "tailwind-merge": "^3.6.0"
+    "sanitize-html": "^2.17.7"
   },
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.20",
     "@types/bcryptjs": "^2.4.6",
-    "@types/node": "^26.5.0",
+    "@types/node": "^22.10.0",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
     "@types/sanitize-html": "^2.16.1",
     "autoprefixer": "^10.5.5",
+    "eslint": "^9.15.0",
+    "eslint-config-next": "^16.3.4",
     "postcss": "^8.5.28",
     "prisma": "^6.19.3",
     "tailwindcss": "^3.4.19",
     "tsx": "^4.23.13",
-    "typescript": "^7.0.2"
+    "typescript": "^5.6.3"
   }
 }

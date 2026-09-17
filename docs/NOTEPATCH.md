@@ -1911,8 +1911,105 @@ Berdasarkan screenshot dokumen PDF yang diunduh user di lingkungan produksi:
 | `docs/BLUEPRINT.md` | MODIFIKASI | Sinkronisasi fitur B2B Unit Switcher & Multi-Page PDF Katalog |
 | `docs/NOTEPATCH.md` | MODIFIKASI | Entri log historis Sesi #32 ini |
 
+---
 
+## Sesi #33 — 2026-09-17 | Hardening Pass Final: P0+P1+P2 Audit & Security
 
+### 1. Ringkasan
+Sesi hardening komprehensif berdasarkan audit independen yang menemukan **6 P0 (blocker)**, **11 P1 (logika bisnis)**, dan **16 P2 (arsitektur/orphan)**. Target: aplikasi production-ready dan reusable starter template.
+
+### 2. Keputusan Owner
+| Item | Keputusan |
+|---|---|
+| `GET /api/public/settings` rekening bank | **Terikat orderCode yang valid** (Opsi B) |
+| PPN default | **Diatur manual admin** (`taxEnabled=false`, `defaultTaxRate=0`) |
+| TRUSTED_PROXY_COUNT default | 0 (tanpa proxy) |
+| Toleransi selisih pembayaran | Rp 0 (konfigurasi via SiteSetting) |
+| Retensi audit log | 365 hari |
+
+### 3. P0 Blocker — Semua Selesai
+| Kode | Masalah | Solusi |
+|---|---|---|
+| P0-01 | Migrasi SellOffer hilang | `20260917000001_add_sell_offer/migration.sql` + enum SellOfferStatus |
+| P0-02 | KG↔TON konversi literal 1000 tersebar | Modul `src/lib/uom.ts` terpusat |
+| P0-03 | IDOR upload bukti transfer | Rate limit PROOF_SUBMIT + wajib buyerPhone + validasi fileUrl |
+| P0-04 | State machine verifikasi bobol | Gate `canVerifyPayment()` di verifikasi/route.ts + 409 untuk state terminal |
+| P0-05 | Rate limit bypass XFF palsu | `TRUSTED_PROXY_COUNT` env + `peekRateLimit()` di rate-limit.ts |
+| P0-06 | Next.js Image Optimizer SSRF | Whitelist eksplisit dari env, hapus wildcard, `dangerouslyAllowSVG: false` |
+
+### 4. P1 Logika Bisnis — Semua Selesai
+| Kode | Masalah | Solusi |
+|---|---|---|
+| P1-01 | CRM status di-reset paksa | `createOrUpdateLead` tidak menurunkan status eksisting |
+| P1-02 | Notes string-append tanpa batas | Hentikan append, semua event → `CustomerInteraction` |
+| P1-03 | Nominal bukti tidak direkonsiliasi | Bandingkan proof.amount vs grandTotal + toleransi + forceApprove SUPERADMIN |
+| P1-04 | CSV formula injection | Modul `src/lib/csv.ts` dengan `escapeCsvField()` + BOM + CRLF |
+| P1-05 | REJECTED orphan state | Hapus dari enum + migrasi `20260917000002_remove_rejected_status` |
+| P1-06 | Order.notes dipakai ganda | Tambah `adminNotes` di Order (migrasi 000003) |
+| P1-07 | OrderItem tanpa snapshot | Kolom `productName/productSlug/productUnit` + `backfill-orderitem-snapshot.ts` |
+| P1-08 | Restock gagal senyap | Hapus `.catch()` dari blok transaksi, catat `RESTOCK_FAILED` ke audit log |
+| P1-09 | Login counter naik 2× | Pisah `peekRateLimit()` + `consumeRateLimit()` + `clearRateLimit()` |
+| P1-10 | Nol security header | `async headers()` di next.config.mjs: CSP, XFO, HSTS, Permissions-Policy |
+| P1-11 | Model transaksi tidak matang B2B | `minOrderQty`, `incrementQty`, `subtotal`, `taxAmount`, `grandTotal` (migrasi 000004) |
+
+### 5. P2 Arsitektur — Semua Selesai
+| Kode | Solusi |
+|---|---|
+| P2-01 | `src/lib/db-errors.ts`: classifyDbError(), throwConstraintError() |
+| P2-02 | Orphan cleanup: requireAdminSession, setAdminSessionCookie, clearAdminSessionCookie, deleteMedia, AUDIT_ACTIONS |
+| P2-03 | `src/lib/config.ts`: getBaseUrl, getBrandSlug, getAdminCookieName — hapus 13 literal |
+| P2-04 | sanitize.ts: hapus 'data' dari allowedSchemes; tambah sanitizeText() |
+| P2-05 | validate-cart: rate limit + max 50 item + findMany; public/settings: wajib orderCode |
+| P2-06 | `src/lib/upload-url.ts`: whitelist host + tolak IP privat + tolak http:// |
+| P2-07 | auth.ts: role dari DB bukan JWT; invalidasi sesi jika DB mati di produksi |
+| P2-08 | createOrder: findMany({in}) ganti loop; index Product.categoryId, isActive, Article.isPublished |
+| P2-09 | cart-context.tsx: hapus mutasi langsung, refresh stok saat buka, TTL 30 hari |
+| P2-10 | `src/lib/config.ts`: brand-driven template — cookie, storage key, hostname |
+| P2-11 | sanitize.ts: hapus data: URI scheme dari allowedSchemes |
+| P2-12 | audit-log.ts: tambah DELETE_CUSTOMER, EXPORT_*, LOGOUT, RESTOCK_FAILED |
+| P2-13 | `scripts/verify-api-matrix.ts`: scan route.ts ↔ Blueprint §7 |
+| P2-14 | `src/lib/env.ts`: validateEnv() fail-fast + `scripts/verify-env-docs.ts` |
+| P2-15 | katalog-pdf/route.ts: path traversal fix + regex validate rawImg |
+| P2-16 | proxy.ts: COOKIE_NAME dari config.ts; pengguna+audit-log page → Server Component RBAC |
+
+### 6. Fitur Tambahan (ADD)
+| Kode | Fitur |
+|---|---|
+| ADD-07 | `GET /api/health` — health check endpoint untuk Coolify/load balancer |
+
+### 7. File Baru (FASE 0-6)
+| File | Keterangan |
+|---|---|
+| `src/lib/uom.ts` | Konversi KG↔TON terpusat |
+| `src/lib/db-errors.ts` | Klasifikasi error database |
+| `src/lib/csv.ts` | CSV helper anti formula injection |
+| `src/lib/config.ts` | Brand & URL config terpusat |
+| `src/lib/upload-url.ts` | Validasi URL upload (SSRF prevention) |
+| `src/lib/env.ts` | Validasi env vars fail-fast |
+| `src/app/api/health/route.ts` | Health check endpoint |
+| `Dockerfile` | Multi-stage Docker build |
+| `.github/workflows/ci.yml` | GitHub Actions CI pipeline |
+| `eslint.config.mjs` | ESLint flat config |
+| `scripts/test-uom.ts` | Regresi UOM conversion |
+| `scripts/test-order-state-machine.ts` | Regresi state machine |
+| `scripts/test-csv-injection.ts` | Regresi formula injection |
+| `scripts/verify-api-matrix.ts` | Scan endpoint vs Blueprint |
+| `scripts/verify-env-docs.ts` | Scan env vars vs .env.example |
+| `scripts/backfill-orderitem-snapshot.ts` | Backfill snapshot data lama |
+| `scripts/migrate-notes-to-interactions.ts` | Migrasi notes lama → CustomerInteraction |
+| `prisma/migrations/20260917000001_add_sell_offer/` | SellOffer table |
+| `prisma/migrations/20260917000002_remove_rejected_status/` | Hapus REJECTED dari enum |
+| `prisma/migrations/20260917000003_order_admin_notes_and_item_snapshot/` | adminNotes + snapshot |
+| `prisma/migrations/20260917000004_b2b_financial_model/` | Model finansial B2B |
+
+### 8. Matriks Pengujian
+| Uji Mutu | Perintah | Hasil |
+|---|---|---|
+| TypeScript | `npm run typecheck` | ✅ |
+| Lint | `npm run lint` | ✅ |
+| Prisma validate | `npx prisma validate` | ✅ |
+| Production Build | `npm run build` | ✅ |
+| Test regresi | `npm test` | ✅ |
 
 
 

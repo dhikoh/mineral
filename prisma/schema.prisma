@@ -12,6 +12,7 @@ enum Role {
   ADMIN
 }
 
+// P1-05: REJECTED dihapus — state orphan tidak pernah dicapai (migrasi 20260917000002)
 enum OrderStatus {
   PENDING_PAYMENT
   PENDING_VERIFICATION
@@ -19,49 +20,56 @@ enum OrderStatus {
   PROCESSING
   SHIPPED
   COMPLETED
-  REJECTED
   CANCELLED
 }
 
 model User {
-  id        String   @id @default(cuid())
-  name      String
-  email     String   @unique
-  password  String   // bcrypt hash
-  role      Role     @default(SUPERADMIN)
-  isActive  Boolean  @default(true) // Sesi #17: status aktif staf (false = nonaktif/suspended)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                 String   @id @default(cuid())
+  name               String
+  email              String   @unique
+  password           String   // bcrypt hash
+  role               Role     @default(SUPERADMIN)
+  isActive           Boolean  @default(true)
+  // P2-07: invalidasi sesi setelah reset password
+  passwordChangedAt  DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   verifiedProofs       PaymentProof[]         @relation("VerifiedBy")
   auditLogs            AuditLog[]
-  // Sesi #20: relasi CRM
   assignedCustomers    Customer[]             @relation("AssignedCustomers")
   customerInteractions CustomerInteraction[]
 }
 
 model SiteSetting {
-  id                 String   @id @default(cuid())
-  siteName           String
-  tagline            String?
-  logoUrl            String?
-  faviconUrl         String?
-  primaryColor       String?  @default("#059669")
-  csWhatsapp         String?
-  csEmail            String?
-  csOperationalHours String?
-  address            String?
-  bankAccounts       Json     // [{ bank: "BCA", noRekening: "1234567890", atasNama: "PT Mineral Alam Indonesia" }]
-  footerText         String?
-  metaTitle              String?
-  metaDesc               String?
-  lowStockAlertThreshold Int?     @default(50)
-  updatedAt              DateTime @updatedAt
+  id                      String   @id @default(cuid())
+  siteName                String
+  tagline                 String?
+  logoUrl                 String?
+  faviconUrl              String?
+  primaryColor            String?  @default("#059669")
+  csWhatsapp              String?
+  csEmail                 String?
+  csOperationalHours      String?
+  address                 String?
+  bankAccounts            Json     // [{ bank: "BCA", noRekening: "1234567890", atasNama: "PT Mineral Alam Indonesia" }]
+  footerText              String?
+  metaTitle               String?
+  metaDesc                String?
+  lowStockAlertThreshold  Int?     @default(50)
+  // P1-11: Konfigurasi finansial B2B
+  paymentToleranceAmount  Int      @default(0)   // toleransi selisih pembayaran dalam rupiah
+  defaultTaxRate          Int      @default(0)   // dalam basis poin: 1100 = 11%
+  taxEnabled              Boolean  @default(false)
+  shippingPolicy          String?                // deskripsi kebijakan ongkir
+  // P2-12: Retensi audit log
+  auditRetentionDays      Int      @default(365)
+  updatedAt               DateTime @updatedAt
 }
 
 model ContentBlock {
   id        String   @id @default(cuid())
-  key       String   @unique // "homepage_hero", "about_us", "why_us", "shipping_info", "terms", "privacy_policy"
+  key       String   @unique
   title     String?
   content   String   @db.Text
   updatedAt DateTime @updatedAt
@@ -85,7 +93,7 @@ model Category {
 
 model Usage {
   id       String         @id @default(cuid())
-  name     String         // "Pertanian & Pupuk", "Pengolahan Air", dsb.
+  name     String
   slug     String         @unique
   products ProductUsage[]
 }
@@ -97,15 +105,23 @@ model Product {
   description String         @db.Text
   price       Int
   stock       Int            @default(0)
-  unit        String         @default("kg") // kg, ton, sak 25kg, jumbo bag 1 ton, ingot, dll
-  minStock    Int            @default(50)   // ambang batas peringatan stok tipis
-  images      Json           // array string URL: ["/uploads/..."]
-  tags        Json           // array string hashtag: ["zeolite","pupuk-organik"]
+  unit        String         @default("kg")
+  minStock    Int            @default(50)
+  // P1-11: Minimum Order Quantity dan increment step
+  minOrderQty  Int           @default(1)
+  incrementQty Int           @default(1)
+  images      Json
+  tags        Json
   categoryId  String
   category    Category       @relation(fields: [categoryId], references: [id])
   usages      ProductUsage[]
+  // P1-07: Opposite relation field wajib oleh Prisma
+  orderItems  OrderItem[]
   isActive    Boolean        @default(true)
   createdAt   DateTime       @default(now())
+
+  @@index([categoryId])
+  @@index([isActive])
 }
 
 model ProductUsage {
@@ -119,32 +135,50 @@ model ProductUsage {
 
 model Order {
   id             String        @id @default(cuid())
-  orderCode      String        @unique // ORD-YYYYMMDD-XXXX
+  orderCode      String        @unique
   buyerName      String
   buyerPhone     String
   buyerEmail     String?
   buyerAddress   String        @db.Text
-  notes          String?       @db.Text
+  notes          String?       @db.Text  // Catatan pembeli — read-only setelah checkout
+  // P1-06: Catatan internal admin (terpisah dari notes pembeli)
+  adminNotes     String?       @db.Text
   trackingNumber String?
   status         OrderStatus   @default(PENDING_PAYMENT)
-  total          Int
+  // P1-11: Rincian finansial B2B
+  subtotal       Int           @default(0)
+  shippingCost   Int           @default(0)
+  taxRate        Int           @default(0)  // basis poin
+  taxAmount      Int           @default(0)
+  discountAmount Int           @default(0)
+  grandTotal     Int           @default(0)
+  total          Int           // alias grandTotal untuk kompatibilitas mundur
   items          OrderItem[]
   proof          PaymentProof?
-  // Sesi #20: FK ke Customer (nullable — pesanan lama/guest tanpa akun customer)
   customerId     String?
   customer       Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull)
   createdAt      DateTime      @default(now())
 
   @@index([customerId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 model OrderItem {
-  id        String  @id @default(cuid())
+  id        String   @id @default(cuid())
   orderId   String
-  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  productId String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  // P1-07: nullable agar produk yang dihapus tidak merusak riwayat (onDelete: SetNull)
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
   qty       Int
-  price     Int     // harga saat transaksi
+  price     Int      // harga saat transaksi
+  // P1-07: Snapshot data produk saat transaksi — immutable
+  productName String  @default("")
+  productSlug String?
+  productUnit String  @default("kg")
+
+  @@index([productId])
 }
 
 model PaymentProof {
@@ -156,11 +190,11 @@ model PaymentProof {
   senderName      String?
   amount          Int?
   note            String?
-  status          String    @default("PENDING") // PENDING, APPROVED, REJECTED
+  status          String    @default("PENDING")
   rejectionReason String?
   uploadedAt      DateTime  @default(now())
-  verifiedBy      String?   // nama staf (display fallback)
-  verifiedById    String?   // Sesi #17: ID staf — source of truth akuntabilitas
+  verifiedBy      String?
+  verifiedById    String?
   verifier        User?     @relation("VerifiedBy", fields: [verifiedById], references: [id], onDelete: SetNull)
   verifiedAt      DateTime?
 }
@@ -175,6 +209,8 @@ model Article {
   isPublished Boolean   @default(false)
   publishedAt DateTime?
   createdAt   DateTime  @default(now())
+
+  @@index([isPublished])
 }
 
 enum CustomerType {
@@ -200,21 +236,20 @@ model Customer {
   address            String?
   type               CustomerType  @default(PROSPECT)
   status             LeadStatus    @default(BARU)
-  source             String        @default("WEBSITE_RFQ") // WEBSITE_RFQ, CHECKOUT, MANUAL_ADMIN, OFFLINE_EXPO
+  source             String        @default("WEBSITE_RFQ")
   preferredCommodity String?
   estimatedVolume    String?
-  notes              String?       // Catatan bebas manual staf (bukan log kronologis)
+  notes              String?       // Catatan bebas manual staf — bukan log kronologis
   totalOrders        Int           @default(0)
   totalSpent         Int           @default(0)
   lastContactAt      DateTime?
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
-  // Sesi #20: field baru CRM
-  assignedToId       String?       // PIC staf penanggung jawab
+  assignedToId       String?
   assignedTo         User?         @relation("AssignedCustomers", fields: [assignedToId], references: [id], onDelete: SetNull)
-  nextFollowUpAt     DateTime?     // jadwal follow-up berikutnya
-  tags               Json?         // ["vip","grosir","jabodetabek"]
-  orders             Order[]       // relasi ke pesanan via FK customerId
+  nextFollowUpAt     DateTime?
+  tags               Json?
+  orders             Order[]
   interactions       CustomerInteraction[]
 
   @@index([phone])
@@ -224,7 +259,6 @@ model Customer {
   @@index([nextFollowUpAt])
 }
 
-// Sesi #20: Log interaksi terstruktur per kontak CRM
 enum InteractionType {
   CALL
   WHATSAPP
@@ -232,7 +266,7 @@ enum InteractionType {
   MEETING
   SITE_VISIT
   NOTE
-  SYSTEM // entri otomatis dari sistem (koreksi LTV, perubahan status order, dsb.)
+  SYSTEM
 }
 
 model CustomerInteraction {
@@ -241,27 +275,26 @@ model CustomerInteraction {
   customer       Customer        @relation(fields: [customerId], references: [id], onDelete: Cascade)
   type           InteractionType
   summary        String          @db.Text
-  actorId        String?         // null jika SYSTEM
+  actorId        String?
   actor          User?           @relation(fields: [actorId], references: [id], onDelete: SetNull)
-  actorName      String          // snapshot nama staf / "SYSTEM"
-  relatedOrderId String?         // opsional — tautkan ke pesanan terkait
+  actorName      String
+  relatedOrderId String?
   createdAt      DateTime        @default(now())
 
   @@index([customerId])
   @@index([createdAt])
 }
 
-// Sesi #17: Audit Log persisten untuk akuntabilitas aksi admin
 model AuditLog {
   id          String   @id @default(cuid())
-  actorId     String?  // null jika sistem/tidak bisa resolve
+  actorId     String?
   actor       User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
-  actorName   String   // snapshot nama saat aksi — tidak berubah meski nama staf diperbarui
-  actorRole   String   // snapshot role saat aksi
-  action      String   // LOGIN_SUCCESS, LOGIN_FAILED, CREATE_USER, UPDATE_USER, DELETE_USER, UPDATE_SETTINGS, dsb.
-  targetType  String?  // "User", "Order", "Product", "SiteSetting", dsb.
-  targetId    String?  // ID entitas yang dimodifikasi
-  metadata    Json?    // detail tambahan, TANPA password plaintext
+  actorName   String
+  actorRole   String
+  action      String
+  targetType  String?
+  targetId    String?
+  metadata    Json?
   createdAt   DateTime @default(now())
 
   @@index([actorId])
@@ -269,7 +302,6 @@ model AuditLog {
   @@index([createdAt])
 }
 
-// Sesi #21: Fitur Penawaran Jual — pihak yang ingin menawarkan komoditasnya ke platform
 enum SellOfferStatus {
   BARU
   DIHUBUNGI
@@ -279,19 +311,16 @@ enum SellOfferStatus {
 
 model SellOffer {
   id              String          @id @default(cuid())
-  // Info Penawar
-  name            String          // nama kontak person
-  company         String?         // nama perusahaan / instansi
-  phone           String          // nomor WhatsApp
+  name            String
+  company         String?
+  phone           String
   email           String?
-  province        String?         // provinsi lokasi komoditas
-  // Info Komoditas yang Ditawarkan
-  commodityName   String          // nama komoditas yang ingin dijual
-  commoditySpec   String?         @db.Text  // spesifikasi teknis (kadar, mesh, dsb.)
-  estimatedVolume String?         // estimasi volume (e.g. "500 ton/bulan")
-  priceExpected   String?         // harga harapan penjual (string bebas, opsional)
-  photoUrls       Json?           // foto sampel komoditas []
-  // Status & Catatan Admin
+  province        String?
+  commodityName   String
+  commoditySpec   String?         @db.Text
+  estimatedVolume String?
+  priceExpected   String?
+  photoUrls       Json?
   status          SellOfferStatus @default(BARU)
   adminNotes      String?         @db.Text
   createdAt       DateTime        @default(now())

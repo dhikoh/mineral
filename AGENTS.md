@@ -16,14 +16,29 @@ Aplikasi marketplace *single-seller* B2B + Mini-CRM Lead Prospek + CMS Komoditas
 ## 2. Aturan Keamanan Wajib (Non-Negotiable)
 1. **Otorisasi Endpoint Admin**:
    - Seluruh endpoint API di bawah `/api/admin/**` WAJIB terotentikasi menggunakan guard `const session = await getAdminSession(); if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });`.
-   - `src/proxy.ts` (konvensi resmi Next.js 16, sebelumnya `src/middleware.ts`) memproteksi rute `/admin/:path*` (redirect login) dan `/api/admin/:path*` (HTTP 401 instan, kecuali `/api/admin/auth/login`).
+   - `src/proxy.ts` (konvensi resmi Next.js 16 — **bukan** `src/middleware.ts`) memproteksi rute `/admin/:path*` (redirect login) dan `/api/admin/:path*` (HTTP 401 instan, kecuali `/api/admin/auth/login` dan `/api/admin/auth/logout`).
+   - COOKIE_NAME **wajib** diambil dari `getAdminCookieName()` di `src/lib/config.ts` — dilarang hardcode string `'adably_admin_token'`.
 2. **Secret & Kredensial**:
-   - Dilarang keras menaruh fallback string rahasia untuk `AUTH_SECRET` di kode. Variabel lingkungan wajib divalidasi fail-fast (minimal 32 karakter acak).
+   - Dilarang keras menaruh fallback string rahasia untuk `AUTH_SECRET` di kode. Variabel lingkungan wajib divalidasi fail-fast via `src/lib/env.ts::validateEnv()` (minimal 32 karakter acak).
    - Dilarang memasang backdoor kredensial login default pada runtime produksi.
+   - `TRUSTED_PROXY_COUNT` **wajib** diset sesuai infrastruktur deployment untuk mencegah rate limit bypass via XFF palsu.
 3. **Integritas Data & Dual Persistence**:
-   - Di lingkungan produksi (`NODE_ENV === 'production'`), dilarang silent-fallback ke file lokal `.local-store.json` saat database error. Kegagalan database wajib melempar error keras (fail-loud) kecuali flag `ALLOW_LOCAL_FALLBACK=true` sengaja diset.
+   - Di lingkungan produksi (`NODE_ENV === 'production'`), dilarang silent-fallback ke file lokal `.local-store.json` saat database error. Gunakan `classifyDbError()` dari `src/lib/db-errors.ts` — hanya `UNREACHABLE` yang boleh memicu fallback.
 4. **Proteksi Upload Berkas**:
-   - Endpoint upload publik `/api/upload` wajib menerapkan rate limiting per-IP dan validasi magic bytes berkas fisik (hanya menerima JPG, PNG, WEBP, PDF; format SVG dilarang untuk upload publik guna mencegah stored XSS).
+   - Endpoint upload publik wajib: rate limiting per-IP, validasi magic bytes (JPG/PNG/WEBP/PDF saja), validasi URL via `src/lib/upload-url.ts` (whitelist host, tolak IP privat, tolak `http://`).
+   - SVG dilarang untuk upload publik (stored XSS).
+5. **State Machine Pesanan**:
+   - Perubahan status pesanan ke `PAID` **hanya** boleh melalui `POST /api/admin/pesanan/[id]/verifikasi`, tidak via PATCH generik.
+   - Selalu gunakan `canVerifyPayment()` dan `canRejectPayment()` dari `src/lib/order-security.ts` sebelum memproses verifikasi.
+   - Status `REJECTED` telah **dihapus** dari enum (Sesi #33). Gunakan `CANCELLED` sebagai pengganti.
+6. **Rate Limiting**:
+   - Gunakan `peekRateLimit()` untuk cek status, `consumeRateLimit()` untuk naikkan counter, `clearRateLimit()` untuk reset setelah sukses.
+   - Jangan panggil `checkRateLimit()` ganda untuk event yang sama — counter hanya boleh naik 1× per percobaan.
+7. **CSV Export**:
+   - Seluruh ekspor CSV **wajib** menggunakan `buildCsv()` dari `src/lib/csv.ts` untuk mencegah formula injection (=, +, -, @).
+8. **Audit Log**:
+   - Semua operasi PII berisiko (ekspor data, hapus pelanggan, logout) **wajib** dicatat ke `AuditLog` via `recordAuditLog()`.
+   - Gunakan konstanta dari `AUDIT_ACTIONS` — dilarang string literal.
 
 ---
 

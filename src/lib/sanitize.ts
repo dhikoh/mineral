@@ -1,3 +1,8 @@
+/**
+ * src/lib/sanitize.ts
+ * P2-11: Hapus 'data' dari allowedSchemes (XSS via data: URI)
+ * P2-11: Tambah sanitizeText() untuk field teks polos (nama, perusahaan, alamat)
+ */
 import sanitizeHtml from 'sanitize-html';
 
 export function sanitize(html: string): string {
@@ -31,31 +36,46 @@ export function sanitize(html: string): string {
       code: ['class'],
       pre: ['class'],
     },
-    allowedSchemes: ['http', 'https', 'mailto', 'tel', 'data'],
+    // P2-11: Hapus 'data' — mencegah stored XSS via data: URI
+    allowedSchemes: ['https', 'http', 'mailto', 'tel'],
     allowedStyles: {
       '*': {
-        // Allow text-align (from Tiptap TextAlign extension)
         'text-align': [/^(left|right|center|justify)$/],
-        // Allow color (from Tiptap Color extension)
         'color': [/^#[0-9a-fA-F]{3,8}$/, /^rgb\(.*\)$/, /^rgba\(.*\)$/],
-        // Allow font properties
         'font-weight': [/^\d+$/, /^(bold|normal|lighter|bolder)$/],
         'font-style': [/^(italic|normal|oblique)$/],
-        // Allow max-width for images
         'max-width': [/^\d+(%|px|em|rem)$/],
       },
     },
     transformTags: {
-      a: (tagName, attribs) => {
-        return {
-          tagName,
-          attribs: {
-            ...attribs,
-            rel: 'noopener noreferrer',
-            target: attribs.target || '_blank',
-          },
-        };
-      },
+      a: (tagName, attribs) => ({
+        tagName,
+        attribs: {
+          ...attribs,
+          rel: 'noopener noreferrer',
+          target: attribs.target || '_blank',
+        },
+      }),
     },
   });
+}
+
+/**
+ * P2-11: Sanitasi teks polos — hapus semua HTML, normalisasi whitespace.
+ * Gunakan untuk: nama, perusahaan, alamat, nama pengirim, dll.
+ */
+export function sanitizeText(input: string | null | undefined): string {
+  if (!input) return '';
+  // Strip semua HTML tags, decode entitas, normalisasi whitespace
+  const stripped = sanitizeHtml(input, { allowedTags: [], allowedAttributes: {} });
+  return stripped.replace(/\s+/g, ' ').trim().slice(0, 1000);
+}
+
+/**
+ * Sanitasi number — pastikan nilai adalah angka valid (positif).
+ * Gunakan untuk amount, price, qty yang datang dari user input.
+ */
+export function sanitizePositiveInt(input: unknown): number | null {
+  const n = parseInt(String(input ?? ''), 10);
+  return !isNaN(n) && n >= 0 ? n : null;
 }

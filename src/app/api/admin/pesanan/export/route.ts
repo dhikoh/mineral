@@ -1,24 +1,14 @@
 /**
  * GET /api/admin/pesanan/export
- * Sesi #19 (Fix #5): Export daftar pesanan ke CSV untuk rekonsiliasi keuangan/akuntansi.
- *
- * Query params:
- *   status    - filter status (opsional, default: semua)
- *   dateFrom  - filter tanggal mulai ISO 8601 (opsional)
- *   dateTo    - filter tanggal akhir ISO 8601 (opsional)
+ * P1-04: Pakai buildCsv() dari src/lib/csv.ts (anti formula injection + BOM + CRLF)
+ * P2-12: Catat EXPORT_ORDERS ke audit log
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSession } from '@/lib/auth';
 import { prisma } from '@/lib/db';
-
-function escapeCSV(val: unknown): string {
-  if (val === null || val === undefined) return '';
-  const str = String(val);
-  if (str.includes(',') || str.includes('"') || str.includes('\n')) {
-    return `"${str.replace(/"/g, '""')}"`;
-  }
-  return str;
-}
+import { buildCsv } from '@/lib/csv';
+import { recordAuditLog, AUDIT_ACTIONS } from '@/lib/audit-log';
+import { getBrandSlug } from '@/lib/config';
 
 function formatDate(d: Date | string | null | undefined): string {
   if (!d) return '';
@@ -38,92 +28,98 @@ export async function GET(req: NextRequest) {
     const dateFrom = searchParams.get('dateFrom') || '';
     const dateTo = searchParams.get('dateTo') || '';
 
-    const where: any = {};
-
-    if (status && status !== 'ALL') {
-      where.status = status;
-    }
+    const where: Record<string, unknown> = {};
+    if (status && status !== 'ALL') where.status = status;
 
     if (dateFrom || dateTo) {
-      where.createdAt = {};
+      const createdAt: Record<string, Date> = {};
       if (dateFrom) {
         const from = new Date(dateFrom);
-        if (!isNaN(from.getTime())) where.createdAt.gte = from;
+        if (!isNaN(from.getTime())) createdAt.gte = from;
       }
       if (dateTo) {
         const to = new Date(dateTo);
         if (!isNaN(to.getTime())) {
-          // Inklusif sampai akhir hari dateTo
           to.setHours(23, 59, 59, 999);
-          where.createdAt.lte = to;
+          createdAt.lte = to;
         }
       }
+      if (Object.keys(createdAt).length > 0) where.createdAt = createdAt;
     }
 
     const orders = await prisma.order.findMany({
       where,
-      include: { items: true },
+      include: {
+        items: { select: { productName: true, qty: true, price: true, productUnit: true } },
+        proof: { select: { senderBank: true, senderName: true, amount: true, verifiedAt: true } },
+        customer: { select: { company: true } },
+      },
       orderBy: { createdAt: 'desc' },
+      take: 10000,
     });
 
-    // Targeted product lookup — OrderItem tidak punya relasi Prisma ke Product
-    const productIds = [...new Set(orders.flatMap((o) => o.items.map((i) => i.productId)))];
-    const products = productIds.length > 0
-      ? await prisma.product.findMany({ where: { id: { in: productIds } }, select: { id: true, name: true, unit: true } })
-      : [];
-    const productMap = new Map(products.map((p) => [p.id, p]));
-
-    // Bangun CSV
     const headers = [
-      'Kode Pesanan',
-      'Nama Pembeli',
-      'Telepon',
-      'Email',
-      'Alamat',
-      'Total (Rp)',
-      'Status',
-      'Tanggal Pesan',
-      'Ringkasan Item',
+      'Kode Pesanan', 'Status', 'Nama Pembeli', 'Perusahaan', 'No. WhatsApp',
+      'Email', 'Alamat', 'Subtotal (Rp)', 'Ongkir (Rp)', 'PPN (Rp)',
+      'Total Tagihan (Rp)', 'Nominal Transfer (Rp)', 'Bank Pengirim',
+      'Nama Pengirim', 'Produk', 'No. Resi', 'Tanggal Pesanan', 'Tanggal Verifikasi',
+      'Catatan Pembeli', 'Catatan Admin',
     ];
 
-    const rows = orders.map((o) => {
-      const itemSummary = o.items
-        .map((it) => {
-          const prod = productMap.get(it.productId);
-          return `${prod?.name || 'Produk Arsip'} x${it.qty} ${prod?.unit || 'kg'}`;
-        })
-        .join(' | ');
+    const rows = orders.map(o => {
+      const productSummary = o.items.map(i =>
+        `${i.productName} (${i.qty} ${i.productUnit ?? 'kg'} @ Rp${i.price.toLocaleString('id-ID')})`
+      ).join(' | ');
 
       return [
         o.orderCode,
+        o.status,
         o.buyerName,
+        o.customer?.company || '',
         o.buyerPhone,
         o.buyerEmail || '',
         o.buyerAddress,
-        o.total,
-        o.status,
+        o.subtotal ?? o.total,
+        o.shippingCost ?? 0,
+        o.taxAmount ?? 0,
+        o.grandTotal ?? o.total,
+        o.proof?.amount ?? '',
+        o.proof?.senderBank || '',
+        o.proof?.senderName || '',
+        productSummary,
+        o.trackingNumber || '',
         formatDate(o.createdAt),
-        itemSummary,
-      ].map(escapeCSV).join(',');
+        formatDate(o.proof?.verifiedAt),
+        o.notes || '',
+        o.adminNotes || '',
+      ];
     });
 
+    const csvContent = buildCsv(headers, rows);
 
-    const csv = [headers.join(','), ...rows].join('\n');
-    const today = new Date().toISOString().substring(0, 10);
-    const filename = `pesanan_export_${today}.csv`;
+    const todayStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const brand = getBrandSlug();
+    const filename = `${brand}-laporan-pesanan-${todayStr}.csv`;
 
-    return new NextResponse(csv, {
+    await recordAuditLog({
+      actorId: session.id,
+      actorName: session.name,
+      actorRole: session.role,
+      action: AUDIT_ACTIONS.EXPORT_ORDERS,
+      metadata: { count: orders.length, filters: { status, dateFrom, dateTo } },
+    });
+
+    return new Response(csvContent, {
       status: 200,
       headers: {
         'Content-Type': 'text/csv; charset=utf-8',
         'Content-Disposition': `attachment; filename="${filename}"`,
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
       },
     });
-  } catch (error: any) {
-    console.error('[export/pesanan] error:', error);
-    return NextResponse.json(
-      { error: 'Gagal mengekspor data pesanan' },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.error('Error exporting orders CSV:', err);
+    return NextResponse.json({ error: err?.message || 'Gagal mengekspor data pesanan' }, { status: 500 });
   }
 }
