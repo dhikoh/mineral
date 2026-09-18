@@ -166,7 +166,7 @@ export function ProductDetailClient({
   };
 
   const whatsappOrderQty = `${qtyInput} ${currentUnitLabel.toUpperCase()}${isTonSelected ? ` (${effectiveQtyInBase.toLocaleString('id-ID')} KG)` : ''}`;
-  const whatsappMessage = `Halo CS Adably, saya tertarik memesan produk ${product.name} sebanyak ${whatsappOrderQty} dengan perkiraan subtotal ${formatRupiah(currentSubtotal)}. Mohon info ketersediaan stok, sertifikat spesifikasi, dan estimasi logistik pengiriman.`;
+  const whatsappMessage = `Halo CS, saya tertarik memesan produk ${product.name} sebanyak ${whatsappOrderQty} dengan perkiraan subtotal ${formatRupiah(currentSubtotal)}. Mohon info ketersediaan stok, sertifikat spesifikasi, dan estimasi logistik pengiriman.`;
   const whatsappUrl = `https://wa.me/${csWhatsapp}?text=${encodeURIComponent(whatsappMessage)}`;
 
   return (

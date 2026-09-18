@@ -1,3 +1,4 @@
+import { getBaseUrl, getDefaultSiteName } from '@/lib/config';
 import Link from 'next/link';
 import { ProductCard } from '@/components/storefront/ProductCard';
 import { WholesaleRfqTrigger } from '@/components/storefront/WholesaleRfqTrigger';
@@ -17,6 +18,7 @@ import {
   getSiteSettings,
 } from '@/lib/data-store';
 import { sanitize } from '@/lib/sanitize';
+import { safeJsonLd } from '@/lib/json-ld';
 
 export default async function HomePage() {
   const [heroBlock, whyUsBlock, supplierCtaBlock, categories, allProducts, settings] = await Promise.all([
@@ -46,12 +48,12 @@ export default async function HomePage() {
     `Halo ${settings.siteName}, saya ingin berdiskusi kontrak pasokan komoditas skala tonase / kontainer industri...`
   )}`;
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://adably.id';
+  const baseUrl = getBaseUrl();
 
   const organizationSchema = {
     '@context': 'https://schema.org',
     '@type': 'Organization',
-    name: settings.siteName || 'Adably',
+    name: settings.siteName || getDefaultSiteName(),
     url: baseUrl,
     logo: `${baseUrl}/icons/icon-512.png`,
     description: settings.tagline || 'Pusat Komoditas Mineral Tambang & Hasil Alam Berkualitas Ekspor',
@@ -75,7 +77,7 @@ export default async function HomePage() {
   const websiteSchema = {
     '@context': 'https://schema.org',
     '@type': 'WebSite',
-    name: settings.siteName || 'Adably',
+    name: settings.siteName || getDefaultSiteName(),
     url: baseUrl,
     potentialAction: {
       '@type': 'SearchAction',
@@ -89,11 +91,11 @@ export default async function HomePage() {
       {/* Schema.org Structured Data */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(organizationSchema) }}
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(websiteSchema) }}
       />
 
       {/* Hero Section */}

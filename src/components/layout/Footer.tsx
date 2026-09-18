@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { CreditCard, Clock, MapPin, Phone, ShieldCheck } from 'lucide-react';
 import type { BankAccount } from '@/lib/data-store';
 import { FooterPaymentButton } from '@/components/layout/FooterPaymentButton';
+import { getDefaultSiteName } from '@/lib/config';
 
 interface FooterProps {
   siteName?: string;
@@ -14,17 +15,20 @@ interface FooterProps {
 }
 
 export function Footer({
-  siteName = 'Adably',
+  siteName,
   tagline = 'Pusat Komoditas Mineral Tambang & Hasil Alam Berkualitas Ekspor',
   address = 'Kawasan Pergudangan & Industri Logistik Blok M-9, Jakarta Barat',
   csWhatsapp = '6281234567890',
   csOperationalHours = 'Senin - Sabtu, 08.00 - 17.00 WIB',
-  bankAccounts = [
-    { bank: 'BCA', noRekening: '8001234567', atasNama: 'Adably' },
-    { bank: 'Mandiri', noRekening: '1230009876543', atasNama: 'Adably' },
-  ],
-  footerText = '© 2026 Adably. All rights reserved.',
+  bankAccounts,
+  footerText,
 }: FooterProps) {
+  const currentBrand = siteName || getDefaultSiteName();
+  const currentBankAccounts = bankAccounts || [
+    { bank: 'BCA', noRekening: '8001234567', atasNama: currentBrand },
+    { bank: 'Mandiri', noRekening: '1230009876543', atasNama: currentBrand },
+  ];
+  const currentFooterText = footerText || `© ${new Date().getFullYear()} ${currentBrand}. All rights reserved.`;
   return (
     <footer className="border-t border-surface-200 bg-white pt-12 pb-24 text-slate-600 md:pb-12">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -35,7 +39,7 @@ export function Footer({
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-600 to-teal-800 font-black text-lg text-white">
                 M
               </div>
-              <span className="text-lg font-bold text-slate-900">{siteName}</span>
+              <span className="text-lg font-bold text-slate-900">{currentBrand}</span>
             </div>
             <p className="mt-3 text-xs leading-relaxed text-slate-500">
               {tagline}
@@ -62,7 +66,7 @@ export function Footer({
               Pembayaran sah hanya ditujukan ke rekening di bawah ini:
             </p>
             <div className="mt-3 space-y-2.5">
-              {bankAccounts
+              {currentBankAccounts
                 .filter((b) => b.isActive !== false && b.type !== 'QRIS')
                 .map((b, idx) => (
                   <div
@@ -81,7 +85,7 @@ export function Footer({
                   </div>
                 ))}
             </div>
-            <FooterPaymentButton paymentMethods={bankAccounts} />
+            <FooterPaymentButton paymentMethods={bankAccounts || []} />
           </div>
 
           {/* Kolom 3: Navigasi Cepat */}
@@ -144,7 +148,7 @@ export function Footer({
             </p>
             <div className="mt-4">
               <a
-                href={`https://wa.me/${csWhatsapp}?text=${encodeURIComponent('Halo CS Adably')}`}
+                href={`https://wa.me/${csWhatsapp}?text=${encodeURIComponent(`Halo CS ${currentBrand}`)}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 rounded-xl bg-surface-100 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 border border-surface-200 px-3.5 py-2 text-xs font-semibold text-slate-700 transition-all"
@@ -158,7 +162,7 @@ export function Footer({
 
         {/* Bottom bar */}
         <div className="mt-10 border-t border-surface-200 pt-6 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400 gap-4">
-          <p>{footerText}</p>
+          <p>{currentFooterText}</p>
           <div className="flex items-center gap-4">
             <Link href="/syarat-ketentuan" prefetch={false} className="hover:underline">
               Syarat & Ketentuan

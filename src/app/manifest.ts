@@ -1,9 +1,10 @@
 import type { MetadataRoute } from 'next';
+import { getDefaultSiteName } from '@/lib/config';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Adably — Marketplace Komoditas Tambang & Hasil Alam',
-    short_name: 'Adably',
+    name: `${getDefaultSiteName()} — Marketplace Komoditas Tambang & Hasil Alam`,
+    short_name: getDefaultSiteName(),
     description:
       'Platform B2B & Retail Terpercaya Komoditas Tambang Indonesia: Zeolite, Bentonite, Timah murni, serta Gaharu super.',
     start_url: '/',

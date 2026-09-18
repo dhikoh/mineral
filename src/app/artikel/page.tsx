@@ -1,20 +1,22 @@
+import { getBaseUrl, getDefaultSiteName } from '@/lib/config';
 import Link from 'next/link';
 import Image from 'next/image';
 import type { Metadata } from 'next';
 import { getArticles } from '@/lib/data-store';
 import { formatDate } from '@/lib/utils';
 import { FileText, Clock, ArrowRight, BookOpen, Sparkles } from 'lucide-react';
+import { safeJsonLd } from '@/lib/json-ld';
 
 export const dynamic = 'force-dynamic';
 
 export async function generateMetadata(): Promise<Metadata> {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://adably.id';
+  const baseUrl = getBaseUrl();
   return {
     title: 'Artikel & Riset Komoditas Mineral',
     description:
       'Panduan teknis, spesifikasi industri, analisis laboratorium, dan edukasi aplikasi mineral aktif serta hasil alam bernilai tinggi.',
     openGraph: {
-      title: 'Artikel & Riset Komoditas Mineral — Adably',
+      title: `Artikel & Riset Komoditas Mineral — ${getDefaultSiteName()}`,
       description:
         'Panduan teknis, spesifikasi industri, dan analisis aplikasi komoditas mineral Indonesia.',
       url: `${baseUrl}/artikel`,
@@ -32,7 +34,7 @@ function estimateReadingTime(html: string): string {
 
 export default async function ArtikelListingPage() {
   const { data: articles } = await getArticles({ publishedOnly: true });
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://adably.id';
+  const baseUrl = getBaseUrl();
 
   const breadcrumbSchema = {
     '@context': 'https://schema.org',
@@ -58,7 +60,7 @@ export default async function ArtikelListingPage() {
       {/* Schema.org Breadcrumbs */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(breadcrumbSchema) }}
       />
 
       {/* Header Banner */}

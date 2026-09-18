@@ -22,6 +22,10 @@ import {
   Building2,
   ToggleLeft,
   ToggleRight,
+  ShieldCheck,
+  Receipt,
+  Truck,
+  History,
 } from 'lucide-react';
 import { ImageUploader } from '@/components/ui/ImageUploader';
 import type { BankAccount } from '@/lib/data-store';
@@ -38,30 +42,43 @@ interface SiteSettingsData {
   address: string;
   bankAccounts: BankAccount[];
   footerText?: string | null;
+  paymentToleranceAmount?: number | null;
+  taxEnabled?: boolean | null;
+  defaultTaxRate?: number | null;
+  shippingPolicy?: string | null;
+  auditRetentionDays?: number | null;
+  lowStockAlertThreshold?: number | null;
 }
 
 export default function AdminPengaturanPage() {
-  const [activeTab, setActiveTab] = useState<'brand' | 'contact' | 'banks'>('brand');
+  const [activeTab, setActiveTab] = useState<'brand' | 'contact' | 'banks' | 'b2b'>('brand');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [userRole, setUserRole] = useState<'SUPERADMIN' | 'ADMIN'>('SUPERADMIN');
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
   // Form states
-  const [siteName, setSiteName] = useState('Adably');
+  const [siteName, setSiteName] = useState('');
   const [tagline, setTagline] = useState('Pusat Komoditas Mineral Tambang & Hasil Alam Berkualitas Ekspor');
   const [logoUrl, setLogoUrl] = useState('');
   const [faviconUrl, setFaviconUrl] = useState('');
   const [primaryColor, setPrimaryColor] = useState('#059669');
   const [csWhatsapp, setCsWhatsapp] = useState('6281234567890');
-  const [csEmail, setCsEmail] = useState('cs@adably.id');
+  const [csEmail, setCsEmail] = useState('');
   const [csOperationalHours, setCsOperationalHours] = useState('Senin - Sabtu, 08.00 - 17.00 WIB');
   const [address, setAddress] = useState('Kawasan Pergudangan & Industri Logistik Blok M-9, Jakarta Barat');
-  const [footerText, setFooterText] = useState('© 2026 Adably. All rights reserved.');
+  const [footerText, setFooterText] = useState('');
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([
-    { bank: 'BCA', noRekening: '8001234567', atasNama: 'Adably' },
-    { bank: 'Mandiri', noRekening: '1230009876543', atasNama: 'Adably' },
+    { bank: 'BCA', noRekening: '', atasNama: '' },
+    { bank: 'Mandiri', noRekening: '', atasNama: '' },
   ]);
+  const [paymentToleranceAmount, setPaymentToleranceAmount] = useState<string>('0');
+  const [taxEnabled, setTaxEnabled] = useState<boolean>(false);
+  const [defaultTaxRate, setDefaultTaxRate] = useState<string>('0');
+  const [shippingPolicy, setShippingPolicy] = useState<string>('');
+  const [auditRetentionDays, setAuditRetentionDays] = useState<string>('365');
+  const [lowStockAlertThreshold, setLowStockAlertThreshold] = useState<string>('50');
 
   const router = useRouter();
 
@@ -75,6 +92,9 @@ export default function AdminPengaturanPage() {
         return res.json();
       })
       .then((data) => {
+        if (data?.role) {
+          setUserRole(data.role);
+        }
         if (data?.settings) {
           const s: SiteSettingsData = data.settings;
           setSiteName(s.siteName || '');
@@ -90,6 +110,12 @@ export default function AdminPengaturanPage() {
           if (Array.isArray(s.bankAccounts) && s.bankAccounts.length > 0) {
             setBankAccounts(s.bankAccounts);
           }
+          setPaymentToleranceAmount(String(s.paymentToleranceAmount ?? 0));
+          setTaxEnabled(Boolean(s.taxEnabled));
+          setDefaultTaxRate(String(s.defaultTaxRate ?? 0));
+          setShippingPolicy(s.shippingPolicy || '');
+          setAuditRetentionDays(String(s.auditRetentionDays ?? 365));
+          setLowStockAlertThreshold(String(s.lowStockAlertThreshold ?? 50));
         }
         setLoading(false);
       })
@@ -103,14 +129,14 @@ export default function AdminPengaturanPage() {
   const handleAddBank = () => {
     setBankAccounts((prev) => [
       ...prev,
-      { type: 'BANK', bank: 'BCA', noRekening: '', atasNama: 'Adably', isActive: true },
+      { type: 'BANK', bank: 'BCA', noRekening: '', atasNama: '', isActive: true },
     ]);
   };
 
   const handleAddQris = () => {
     setBankAccounts((prev) => [
       ...prev,
-      { type: 'QRIS', bank: 'QRIS', noRekening: '', atasNama: 'Adably', qrImageUrl: '', instructions: '', isActive: true },
+      { type: 'QRIS', bank: 'QRIS', noRekening: '', atasNama: '', qrImageUrl: '', instructions: '', isActive: true },
     ]);
   };
 
@@ -157,7 +183,17 @@ export default function AdminPengaturanPage() {
           csOperationalHours: csOperationalHours.trim(),
           address: address.trim(),
           footerText: footerText.trim(),
-          bankAccounts,
+          shippingPolicy: shippingPolicy.trim() || null,
+          ...(userRole === 'SUPERADMIN'
+            ? {
+                bankAccounts,
+                paymentToleranceAmount: Math.max(0, Number(paymentToleranceAmount) || 0),
+                taxEnabled,
+                defaultTaxRate: Math.max(0, Number(defaultTaxRate) || 0),
+                auditRetentionDays: Math.max(30, Number(auditRetentionDays) || 365),
+                lowStockAlertThreshold: Math.max(0, Number(lowStockAlertThreshold) || 50),
+              }
+            : {}),
         }),
       });
 
@@ -278,6 +314,19 @@ export default function AdminPengaturanPage() {
             <CreditCard className="h-4 w-4" />
             <span>Rekening Bank ({bankAccounts.length})</span>
           </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('b2b')}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition-all ${
+              activeTab === 'b2b'
+                ? 'bg-emerald-600 text-white shadow-soft-xs'
+                : 'text-slate-600 hover:bg-surface-50'
+            }`}
+          >
+            <ShieldCheck className="h-4 w-4" />
+            <span>Finansial & B2B</span>
+          </button>
         </div>
 
         {/* Form Content */}
@@ -300,7 +349,7 @@ export default function AdminPengaturanPage() {
                     required
                     value={siteName}
                     onChange={(e) => setSiteName(e.target.value)}
-                    placeholder="Adably"
+                    placeholder="Nama Platform"
                     className="w-full rounded-xl border border-surface-200 bg-surface-50/50 px-3.5 py-2.5 text-xs text-slate-900 focus:border-emerald-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
                   />
                 </div>
@@ -374,7 +423,7 @@ export default function AdminPengaturanPage() {
                   type="text"
                   value={footerText || ''}
                   onChange={(e) => setFooterText(e.target.value)}
-                  placeholder="© 2026 Adably. All rights reserved."
+                  placeholder="© 2026 Perusahaan. All rights reserved."
                   className="w-full rounded-xl border border-surface-200 bg-surface-50/50 px-3.5 py-2.5 text-xs text-slate-900 focus:border-emerald-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
                 />
               </div>
@@ -419,7 +468,7 @@ export default function AdminPengaturanPage() {
                     type="email"
                     value={csEmail}
                     onChange={(e) => setCsEmail(e.target.value)}
-                    placeholder="cs@adably.id"
+                    placeholder="cs@example.com"
                     className="w-full rounded-xl border border-surface-200 bg-surface-50/50 px-3.5 py-2.5 text-xs text-slate-900 focus:border-emerald-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
                   />
                 </div>
@@ -575,7 +624,7 @@ export default function AdminPengaturanPage() {
                             required
                             value={b.atasNama}
                             onChange={(e) => handleBankChange(idx, 'atasNama', e.target.value)}
-                            placeholder="Adably"
+                            placeholder="Nama Platform"
                             className="w-full rounded-xl border border-surface-200 bg-white px-3 py-2 text-xs font-bold text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
                           />
                         </div>
@@ -607,7 +656,7 @@ export default function AdminPengaturanPage() {
                               required
                               value={b.bank}
                               onChange={(e) => handleBankChange(idx, 'bank', e.target.value)}
-                              placeholder="QRIS Adably"
+                              placeholder="QRIS Merchant"
                               className="w-full rounded-xl border border-surface-200 bg-white px-3 py-2 text-xs font-bold text-slate-900 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
                             />
                           </div>
@@ -620,7 +669,7 @@ export default function AdminPengaturanPage() {
                               required
                               value={b.atasNama}
                               onChange={(e) => handleBankChange(idx, 'atasNama', e.target.value)}
-                              placeholder="Adably"
+                              placeholder="Nama Platform"
                               className="w-full rounded-xl border border-surface-200 bg-white px-3 py-2 text-xs font-bold text-slate-900 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
                             />
                           </div>
@@ -676,6 +725,166 @@ export default function AdminPengaturanPage() {
                     )}
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 4: KEBIJAKAN & FINANSIAL B2B */}
+          {activeTab === 'b2b' && (
+            <div className="rounded-3xl border border-surface-200 bg-white p-6 sm:p-8 shadow-soft-xs space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-surface-200 pb-4">
+                <div>
+                  <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                    <ShieldCheck className="h-5 w-5 text-emerald-600" />
+                    Kebijakan & Finansial B2B
+                  </h2>
+                  <p className="text-xs text-slate-500">
+                    Konfigurasi pajak, toleransi pembayaran transfer, ambang peringatan stok, dan retensi log
+                  </p>
+                </div>
+                {userRole !== 'SUPERADMIN' && (
+                  <span className="self-start rounded-full bg-amber-50 px-3 py-1 text-[11px] font-bold text-amber-700 border border-amber-200">
+                    Mode Baca: Diperlukan Role SUPERADMIN untuk mengubah
+                  </span>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                {/* Toleransi Pembayaran */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                    <Receipt className="h-3.5 w-3.5 text-emerald-600" />
+                    Toleransi Selisih Pembayaran (IDR)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    disabled={userRole !== 'SUPERADMIN'}
+                    value={paymentToleranceAmount}
+                    onChange={(e) => setPaymentToleranceAmount(e.target.value)}
+                    placeholder="Contoh: 5000"
+                    className="w-full rounded-xl border border-surface-200 bg-white px-3.5 py-2.5 text-xs text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 disabled:bg-slate-50 disabled:text-slate-500"
+                  />
+                  <p className="mt-1 text-[11px] text-slate-400">
+                    Batas toleransi perbedaan nominal transfer bukti vs tagihan (misal kode unik transfer). Default: Rp 5.000.
+                  </p>
+                </div>
+
+                {/* Ambang Peringatan Stok Tipis */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                    <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                    Ambang Peringatan Stok Minimum Default
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    disabled={userRole !== 'SUPERADMIN'}
+                    value={lowStockAlertThreshold}
+                    onChange={(e) => setLowStockAlertThreshold(e.target.value)}
+                    placeholder="Contoh: 50"
+                    className="w-full rounded-xl border border-surface-200 bg-white px-3.5 py-2.5 text-xs text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 disabled:bg-slate-50 disabled:text-slate-500"
+                  />
+                  <p className="mt-1 text-[11px] text-slate-400">
+                    Batas stok tipis global untuk memicu alert kartu stok di dashboard admin.
+                  </p>
+                </div>
+
+                {/* Pajak / PPN Checkout */}
+                <div className="sm:col-span-2 rounded-2xl border border-surface-200 bg-surface-50/60 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-bold text-slate-800">Aktifkan Pajak Pertambahan Nilai (PPN)</p>
+                      <p className="text-[11px] text-slate-500">
+                        Jika aktif, sistem otomatis menambahkan kalkulasi pajak ke grand total checkout.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={userRole !== 'SUPERADMIN'}
+                      onClick={() => setTaxEnabled(!taxEnabled)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                        taxEnabled
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
+                      }`}
+                    >
+                      {taxEnabled ? (
+                        <>
+                          <ToggleRight className="h-4 w-4" />
+                          <span>Aktif</span>
+                        </>
+                      ) : (
+                        <>
+                          <ToggleLeft className="h-4 w-4" />
+                          <span>Nonaktif</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {taxEnabled && (
+                    <div className="pt-2 border-t border-surface-200">
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Tarif Pajak Default (Basis Poin: 1100 = 11%)
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={10000}
+                        disabled={userRole !== 'SUPERADMIN'}
+                        value={defaultTaxRate}
+                        onChange={(e) => setDefaultTaxRate(e.target.value)}
+                        placeholder="Contoh: 1100"
+                        className="w-full sm:w-64 rounded-xl border border-surface-200 bg-white px-3.5 py-2 text-xs text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      />
+                      <p className="mt-1 text-[11px] text-slate-500">
+                        Persentase tarif efektif:{' '}
+                        <strong className="text-emerald-700">
+                          {((Number(defaultTaxRate) || 0) / 100).toFixed(2)}%
+                        </strong>
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Retensi Audit Log */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                    <History className="h-3.5 w-3.5 text-blue-600" />
+                    Retensi Riwayat Audit Log (Hari)
+                  </label>
+                  <input
+                    type="number"
+                    min={30}
+                    disabled={userRole !== 'SUPERADMIN'}
+                    value={auditRetentionDays}
+                    onChange={(e) => setAuditRetentionDays(e.target.value)}
+                    placeholder="Contoh: 365"
+                    className="w-full rounded-xl border border-surface-200 bg-white px-3.5 py-2.5 text-xs text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 disabled:bg-slate-50 disabled:text-slate-500"
+                  />
+                  <p className="mt-1 text-[11px] text-slate-400">
+                    Jangka waktu penyimpanan catatan audit sebelum otomatis dibersihkan via skrip purge (min. 30 hari).
+                  </p>
+                </div>
+
+                {/* Kebijakan Pengiriman */}
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                    <Truck className="h-3.5 w-3.5 text-slate-700" />
+                    Kebijakan & Informasi Pengiriman Logistik
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={shippingPolicy}
+                    onChange={(e) => setShippingPolicy(e.target.value)}
+                    placeholder="Jelaskan opsi pengiriman kargo, loco gudang, atau penentuan biaya kirim manual..."
+                    className="w-full rounded-xl border border-surface-200 bg-white p-3.5 text-xs text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  />
+                  <p className="mt-1 text-[11px] text-slate-400">
+                    Kebijakan ini ditampilkan sebagai rujukan pembeli dan admin dalam penentuan ongkos kirim pesanan komoditas.
+                  </p>
+                </div>
               </div>
             </div>
           )}

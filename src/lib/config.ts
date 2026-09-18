@@ -1,6 +1,6 @@
 /**
  * src/lib/config.ts
- * P2-03b: Konfigurasi terpusat — menghilangkan 13 literal 'https://adably.id' di kodebase
+ * P2-03b: Konfigurasi terpusat — menghilangkan 13 literal 'http://localhost:3000' di kodebase
  * P2-10: Bagian dari arsitektur config-driven reusable template
  */
 
@@ -22,11 +22,18 @@ export function getBaseUrl(): string {
 }
 
 /**
+ * Nama brand default — ambil dari NEXT_PUBLIC_SITE_NAME atau APP_BRAND_NAME, fallback 'Mineral'
+ */
+export function getDefaultSiteName(): string {
+  return process.env.NEXT_PUBLIC_SITE_NAME || process.env.APP_BRAND_NAME || 'Mineral';
+}
+
+/**
  * Brand slug untuk nama file ekspor, storage keys, dll.
- * Default: 'adably' — ganti via APP_BRAND_SLUG di .env untuk re-deploy
+ * Default: 'mineral' — ganti via APP_BRAND_SLUG di .env untuk re-deploy
  */
 export function getBrandSlug(): string {
-  return process.env.APP_BRAND_SLUG || 'adably';
+  return process.env.APP_BRAND_SLUG || 'mineral';
 }
 
 /**
@@ -38,7 +45,7 @@ export function getCookiePrefix(): string {
 
 /**
  * Nama cookie session admin — digunakan di auth.ts dan proxy.ts
- * Satu sumber kebenaran untuk menghilangkan duplikasi literal 'adably_admin_token'
+ * Satu sumber kebenaran untuk menghilangkan duplikasi literal 'mineral_admin_token'
  */
 export function getAdminCookieName(): string {
   return `${getCookiePrefix()}_admin_token`;
@@ -83,10 +90,15 @@ export function getAllowedImageHostnames(): string[] {
     } catch { /* abaikan */ }
   }
 
-  // Fallback untuk dev: izinkan localhost dan Unsplash (seed data)
-  if (process.env.NODE_ENV === 'development') {
+  // Host domain aplikasi dan CDN dari env APP_DOMAIN
+  if (process.env.APP_DOMAIN) {
+    hosts.push(process.env.APP_DOMAIN, `cdn.${process.env.APP_DOMAIN}`);
+  }
+
+  // Fallback dev & seed data demo HANYA saat development/testing (bukan produksi!)
+  if (process.env.NODE_ENV !== 'production') {
     hosts.push('localhost', 'images.unsplash.com');
   }
 
-  return [...new Set(hosts)]; // deduplicate
+  return [...new Set(hosts.filter(Boolean))]; // deduplicate
 }

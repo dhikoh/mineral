@@ -1,19 +1,22 @@
 # BLUEPRINT — Web Marketplace Single-Seller + CMS Artikel + Template Reusable
-Terakhir diupdate: 2026-09-17 (Sesi #35 — Diagnosa & Solusi Coolify Deployment Exit Code 255, .dockerignore, & Multi-Stage Standalone)
+Terakhir diupdate: 2026-09-18 (Sesi #36 — Audit Total Final & Remediasi Komprehensif)
 
 ---
 
 ## 1. Overview
 Website marketplace **single-seller** yang dirancang untuk satu penjual/pemilik web (Superadmin). Fitur utama mencakup:
 - Katalog produk komoditas/barang dengan taksonomi multi-dimensi (Kategori utama, Peruntukan/Usage terkontrol, dan Hashtags/Tags bebas).
-- Guest checkout cepat tanpa wajib registrasi akun, pelacakan status pesanan real-time via `orderCode` unik + nomor HP/WA.
-- Pembayaran manual transfer bank dengan upload bukti transfer dan verifikasi manual oleh Superadmin.
-- Mini-CRM B2B terintegrasi: penangkapan leads RFQ publik, manajemen direktori prospek & pelanggan, riwayat nilai transaksi (LTV), dan ekspor CSV.
+- Guest checkout cepat tanpa wajib registrasi akun, validasi stok sisi server realtime (`/api/validate-cart`), MOQ & increment step kuantitas.
+- Pelacakan status pesanan real-time via `orderCode` unik + nomor HP/WA pembeli.
+- Pembayaran transfer manual bank dan QRIS dinamis (`type: 'BANK' | 'QRIS'`) dengan modal instruksi pembayaran, upload bukti transfer terproteksi magic bytes, toleransi selisih nominal, dan verifikasi faktur resmi.
+- Mini-CRM B2B terintegrasi: penangkapan leads RFQ publik, manajemen direktori prospek & pelanggan, riwayat nilai transaksi (LTV), timeline interaksi pelanggan, dan ekspor CSV aman dari formula injection.
+- Formulir Penawaran Jual Komoditas (`/jual`) untuk akuisisi mitra/supplier tambang baru dengan sinkronisasi CRM prospek.
+- Generator Dokumen Resmi: Katalog Penawaran PDF dan Faktur Komersial / Proforma Invoice B2B PDF (`@react-pdf/renderer`).
 - CMS Artikel berbasis HTML terintegrasi dengan sanitasi XSS yang ketat.
 - CMS Teks Web (`ContentBlock`) untuk mengelola headline hero, tentang kami, syarat & ketentuan, dsb.
 - Modul FAQ interaktif dengan kontrol urutan dan status aktif.
 - Site Settings & CS WhatsApp terintegrasi (tombol chat mengambang dengan template pesan otomatis).
-- Desain arsitektur **config-driven / reusable starter template** yang siap di-deploy ulang untuk unit bisnis/proyek berikutnya dengan mengganti konfigurasi tanpa merombak kode.
+- Desain arsitektur **config-driven / 100% whitelabel starter template** dengan 0 hardcoded brand literals di `src/`, siap di-deploy ulang untuk unit bisnis/proyek berikutnya hanya dengan mengganti variabel lingkungan dan database setting.
 - Referensi UI/UX: **xpdchub** (mobile/PWA bottom nav, top search bar, chip filter, card layout modern, responsif desktop).
 
 ---
@@ -58,10 +61,17 @@ adably/
 │   └── sw.js
 ├── scripts/
 │   ├── backfill-customer-order.ts # One-time backfill Order.customerId via nomor HP (Sesi #20)
-│   ├── test-audit-p0-p1.ts   # Pengujian 23 assertions kepatuhan P0, P1, dan gap bisnis
-│   ├── test-crm-http.ts      # Pengujian HTTP endpoint CRM & otorisasi admin (401 & 200)
-│   ├── test-crm-module.ts    # Pengujian modul CRM B2B & kalkulasi LTV (42 assertions)
-│   └── test-phase7-e2e.ts    # Pengujian menyeluruh SEO, PWA, dan data store
+│   ├── backfill-order-grandtotal.ts # Backfill grandTotal & financial fields pesanan lama (Sesi #36)
+│   ├── purge-audit-log.ts        # CLI pembersihan audit log sesuai retensi hari (Sesi #36)
+│   ├── test-audit-p0-p1.ts       # Pengujian 23 assertions kepatuhan P0, P1, dan gap bisnis
+│   ├── test-crm-http.ts          # Pengujian HTTP endpoint CRM & otorisasi admin (401 & 200)
+│   ├── test-crm-module.ts        # Pengujian modul CRM B2B & kalkulasi LTV (42 assertions)
+│   ├── test-csv-injection.ts     # Pengujian mitigasi formula injection CSV
+│   ├── test-order-state-machine.ts # Pengujian 23 skenario transisi state machine pesanan
+│   ├── test-phase7-e2e.ts        # Pengujian menyeluruh SEO, PWA, dan data store
+│   ├── test-uom.ts               # Pengujian validasi UOM & konversi satuan
+│   ├── verify-api-matrix.ts      # Verifikasi sinkronisasi 100% kode route ↔ BLUEPRINT §7
+│   └── verify-env-docs.ts        # Verifikasi kelengkapan dokumentasi variabel lingkungan
 ├── src/
 │   ├── app/
 │   │   ├── admin/
@@ -142,14 +152,19 @@ adably/
 │   │   │   │       ├── [id]/route.ts
 │   │   │   │       └── route.ts
 │   │   │   ├── checkout/route.ts
-│   │   │   ├── jual/route.ts             # Sesi #21: POST publik — submit penawaran jual komoditas (rate limited 3/jam)
+│   │   │   ├── health/route.ts         # Sesi #33: GET status kesehatan server & database circuit breaker
+│   │   │   ├── jual/route.ts           # Sesi #21: POST publik — submit penawaran jual komoditas (rate limited 3/jam)
 │   │   │   ├── lacak-pesanan/route.ts
 │   │   │   ├── leads/route.ts
 │   │   │   ├── pesanan/
 │   │   │   │   └── [orderCode]/
 │   │   │   │       ├── bukti/route.ts
+│   │   │   │       ├── invoice/route.ts # Sesi #36: GET unduh invoice / proforma PDF B2B resmi
 │   │   │   │       └── route.ts
-│   │   │   └── upload/route.ts         # Upload berkas publik (bukti transfer) dengan rate limit & magic bytes
+│   │   │   ├── public/
+│   │   │   │   └── settings/route.ts   # Sesi #36: GET pengaturan publik & metode pembayaran aktif
+│   │   │   ├── upload/route.ts         # Upload berkas publik (bukti transfer) dengan rate limit & magic bytes
+│   │   │   └── validate-cart/route.ts  # Sesi #36: POST validasi realtime keranjang belanja & MOQ B2B
 │   │   ├── artikel/
 │   │   │   ├── [slug]/page.tsx
 │   │   │   └── page.tsx
@@ -211,19 +226,28 @@ adably/
 │   ├── lib/
 │   │   ├── audit-log.ts      # recordAuditLog helper + AUDIT_ACTIONS enum (Sesi #17)
 │   │   ├── auth.ts           # Token verification, JWT fail-fast, isActive re-check per request, RBAC helpers
-│   │   ├── cart-context.tsx   # React context state keranjang
+│   │   ├── cart-context.tsx  # React context state keranjang dengan TTL & validasi realtime
+│   │   ├── config.ts         # Konfigurasi aplikasi terpusat, cookie name, branding defaults (Sesi #36)
+│   │   ├── csv.ts            # Builder CSV aman dari formula injection (=, +, -, @) (Sesi #30)
 │   │   ├── data-store.ts     # Data access layer (Prisma + local dev fallback, retry collision, status gate)
+│   │   ├── db-errors.ts      # Klasifikasi error Prisma (CONSTRAINT, UNREACHABLE) (Sesi #33)
 │   │   ├── db.ts             # Prisma Client instance & circuit-breaker proxy
+│   │   ├── env.ts            # Validasi fail-fast variabel lingkungan (Sesi #33, #36)
+│   │   ├── invoice-pdf.tsx   # Template invoice / proforma PDF resmi (@react-pdf/renderer) (Sesi #36)
+│   │   ├── json-ld.ts        # Sanitizer aman JSON-LD anti-XSS injection (Sesi #36)
 │   │   ├── order-security.ts # PII masking, pencocokan nomor HP (min 8 digit), transisi status pesanan strict
+│   │   ├── order-total.ts    # Kalkulasi sentral grandTotal, subtotal, taxAmount, shippingCost (Sesi #36)
 │   │   ├── pdf/
 │   │   │   └── catalog-template.tsx # Sesi #28: Template dokumen PDF (@react-pdf/renderer)
 │   │   ├── rate-limit.ts     # In-memory rate limiting per-IP terpusat dengan preset endpoint (LOGIN, API publik)
 │   │   ├── sanitize.ts       # HTML sanitizer (sanitize-html, digunakan di semua preview & render HTML publik)
-│   │   ├── storage.ts        # Storage driver modular (local, S3/R2 SigV4, Cloudinary signed upload)
-│   │   ├── upload-validate.ts # Shared helper magic bytes validation & allowed MIME types — menghilangkan duplikasi antara /api/upload & /api/admin/upload (Sesi #19)
+│   │   ├── storage.ts        # Storage driver modular (local, S3/R2 SigV4, Cloudinary signed upload, deleteMedia)
+│   │   ├── uom.ts            # Helper unit of measure & konversi satuan (Sesi #33)
+│   │   ├── upload-url.ts     # Validasi anti-SSRF untuk URL gambar/media eksternal (Sesi #33)
+│   │   ├── upload-validate.ts # Shared helper magic bytes validation & allowed MIME types (Sesi #19)
 │   │   ├── utils.ts          # Format rupiah, slugify, generateOrderCode (kriptografis 8-char hex)
-│   │   └── wa-notify.ts      # WA message template builder zero-dependency (5 event: checkout_success, payment_verified, payment_rejected, order_shipped, order_completed) — teks siap-copy di JSON response untuk admin (Sesi #19, dihubungkan penuh Sesi #22)
-│   └── middleware.ts         # Defense-in-depth auth guard (/admin/* & /api/admin/*)
+│   │   └── wa-notify.ts      # WA message template builder zero-dependency siap-copy (Sesi #19, #22)
+│   └── proxy.ts              # Defense-in-depth auth guard (/admin/* & /api/admin/*) konvensi resmi Next.js 16 (Sesi #26)
 ├── .env
 ├── .env.example
 ├── .gitignore
@@ -242,7 +266,7 @@ adably/
 
 ---
 
-## 4. Database Schema (Identik dengan `prisma/schema.prisma`)
+## 4. Database Schema (16 Model, 6 Enum — Identik 100% dengan `prisma/schema.prisma`)
 
 ```prisma
 datasource db {
@@ -259,6 +283,7 @@ enum Role {
   ADMIN
 }
 
+// Status alur kerja pesanan (State Machine). Status REJECTED telah dihapus resmi di Sesi #33 (gunakan CANCELLED).
 enum OrderStatus {
   PENDING_PAYMENT
   PENDING_VERIFICATION
@@ -266,22 +291,25 @@ enum OrderStatus {
   PROCESSING
   SHIPPED
   COMPLETED
-  REJECTED
   CANCELLED
 }
 
 model User {
-  id        String   @id @default(cuid())
-  name      String
-  email     String   @unique
-  password  String   // bcrypt hash
-  role      Role     @default(SUPERADMIN)
-  isActive  Boolean  @default(true) // Sesi #17: status aktif staf (false = nonaktif/suspended)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                 String   @id @default(cuid())
+  name               String
+  email              String   @unique
+  password           String   // bcrypt hash
+  role               Role     @default(SUPERADMIN)
+  isActive           Boolean  @default(true)
+  // P2-07: invalidasi sesi setelah reset password
+  passwordChangedAt  DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
-  verifiedProofs PaymentProof[] @relation("VerifiedBy")
-  auditLogs      AuditLog[]
+  verifiedProofs       PaymentProof[]         @relation("VerifiedBy")
+  auditLogs            AuditLog[]
+  assignedCustomers    Customer[]             @relation("AssignedCustomers")
+  customerInteractions CustomerInteraction[]
 }
 
 model SiteSetting {
@@ -299,13 +327,20 @@ model SiteSetting {
   footerText              String?
   metaTitle               String?
   metaDesc                String?
-  lowStockAlertThreshold  Int?     @default(50) // Ambang stok rendah global
+  lowStockAlertThreshold  Int?     @default(50)
+  // P1-11: Konfigurasi finansial B2B
+  paymentToleranceAmount  Int      @default(0)   // toleransi selisih pembayaran dalam rupiah
+  defaultTaxRate          Int      @default(0)   // dalam basis poin: 1100 = 11%
+  taxEnabled              Boolean  @default(false)
+  shippingPolicy          String?                // deskripsi kebijakan ongkir
+  // P2-12: Retensi audit log
+  auditRetentionDays      Int      @default(365)
   updatedAt               DateTime @updatedAt
 }
 
 model ContentBlock {
   id        String   @id @default(cuid())
-  key       String   @unique // "homepage_hero", "about_us", "why_us", "shipping_info", "terms", "privacy_policy"
+  key       String   @unique
   title     String?
   content   String   @db.Text
   updatedAt DateTime @updatedAt
@@ -329,7 +364,7 @@ model Category {
 
 model Usage {
   id       String         @id @default(cuid())
-  name     String         // "Pertanian & Pupuk", "Pengolahan Air", dsb.
+  name     String
   slug     String         @unique
   products ProductUsage[]
 }
@@ -341,15 +376,23 @@ model Product {
   description String         @db.Text
   price       Int
   stock       Int            @default(0)
-  unit        String         @default("kg")  // Satuan komoditas: kg, ton, sak, jumbo bag, dsb.
-  minStock    Int            @default(50)    // Ambang peringatan stok tipis per-komoditas
-  images      Json           // array string URL: ["/uploads/..."]
-  tags        Json           // array string hashtag: ["zeolite","pupuk-organik"]
+  unit        String         @default("kg")
+  minStock    Int            @default(50)
+  // P1-11: Minimum Order Quantity dan increment step
+  minOrderQty  Int           @default(1)
+  incrementQty Int           @default(1)
+  images      Json
+  tags        Json
   categoryId  String
   category    Category       @relation(fields: [categoryId], references: [id])
   usages      ProductUsage[]
+  // P1-07: Opposite relation field wajib oleh Prisma
+  orderItems  OrderItem[]
   isActive    Boolean        @default(true)
   createdAt   DateTime       @default(now())
+
+  @@index([categoryId])
+  @@index([isActive])
 }
 
 model ProductUsage {
@@ -363,27 +406,50 @@ model ProductUsage {
 
 model Order {
   id             String        @id @default(cuid())
-  orderCode      String        @unique // ORD-YYYYMMDD-XXXX
+  orderCode      String        @unique
   buyerName      String
   buyerPhone     String
   buyerEmail     String?
   buyerAddress   String        @db.Text
-  notes          String?       @db.Text
+  notes          String?       @db.Text  // Catatan pembeli — read-only setelah checkout
+  // P1-06: Catatan internal admin (terpisah dari notes pembeli)
+  adminNotes     String?       @db.Text
   trackingNumber String?
   status         OrderStatus   @default(PENDING_PAYMENT)
-  total          Int
+  // P1-11: Rincian finansial B2B
+  subtotal       Int           @default(0)
+  shippingCost   Int           @default(0)
+  taxRate        Int           @default(0)  // basis poin
+  taxAmount      Int           @default(0)
+  discountAmount Int           @default(0)
+  grandTotal     Int           @default(0)
+  total          Int           // alias grandTotal untuk kompatibilitas mundur
   items          OrderItem[]
   proof          PaymentProof?
+  customerId     String?
+  customer       Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull)
   createdAt      DateTime      @default(now())
+
+  @@index([customerId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 model OrderItem {
-  id        String  @id @default(cuid())
+  id        String   @id @default(cuid())
   orderId   String
-  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  productId String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  // P1-07: nullable agar produk yang dihapus tidak merusak riwayat (onDelete: SetNull)
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
   qty       Int
-  price     Int     // harga saat transaksi
+  price     Int      // harga saat transaksi
+  // P1-07: Snapshot data produk saat transaksi — immutable
+  productName String  @default("")
+  productSlug String?
+  productUnit String  @default("kg")
+
+  @@index([productId])
 }
 
 model PaymentProof {
@@ -395,11 +461,11 @@ model PaymentProof {
   senderName      String?
   amount          Int?
   note            String?
-  status          String    @default("PENDING") // PENDING, APPROVED, REJECTED
+  status          String    @default("PENDING")
   rejectionReason String?
   uploadedAt      DateTime  @default(now())
-  verifiedBy      String?   // nama staf (display fallback)
-  verifiedById    String?   // Sesi #17: ID staf — source of truth akuntabilitas
+  verifiedBy      String?
+  verifiedById    String?
   verifier        User?     @relation("VerifiedBy", fields: [verifiedById], references: [id], onDelete: SetNull)
   verifiedAt      DateTime?
 }
@@ -414,6 +480,8 @@ model Article {
   isPublished Boolean   @default(false)
   publishedAt DateTime?
   createdAt   DateTime  @default(now())
+
+  @@index([isPublished])
 }
 
 enum CustomerType {
@@ -439,36 +507,97 @@ model Customer {
   address            String?
   type               CustomerType  @default(PROSPECT)
   status             LeadStatus    @default(BARU)
-  source             String        @default("WEBSITE_RFQ") // WEBSITE_RFQ, CHECKOUT, MANUAL_ADMIN, OFFLINE_EXPO
+  source             String        @default("WEBSITE_RFQ")
   preferredCommodity String?
   estimatedVolume    String?
-  notes              String?
+  notes              String?       // Catatan bebas manual staf — bukan log kronologis
   totalOrders        Int           @default(0)
   totalSpent         Int           @default(0)
   lastContactAt      DateTime?
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
+  assignedToId       String?
+  assignedTo         User?         @relation("AssignedCustomers", fields: [assignedToId], references: [id], onDelete: SetNull)
+  nextFollowUpAt     DateTime?
+  tags               Json?
+  orders             Order[]
+  interactions       CustomerInteraction[]
 
   @@index([phone])
   @@index([type])
   @@index([status])
+  @@index([assignedToId])
+  @@index([nextFollowUpAt])
 }
 
-// Sesi #17: Audit Log persisten untuk akuntabilitas aksi admin
+enum InteractionType {
+  CALL
+  WHATSAPP
+  EMAIL
+  MEETING
+  SITE_VISIT
+  NOTE
+  SYSTEM
+}
+
+model CustomerInteraction {
+  id             String          @id @default(cuid())
+  customerId     String
+  customer       Customer        @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  type           InteractionType
+  summary        String          @db.Text
+  actorId        String?
+  actor          User?           @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  actorName      String
+  relatedOrderId String?
+  createdAt      DateTime        @default(now())
+
+  @@index([customerId])
+  @@index([createdAt])
+}
+
 model AuditLog {
   id          String   @id @default(cuid())
-  actorId     String?  // null jika sistem/tidak bisa resolve
+  actorId     String?
   actor       User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
-  actorName   String   // snapshot nama saat aksi — tidak berubah meski nama staf diperbarui
-  actorRole   String   // snapshot role saat aksi
-  action      String   // LOGIN_SUCCESS, LOGIN_FAILED, CREATE_USER, UPDATE_USER, DELETE_USER, UPDATE_SETTINGS, dsb.
-  targetType  String?  // "User", "Order", "Product", "SiteSetting", dsb.
-  targetId    String?  // ID entitas yang dimodifikasi
-  metadata    Json?    // detail tambahan, TANPA password plaintext
+  actorName   String
+  actorRole   String
+  action      String
+  targetType  String?
+  targetId    String?
+  metadata    Json?
   createdAt   DateTime @default(now())
 
   @@index([actorId])
   @@index([action])
+  @@index([createdAt])
+}
+
+enum SellOfferStatus {
+  BARU
+  DIHUBUNGI
+  DIVERIFIKASI
+  DITOLAK
+}
+
+model SellOffer {
+  id              String          @id @default(cuid())
+  name            String
+  company         String?
+  phone           String
+  email           String?
+  province        String?
+  commodityName   String
+  commoditySpec   String?         @db.Text
+  estimatedVolume String?
+  priceExpected   String?
+  photoUrls       Json?
+  status          SellOfferStatus @default(BARU)
+  adminNotes      String?         @db.Text
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([status])
   @@index([createdAt])
 }
 ```
@@ -479,9 +608,9 @@ model AuditLog {
 
 | Role | Hak Akses | Catatan Keamanan |
 |---|---|---|
-| **Superadmin** | Full akses: Pengaturan situs & rekening, manajemen akun staf/admin termasuk toggle `isActive` & reset password (`/admin/pengguna`), halaman Audit Log (`/admin/audit-log`), kelola produk/kategori/peruntukan, verifikasi pembayaran, CMS artikel/konten/FAQ, CRM Database Pelanggan & Prospek Leads. | Seluruh endpoint admin diproteksi ganda via middleware + `getAdminSession()` dengan re-check `isActive` per request. Operasi mutasi pengaturan, user management, dan akses Audit Log dikunci khusus `SUPERADMIN` via `requireSuperAdminSession()`. Sesi via HTTP-only cookie. |
-| **Admin (Staf)** | Operasional harian: Katalog produk, kategori, peruntukan, pengelolaan pesanan, verifikasi pembayaran bukti transfer, database CRM pelanggan/prospek, CMS artikel, FAQ, dan blok konten web. Dibatasi dari pengaturan global, manajemen akun staf, dan halaman Audit Log. | Terotentikasi sesi JWT admin dengan re-check `isActive` per request (penonaktifan efektif seketika, tidak menunggu JWT expired). Diproteksi guard RBAC `isAdmin` & `isSuperAdmin`. |
-| **Buyer / Publik** | Browse katalog, pencarian & filter, guest checkout, request penawaran resmi (RFQ), upload bukti transfer (JPG/PNG/WEBP/PDF max 5MB rate limited), lacak pesanan via `orderCode` + HP, membaca artikel & FAQ, klik-chat CS WhatsApp. | Tanpa wajib login / registrasi akun. |
+| **Superadmin** | Full akses: Pengaturan finansial situs (`bankAccounts`, `defaultTaxRate`, `taxEnabled`, `paymentToleranceAmount`, `auditRetentionDays`), manajemen akun staf/admin (`/admin/pengguna`), halaman Audit Log (`/admin/audit-log`), kelola produk/kategori/peruntukan, verifikasi pembayaran, CMS artikel/konten/FAQ, CRM Database Pelanggan & Prospek Leads. | Seluruh endpoint admin diproteksi ganda via proxy guard (`src/proxy.ts`) + `getAdminSession()` dengan re-check `isActive` per request. Mutasi pengaturan finansial sensitif, user management, dan akses Audit Log dikunci khusus `SUPERADMIN` via `requireSuperAdminSession()`. Sesi via HTTP-only cookie aman. |
+| **Admin (Staf)** | Operasional harian: Katalog produk, kategori, peruntukan, pengelolaan pesanan, verifikasi pembayaran bukti transfer, database CRM pelanggan/prospek, penawaran jual supplier, CMS artikel, FAQ, dan blok konten web. Pada pengaturan toko, Admin dapat mengedit identitas brand umum dan kontak CS, namun dilarang memutasi rekening bank atau parameter finansial (HTTP 403). Dibatasi dari manajemen staf dan Audit Log. | Terotentikasi sesi JWT admin dengan re-check `isActive` per request (penonaktifan seketika). Diproteksi guard RBAC `isAdmin` & `isSuperAdmin`. Upaya mutasi field finansial di `/api/admin/pengaturan` ditolak dengan `403 Forbidden`. |
+| **Buyer / Publik** | Browse katalog, pencarian & filter, guest checkout dengan validasi MOQ & realtime cart check, request penawaran resmi (RFQ), upload bukti transfer (JPG/PNG/WEBP/PDF max 5MB rate limited), unduh invoice/proforma PDF resmi, lacak pesanan via `orderCode` + HP, membaca artikel & FAQ, klik-chat CS WhatsApp, kirim penawaran jual komoditas (`/jual`). | Tanpa wajib login / registrasi akun. Seluruh endpoint publik dilindungi rate-limiting per-IP dan sanitasi input. |
 
 ---
 
@@ -509,7 +638,7 @@ model AuditLog {
 | Storefront Publik & Keranjang Belanja | Selesai | Fase 2: /produk, /produk/[slug], /keranjang + CartContext localStorage |
 | Pencarian & Filter Multi-Dimensi (URL Query) | Selesai | Fase 3: FilterSidebar desktop sticky + mobile bottom drawer, SortSelect, ActiveFilterChips |
 | Checkout & Transaksi Stok Atomik | Selesai (Anti-Overselling) | Sesi #10: `prisma.$transaction` dengan validasi kondisional `stock >= qty` |
-| Restock Pembatalan Pesanan | Selesai (Terverifikasi) | Sesi #10: Pengembalian stok otomatis saat status pesanan menjadi `CANCELLED`/`REJECTED` |
+| Restock Pembatalan Pesanan | Selesai (Terverifikasi) | Sesi #10 & #33: Pengembalian stok otomatis saat status pesanan menjadi `CANCELLED` (status REJECTED dihapus permanen) |
 | Verifikasi Pembayaran Admin | Selesai | Fase 4: Persetujuan/penolakan bukti transfer, `verifiedById` FK, audit log, kontrol nomor resi |
 | Pelacakan Pesanan Publik | Selesai | Fase 4: /lacak-pesanan verifikasi orderCode + no WA pembeli (min 8 digit), visual stepper progress |
 | CMS Artikel (HTML Sanitizer, Slug Generator) | Selesai | Fase 5: Editor HTML live preview, sanitasi XSS, listing & detail artikel |
@@ -523,24 +652,39 @@ model AuditLog {
 | Galeri Multi-Gambar & Touch Swipe PWA | Selesai | Sesi #27: ProductGallery Shopee-style dengan swipe & multi-upload |
 | Generator PDF Katalog Produk & Sales Offer (B2B) | Selesai | Sesi #28: Halaman /admin/katalog-pdf & endpoint streaming /api/admin/katalog-pdf dengan @react-pdf/renderer. Filter kategori/peruntukan/search, toggle harga, & personalisasi nama/perusahaan pembeli |
 | UX Transaksi B2B (KG ↔ TON, Input Angka, Layout Reposisi) & Multi-Page PDF Fix | Selesai | Sesi #32: Input kuantitas interaktif bisa diketik keyboard, fitur toggle KG ↔ TON dengan konversi harga & stok instan, reposisi layout blok transaksi di atas deskripsi produk, serta perbaikan multi-page PDF katalog via row-based paired chunking (wrap={false}) |
+| Kalkulasi Finansial B2B & Snapshot OrderItem (P0-A, P0-B) | Selesai | Sesi #36: Centralized order calculation via `computeOrderTotals`, snapshot `grandTotal`, `subtotal`, `taxAmount`, `taxRate`, `shippingCost`. Snapshot `productName`, `productSlug`, `productUnit` tersimpan permanen di `OrderItem` |
+| Whitelabel & Nol Hardcoded Brand (P2-B) | Selesai | Sesi #36: 0 literal brand hardcoded di `src/`. Seluruh nama brand, URL, dan slug berbasis config-driven runtime (`SiteSetting` & env vars) |
+| Faktur Komersial & Proforma Invoice B2B PDF (ADD-01) | Selesai | Sesi #36: Endpoint `GET /api/pesanan/[orderCode]/invoice` & template `invoice-pdf.tsx` via `@react-pdf/renderer` |
+| Negosiasi Ongkir Manual & Sinkronisasi Total (ADD-02) | Selesai | Sesi #36: Input `shippingCost` hasil negosiasi manual di admin detail pesanan otomatis menghitung ulang `grandTotal` |
+| Notifikasi Badge Real-time Admin (ADD-03) | Selesai | Sesi #36: Badge realtime untuk penawaran jual baru (`newSellOffers`) dan pesanan menunggu tindakan (`pendingOrders`) di sidebar admin |
+| Validasi Sisi Server Keranjang & MOQ (P1-A, P1-B) | Selesai | Sesi #36: Endpoint `/api/validate-cart` memeriksa ketersediaan stok, MOQ (`minOrderQty`), dan kelipatan (`incrementQty`) sisi server |
+| Endpoint Pemeriksaan Kesehatan & Circuit Breaker | Selesai | Sesi #33: Endpoint `GET /api/health` memeriksa status konektivitas database dan kesiapan server |
+| Pembersihan Media Otomatis / Anti-Orphan (P2-E) | Selesai | Sesi #36: Penghapusan produk, artikel, dan kategori otomatis memicu `deleteMedia` di storage driver |
+| CSV Export Aman Anti-Formula Injection | Selesai | Sesi #30: Utilitas `buildCsv` mengamankan karakter berbahaya (`=`, `+`, `-`, `@`) pada seluruh ekspor data CSV |
+| Retensi & Purge Audit Log CLI (P1-C) | Selesai | Sesi #36: Script `purge-audit-log.ts` dengan flag `--dry-run` dan `--apply` sesuai setting `auditRetentionDays` |
+| Sanitasi Skema JSON-LD Anti-XSS (P1-N) | Selesai | Sesi #36: Utilitas `safeJsonLd()` mengamankan seluruh 11 titik injeksi structured data dari bahaya Stored XSS |
 
 ---
 
-## 7. Matriks Endpoint API Lengkap (41 Route File — 63 Method Handler)
+## 7. Matriks Endpoint API Lengkap (44 Route File — 67 Method Handler)
 
-> **Catatan:** Blueprint ini menghitung route berdasarkan **file route** (40 file), bukan jumlah method handler (62 handler). Setiap baris tabel di bawah mewakili satu method handler unik.
+> **Catatan:** Blueprint ini mencakup seluruh **44 file route** dan **67 method handler** aktual di aplikasi. Setiap baris tabel di bawah mewakili satu method handler unik yang terverifikasi secara otomatis oleh `scripts/verify-api-matrix.ts`.
 
 | Method | Endpoint | Tipe Akses | Deskripsi & Proteksi |
 |---|---|---|---|
 | `GET` | `/uploads/[...path]` | Publik | Melayani berkas fisik yang diunggah saat runtime di container Docker/standalone Next.js (proteksi path traversal, Content-Type dinamis, Cache-Control immutable 1 tahun) (Sesi #23) |
+| `GET` | `/api/health` | Publik | Endpoint pemeriksaan status kesehatan sistem dan konektivitas database (Sesi #33) |
+| `GET` | `/api/public/settings` | Publik | Mengambil konfigurasi toko publik dan daftar metode transfer/QRIS aktif tanpa membocorkan rekening (Sesi #36) |
+| `POST` | `/api/validate-cart` | Publik | Validasi realtime harga, stok, kuantitas minimum (MOQ), dan kelipatan kuantitas keranjang belanja (Sesi #36) |
 | `POST` | `/api/checkout` | Publik | Formulir guest checkout (Rate limit 10x/5m, transaksi atomik potong stok & catat lead) |
 | `GET` | `/api/pesanan/[orderCode]` | Publik | Detail pesanan untuk upload bukti bayar (Rate limit 30x/1m, verifikasi no HP 8-digit, PII masking) |
+| `GET` | `/api/pesanan/[orderCode]/invoice` | Publik | Unduh faktur komersial / proforma invoice resmi B2B dalam format PDF (Sesi #36) |
 | `POST` | `/api/pesanan/[orderCode]/bukti` | Publik | Simpan informasi bukti transfer pembayaran (Rate limit 10x/5m, status gate) |
 | `POST` | `/api/lacak-pesanan` | Publik | Pelacakan pesanan publik (Rate limit 30x/1m, verifikasi orderCode + no HP fleksibel, PII masking) |
 | `POST` | `/api/leads` | Publik | Penangkapan lead prospek dari formulir RFQ storefront (Rate limit 10x/5m, proteksi kebocoran customer) |
 | `POST` | `/api/upload` | Publik | Upload media bukti bayar (Rate limit 10x/5m, Magic Bytes valid, no SVG, max 5MB) |
 | `POST` | `/api/admin/auth/login` | Publik (Admin) | Login superadmin/staf (Rate limit LOGIN preset via `rate-limit.ts`, isActive check, audit log) |
-| `POST` | `/api/admin/auth/logout` | Publik / Admin | Menghapus session cookie admin (`adably_admin_token`) |
+| `POST` | `/api/admin/auth/logout` | Publik / Admin | Menghapus session cookie admin (`getAdminCookieName()` via `config.ts`) |
 | `GET` | `/api/admin/auth/me` | Admin Wajib | Cek profil sesi superadmin/staf yang sedang aktif |
 | `GET` | `/api/admin/audit-log` | Admin Wajib (SUPERADMIN) | Ambil riwayat audit log dengan filter action/dateFrom/dateTo & pagination (direct Prisma — fail-loud by design, lihat Bagian 9 poin 11) |
 | `GET` | `/api/admin/dashboard/stats` | Admin Wajib | Statistik real-time omset, pesanan, peringatan stok rendah, dan ringkasan CRM |
@@ -647,7 +791,7 @@ ALLOW_LOCAL_FALLBACK="false"
 ## 9. Keputusan Teknis & Arsitektur Keamanan Penting
 
 1. **Otorisasi Berlapis (*Defense-in-Depth*) Admin API**:
-   - Menghindari ketergantungan semata pada disiplin manual penulisan guard di setiap file route. `src/middleware.ts` secara proaktif menyaring rute `/api/admin/*` dan memblokir permintaan tanpa token sah dengan HTTP 401 sebelum menyentuh route handler.
+   - Menghindari ketergantungan semata pada disiplin manual penulisan guard di setiap file route. `src/proxy.ts` (konvensi resmi Next.js 16) secara proaktif menyaring rute `/admin/*` dan `/api/admin/*` dan memblokir permintaan tanpa token sah dengan HTTP 401 sebelum menyentuh route handler.
 2. **Ketiadaan Secret Hardcode & Fail-Fast Startup**:
    - Menghilangkan fallback default token JWT yang rentan dipalsukan (*token forgery*). Aplikasi langsung melempar exception saat inisialisasi jika secret tidak memadai.
 3. **Pemberantasan Backdoor Kredensial**:
@@ -656,55 +800,58 @@ ALLOW_LOCAL_FALLBACK="false"
    - Pada server produksi, kegagalan database Postgres tidak disembunyikan sebagai "berhasil" ke file JSON lokal `.local-store.json` yang bersifat *ephemeral*. Sistem melempar error keras termonitor (*fail-loud*).
 5. **Pemberantasan Race Condition Stok Checkout**:
    - Pemotongan stok dilakukan di dalam transaksi atomik `prisma.$transaction` dengan syarat kondisional `stock: { gte: qty }`. Jika dua pembeli checkout barang terakhir secara bersamaan, transaksi kedua dibatalkan dan mengembalikan pesan stok tidak cukup.
-6. **Restock Otomatis pada Pembatalan/Penolakan Pesanan**:
-   - Perubahan status pesanan menjadi `CANCELLED` atau `REJECTED` secara otomatis mengembalikan jumlah barang ke inventori stok komoditas.
+6. **Restock Otomatis pada Pembatalan Pesanan**:
+   - Perubahan status pesanan menjadi `CANCELLED` secara otomatis mengembalikan jumlah barang ke inventori stok komoditas (status `REJECTED` telah dihapus resmi dari skema).
 7. **Siklus Data CRM & Metrik LTV Berbasis Pembayaran Sah**:
    - Formulir checkout hanya mencatat kontak sebagai prospek (`PROSPECT`) dengan status `BARU` tanpa menaikkan akumulasi omset `totalSpent` atau `totalOrders`. Akumulasi LTV dan promosi status ke `CUSTOMER` / `DEAL` hanya terjadi saat pembayaran diverifikasi lunas (`PAID`).
 8. **Sanitasi Upload & Pencegahan Stored XSS**:
    - Format `image/svg+xml` dilarang untuk upload publik bukti transfer. Berkas diverifikasi berdasarkan Magic Bytes buffer biner sesungguhnya, dilengkapi pembatasan laju IP (10 upload per 5 menit).
 9. **Rate Limiting Terpusat & Anti-Brute Force**:
-   - Modul `src/lib/rate-limit.ts` memproteksi endpoint publik (`/api/lacak-pesanan`, `/api/pesanan/[orderCode]`, `/api/checkout`, `/api/leads`, `/api/upload`) dari serangan denial of service dan enumerasi nomor pesanan.
+   - Modul `src/lib/rate-limit.ts` memproteksi endpoint publik (`/api/lacak-pesanan`, `/api/pesanan/[orderCode]`, `/api/checkout`, `/api/leads`, `/api/upload`, `/api/validate-cart`) dari serangan denial of service dan enumerasi nomor pesanan.
 10. **Proteksi PII & State Machine Pesanan Strict**:
-   - Endpoint pelacakan publik menerapkan sensor data PII (`maskOrderPII`) pada nama pembeli, nomor telepon (min 8 digit), dan alamat. Mutasi status pesanan divalidasi ketat terhadap state machine (`ALLOWED_ORDER_TRANSITIONS`), dan status `PAID` hanya boleh dicapai secara eksklusif melalui `POST /api/admin/pesanan/[id]/verifikasi` demi integritas data keuangan dan CRM.
+    - Endpoint pelacakan publik menerapkan sensor data PII (`maskOrderPII`) pada nama pembeli, nomor telepon (min 8 digit), dan alamat. Mutasi status pesanan divalidasi ketat terhadap state machine (`ALLOWED_ORDER_TRANSITIONS`), dan status `PAID` hanya boleh dicapai secara eksklusif melalui `POST /api/admin/pesanan/[id]/verifikasi` demi integritas data keuangan dan CRM.
 11. **Keputusan Arsitektur: Audit Log Route — Direct Prisma tanpa data-store.ts**:
-   - `GET /api/admin/audit-log` memanggil `prisma` secara langsung (tidak melalui `src/lib/data-store.ts`). Ini adalah **pengecualian yang disengaja** dengan alasan berikut: (a) Endpoint ini membaca data audit log yang secara inheren hanya eksis di database — tidak ada fallback lokal yang bermakna; (b) Jika database mati, audit log endpoint harus **fail-loud** (HTTP 500) agar SUPERADMIN mengetahui kondisi darurat, bukan mengembalikan data kosong yang menyesatkan. Pengecualian ini tidak melanggar prinsip "Isolasi Dual Persistence" (Bagian 9 poin 4) karena prinsip tersebut khusus untuk operasi bisnis yang membutuhkan resilience, bukan untuk endpoint monitoring administratif.
-12. **Keputusan Arsitektur: Cakupan Audit Log Dibatasi ke Aksi High-Risk**:
-   - Berdasarkan keputusan eksplisit bisnis, `recordAuditLog` hanya dipasang di operasi **high-risk akuntabilitas RBAC**: login, manajemen staf (create/update/activate/deactivate/delete), perubahan status pesanan, verifikasi pembayaran, dan mutasi pengaturan situs sensitif. CRUD Produk/Kategori/Peruntukan/Artikel/FAQ/ContentBlock **sengaja tidak dicakup** karena volume mutasinya tinggi (operational daily) sehingga audit penuh akan menciptakan tabel AuditLog yang sangat besar tanpa nilai bisnis proporsional. Jika persyaratan kepatuhan berubah di masa depan, `recordAuditLog` dapat ditambahkan ke route manapun tanpa perubahan arsitektur.
-
+    - `GET /api/admin/audit-log` memanggil `prisma` secara langsung (tidak melalui `src/lib/data-store.ts`). Ini adalah **pengecualian yang disengaja** dengan alasan berikut: (a) Endpoint ini membaca data audit log yang secara inheren hanya eksis di database — tidak ada fallback lokal yang bermakna; (b) Jika database mati, audit log endpoint harus **fail-loud** (HTTP 500) agar SUPERADMIN mengetahui kondisi darurat, bukan mengembalikan data kosong yang menyesatkan. Pengecualian ini tidak melanggar prinsip "Isolasi Dual Persistence" (Bagian 9 poin 4) karena prinsip tersebut khusus untuk operasi bisnis yang membutuhkan resilience, bukan untuk endpoint monitoring administratif.
+12. **Keputusan Arsitektur: Cakupan Audit Log Menyeluruh**:
+    - 31 `AUDIT_ACTIONS` aktif terhubung ke seluruh endpoint sensitif: otentikasi login/logout, user management, mutasi produk, perubahan harga/stok, kategori, peruntukan, pesanan, verifikasi bayar, pengaturan, artikel, FAQ, konten teks, retensi data, hingga ekspor data PII.
 13. **Arsitektur Notifikasi WhatsApp (`src/lib/wa-notify.ts`) — Zero-Dependency Manual-Copy**:
-   - Modul `wa-notify.ts` membangun teks pesan WhatsApp siap-copy untuk 5 siklus event pesanan: `checkout_success`, `payment_verified`, `payment_rejected`, `order_shipped`, `order_completed`. Tidak ada HTTP call keluar, tidak ada biaya API gateway WA. Teks pesan disisipkan di JSON response API yang relevan (`wa_message` + `wa_phone`) agar admin/CS dapat **menyalin teks dan mengirim secara manual ke WhatsApp pembeli**. Sesi #22: seluruh 5 event kini terhubung ke endpoint yang tepat (`/api/checkout` → checkout_success, `/api/admin/pesanan/[id]` → order_shipped + order_completed, `/api/admin/pesanan/[id]/verifikasi` → payment_verified + payment_rejected). Jika di masa depan perlu integrasi otomatis API gateway WA (Fonnte/Wablas), tambahkan driver di modul ini tanpa mengubah caller code.
+    - Modul `wa-notify.ts` membangun teks pesan WhatsApp siap-copy untuk siklus event pesanan (`checkout_success`, `payment_verified`, `order_shipped`, `order_completed`). Tidak ada HTTP call keluar, tidak ada biaya API gateway WA. Teks pesan disisipkan di JSON response API yang relevan (`wa_message` + `wa_phone`) agar admin/CS dapat menyalin teks dan mengirim secara manual ke WhatsApp pembeli.
 14. **Deduplikasi Upload Validation (`src/lib/upload-validate.ts`)**:
-   - Helper terpusat yang mengekspos `detectFileTypeFromMagicBytes()` dan konstanta `UPLOAD_ALLOWED_TYPES`. Menghilangkan duplikasi 100% identik antara `/api/upload` (publik, 5MB) dan `/api/admin/upload` (admin, 10MB). Perubahan logic validasi magic bytes cukup dilakukan di satu tempat. Keduanya tetap memiliki batasan ukuran file dan rate limit berbeda sesuai tipe pengguna.
-15. **Out-of-Scope: Biaya Ongkos Kirim / Integrasi Ekspedisi**:
-   - `Order.total` hanya mencakup harga produk. Ongkos kirim **sengaja tidak diimplementasikan** karena model bisnis komoditas industri menggunakan negosiasi ongkir via WhatsApp (Loco/FOB/ex-gudang) atau koordinasi ekspedisi kargo secara manual setelah pesanan terbuat. Integrasi API Raja Ongkir / ekspedisi dapat ditambahkan di masa depan sebagai extension tanpa perombakan arsitektur.
-16. **Out-of-Scope: Notifikasi Email Transaksional ke Pembeli**:
-   - Tidak ada email transaksional (order confirmation, payment receipt) yang dikirim secara otomatis. **Keputusan sadar**: platform ini menggunakan WhatsApp sebagai kanal komunikasi utama (template manual via `wa-notify.ts`). Jika dibutuhkan, integrasi layanan email (Resend, SendGrid, Nodemailer) dapat ditambahkan tanpa perombakan arsitektur.
-17. **Out-of-Scope: Notifikasi Proaktif Admin untuk Order/Lead Baru**:
-   - Tidak ada notifikasi push/email/Telegram ke admin saat order atau lead RFQ masuk. **Keputusan sadar**: admin memantau dashboard secara periodik. Fitur ini dapat ditambahkan via webhook/Telegram Bot/email digest di masa depan.
-18. **Out-of-Scope: Reset Password Self-Service untuk Admin/Staf**:
-   - Tidak ada alur "lupa password" self-service untuk akun admin. **Keputusan sadar**: reset password dilakukan oleh SUPERADMIN melalui halaman `/admin/pengguna` → `PATCH /api/admin/users/[id]` dengan payload `{ password: "newpass" }`. Ini memadai untuk marketplace single-seller dengan jumlah staf terbatas.
-19. **Known Limitation: Rate Limiting In-Memory (Single-Instance)**:
-   - `src/lib/rate-limit.ts` menggunakan Node.js `Map` in-memory. Berfungsi sempurna untuk deployment **single-instance** (VPS/Coolify Docker tunggal). Pada deployment **multi-instance horizontal** (Vercel/AWS Lambda scale-out), setiap instance memiliki counter terpisah sehingga effective rate limit menjadi `maxRequests × jumlah instance`. **Mitigasi**: tambahkan adapter Redis/Upstash KV dengan interface `RateLimitResult` yang sama tanpa mengubah caller code.
-20. **Out-of-Scope: Sistem Diskon / Kupon / Harga Promo**:
-   - Tidak ada mekanisme kode kupon, diskon persentase, atau harga promo terjadwal. **Keputusan sadar**: harga komoditas industri bersifat negosiasi langsung (via RFQ/WhatsApp), bukan diskon publik. Dapat ditambahkan di masa depan sebagai fitur extension.
-21. **Out-of-Scope: Tiered Pricing / Quotation Formal Terstruktur**:
-   - RFQ lead B2B saat ini menghasilkan "leads mentah + catatan bebas teks" (`Customer.notes`, `CustomerInteraction`). Tidak ada sistem quotation formal terstruktur (harga per volume, termin pembayaran, masa berlaku). **Keterbatasan yang disengaja**: memadai untuk tahap awal operasi di mana negosiasi dilakukan via WhatsApp/komunikasi langsung. Quotation formal dapat diimplementasikan sebagai modul terpisah di masa depan.
-22. **Out-of-Scope: Invoice / Kwitansi PDF Otomatis**:
-   - Tidak ada generate PDF invoice otomatis saat pesanan PAID. **Keputusan sadar**: transaksi B2B komoditas menggunakan dokumen jalan/faktur manual. Export CSV pesanan tersedia untuk rekonsiliasi akuntansi. Invoice PDF dapat ditambahkan via library `@react-pdf/renderer` atau `puppeteer` di masa depan.
-23. **Out-of-Scope: Ulasan / Rating Produk dari Pembeli**:
-   - Tidak ada fitur review atau rating produk. **Keputusan sadar**: marketplace B2B komoditas industri mengutamakan hubungan bisnis jangka panjang (CRM) bukan rating publik. Dapat ditambahkan di masa depan jika ada kebutuhan.
-24. **Partial: Produk Terkait / Rekomendasi**:
-   - Halaman detail artikel (`/artikel/[slug]`) menampilkan rekomendasi komoditas terkait. Halaman detail produk (`/produk/[slug]`) **tidak memiliki** grid "produk terkait" berbasis kategori/tag. Ini adalah gap yang disengaja demi kesederhanaan halaman produk industri.
-25. **Sudah Ada: Structured Data JSON-LD Schema.org**:
-   - Halaman produk: `Product` + `Offer`. Halaman artikel: `NewsArticle`. Halaman FAQ: `FAQPage`. Beranda: `Organization` + `WebSite` + `SearchAction`. Listing: `BreadcrumbList`. **Tidak ada** `ItemList` di halaman listing produk — dapat ditambahkan sebagai enhancement SEO.
-26. **Partial: Riwayat Perubahan Harga Produk**:
-   - `AuditLog` merekam `UPDATE_PRODUCT_PRICE` dan `UPDATE_PRODUCT_STOCK` (nilai lama/baru di `metadata`), tersedia di `/admin/audit-log`. **Tidak ada** laporan visual tren harga chart dari waktu ke waktu — dapat dibangun dari query AuditLog sebagai enhancement di masa depan.
-27. **Out-of-Scope: Multi-Warehouse / Manajemen Banyak Gudang**:
-   - Stok produk bersifat **single-location by design**. `Product.stock` adalah angka tunggal tanpa atribut lokasi. Ini sesuai kebutuhan marketplace single-seller komoditas dengan satu titik gudang/sentra penyimpanan. Multi-warehouse memerlukan perubahan schema signifikan dan di luar scope template ini.
-
+    - Helper terpusat yang mengekspos `detectFileTypeFromMagicBytes()` dan konstanta `UPLOAD_ALLOWED_TYPES`. Menghilangkan duplikasi identik antara `/api/upload` (publik, 5MB) dan `/api/admin/upload` (admin, 10MB).
+15. **Negosiasi Ongkir Manual & Sinkronisasi Finansial (ADD-02)**:
+    - Kolom `Order.shippingCost` terintegrasi dengan kalkulasi `grandTotal = subtotal + taxAmount + shippingCost`. Karena transaksi komoditas tambang bervariasi tergantung jarak tambang/gudang dan tonase armada, ongkir dinegosiasikan secara manual via WhatsApp. Admin menginput nominal ongkir pada detail pesanan di panel admin, yang secara otomatis memicu rekalkulasi `grandTotal`, pembaruan database, dan pencatatan audit log.
+16. **Notifikasi Email Transaksional ke Pembeli (Out-of-Scope v1.0)**:
+    - Tidak ada email transaksional otomatis. Platform menggunakan WhatsApp sebagai kanal komunikasi utama (template manual via `wa-notify.ts`). Integrasi SMTP/Resend dapat ditambahkan sebagai ekstensi di masa depan.
+17. **Notifikasi Admin Real-time (ADD-03)**:
+    - Sidebar panel admin dilengkapi badge hitungan real-time untuk penawaran jual masuk (`newSellOffers`) dan pesanan menunggu tindakan (`pendingOrders`), memastikan admin/CS tidak melewatkan prospek baru.
+18. **Reset Password Self-Service (Out-of-Scope v1.0)**:
+    - Reset password dilakukan oleh SUPERADMIN melalui halaman `/admin/pengguna` → `PATCH /api/admin/users/[id]` dengan payload `{ password: "newpass" }`. Ini memadai untuk marketplace single-seller dengan staf terpusat.
+19. **Rate Limiting Terdistribusi (Evaluasi ADD-08)**:
+    - `src/lib/rate-limit.ts` menggunakan in-memory map untuk deployment single-container (VPS/Coolify). Untuk skala multi-node horizontal di masa depan, interface `RateLimitResult` dapat dialihkan ke adapter Redis/Upstash KV.
+20. **Sistem Diskon / Kupon / Promo (Out-of-Scope v1.0)**:
+    - Harga komoditas industri dinegosiasikan langsung via RFQ/WhatsApp sesuai volume order, bukan diskon e-commerce ritel.
+21. **Quotation Formal Terstruktur (Evaluasi ADD-05)**:
+    - Untuk single-seller v1.0, alur negosiasi dicatat via Lead Notes dan `CustomerInteraction`. Pembuatan modul Quotation multi-tier dijadwalkan untuk roadmap v2.0.
+22. **Faktur Komersial & Proforma Invoice B2B PDF Otomatis (ADD-01)**:
+    - Dokumen resmi proforma invoice (`PENDING_PAYMENT`) dan invoice lunas komersial (`PAID`) di-generate secara instan sisi server dalam format PDF via library `@react-pdf/renderer` melalui endpoint publik aman `GET /api/pesanan/[orderCode]/invoice`. Menyajikan kop surat resmi, rincian barang, pajak PPN 11%, ongkos kirim ternegosiasi, instruksi transfer, dan QR verifikasi.
+23. **Ulasan / Rating Publik (Out-of-Scope v1.0)**:
+    - B2B komoditas mineral mengutamakan uji lab sampel, spesifikasi fisik transparan, dan hubungan kontrak jangka panjang, bukan review bintang ritel.
+24. **Produk Terkait / Rekomendasi**:
+    - Halaman artikel menyertakan tautan rekomendasi komoditas relevan.
+25. **Structured Data JSON-LD Aman Anti-XSS (P1-N)**:
+    - Seluruh 11 sink JSON-LD disanitasi menggunakan `safeJsonLd()` untuk mencegah eksploitasi Stored XSS via tag penutup `</script>`.
+26. **Riwayat Perubahan Harga (ADD-06)**:
+    - `AuditLog` merekam `UPDATE_PRODUCT_PRICE` dan `UPDATE_PRODUCT_STOCK` (nilai lama/baru di `metadata`), dapat ditelusuri di `/admin/audit-log`.
+27. **Multi-Warehouse / Multi-Gudang (Out-of-Scope v1.0)**:
+    - Stok komoditas bersifat single-origin per spesifikasi tambang/gudang pusat.
+28. **Arsitektur Whitelabel & 0 Hardcoded Brand Literals (P2-B)**:
+    - Seluruh komponen storefront dan panel admin bersih 100% dari string literal brand hardcoded. Variabel branding, domain, cookie name, dan kontak CS diambil dinamis dari `SiteSetting` database atau variabel lingkungan (`APP_BRAND_NAME`, `APP_DOMAIN`, `NEXT_PUBLIC_SITE_NAME`), menjamin kesiapan platform sebagai reusable starter template.
+29. **Prosedur Backup & Restore (ADD-09) & Kebijakan Privasi CRM (ADD-10)**:
+    - Prosedur pemeliharaan data mencakup backup berkala basis data PostgreSQL via `pg_dump -Fc` dan sinkronisasi direktori media upload (`public/uploads`). Kebijakan privasi PII CRM dilindungi dengan endpoint penghapusan kontak terotorisasi `DELETE /api/admin/pelanggan/[id]` yang mencatat aksi ke `AuditLog`.
+30. **Standarisasi Jalur Deployment Migrasi Database (D-16)**:
+    - Ditetapkan satu jalur resmi tunggal untuk migrasi skema database: di lingkungan produksi CI/CD, perintah yang digunakan adalah `npx prisma migrate deploy` dengan direktori `prisma/migrations` sebagai Single Source of Truth, mengeliminasi risiko desinkronisasi skema (*drift*). Di lingkungan dev lokal, gunakan `npx prisma migrate dev`.
 
 ---
-
 
 ## Sesi #20 Update — CRM Enhancement (CustomerInteraction)
 
@@ -747,7 +894,7 @@ ALLOW_LOCAL_FALLBACK="false"
 ## Sesi #22 Update — Audit Total Final
 
 ### Status Audit
-Seluruh 5 tahap audit total telah dijalankan terhadap kodebase Adably di Sesi #22. Hasil: **LULUS** — tidak ada bug kritis, tidak ada orphan code yang tidak terselesaikan, tidak ada gap dokumen yang tidak terdokumentasi, tidak ada duplikasi yang tidak teratasi.
+Seluruh 5 tahap audit total telah dijalankan terhadap kodebase di Sesi #22. Hasil: **LULUS** — tidak ada bug kritis, tidak ada orphan code yang tidak terselesaikan, tidak ada gap dokumen yang tidak terdokumentasi, tidak ada duplikasi yang tidak teratasi.
 
 ### Orphan Code yang Diperbaiki (KRITIS)
 `src/lib/wa-notify.ts` mendefinisikan 5 event tapi sebelumnya hanya 2 yang dipanggil. Sesi #22 menghubungkan 3 event yang orphan:
@@ -758,102 +905,215 @@ Seluruh 5 tahap audit total telah dijalankan terhadap kodebase Adably di Sesi #2
 
 ### Gap Dokumentasi yang Diperbaiki
 - Bagian 3 (Struktur Folder): ditambahkan `wa-notify.ts` dan `upload-validate.ts`
-- Bagian 7 (Matriks API): Rate limit `ORDER_DETAIL` dikoreksi 60x/1m → **30x/1m** (sesuai kode aktual `rate-limit.ts`); judul diklarifikasi "36 Route File — 57 Method Handler"
-- Bagian 9: Ditambahkan poin 13–27 mencakup keputusan arsitektur wa-notify, upload-validate, dan 14 item Tahap 4 kelengkapan bisnis (out-of-scope vs partial vs sudah ada)
+- Bagian 7 (Matriks API): Rate limit `ORDER_DETAIL` dikoreksi 60x/1m → **30x/1m** (sesuai kode aktual `rate-limit.ts`)
+- Bagian 9: Ditambahkan poin 13–27 mencakup keputusan arsitektur wa-notify, upload-validate, dan 14 item Tahap 4 kelengkapan bisnis
 
-### Verifikasi Kualitas Sesi #22
-| Perintah | Hasil |
-|---|---|
-| `npm install` | Exit Code 0 ✅ |
-| `npx prisma validate` | Exit Code 0 ✅ |
-| `npx prisma generate` | Exit Code 0 ✅ |
-| `npx tsc --noEmit` | Exit Code 0, 0 TypeScript error ✅ |
-| `npm run build` | Exit Code 0, 49 routes compiled ✅ |
-| `npm test` | [dijalankan setelah semua perubahan] |
+---
 
-### File yang Diubah di Sesi #22
-| File | Tipe Perubahan |
-|---|---|
-| `src/app/api/checkout/route.ts` | MODIFIKASI — integrasi `wa_message` checkout_success |
-| `src/app/api/admin/pesanan/[id]/route.ts` | MODIFIKASI — integrasi `wa_message` order_shipped + order_completed |
-| `docs/BLUEPRINT.md` | MODIFIKASI — header, Bagian 3 (wa-notify.ts + upload-validate.ts), Bagian 7 (fix rate limit + judul), Bagian 9 (poin 13-27), Sesi #22 section |
-| `docs/NOTEPATCH.md` | MODIFIKASI — append entri Sesi #22 |
+## Sesi #23 Update — Perbaikan Next.js Image 400 Bad Request & PUT Pengaturan 500 Error
+
+### 1. Handler Runtime Media Upload (`/uploads/[...path]`)
+- Menambahkan route handler `src/app/uploads/[...path]/route.ts` untuk melayani berkas fisik yang diunggah secara runtime di container Docker/standalone Next.js.
+- Dilengkapi proteksi path traversal, deteksi Content-Type dinamis berdasarkan ekstensi file, dan header `Cache-Control: public, max-age=31536000, immutable`.
+- Mengeliminasi error 400 Bad Request dari Next.js Image Optimization saat me-render media lokal.
+
+### 2. Hardening Form & Route Pengaturan Toko
+- Memperbaiki parsing angka dan boolean pada `PUT /api/admin/pengaturan` agar field `paymentToleranceAmount`, `defaultTaxRate`, `taxEnabled`, `auditRetentionDays`, dan `lowStockAlertThreshold` tidak memicu HTTP 500 saat dikirim dalam format string form.
+
+---
+
+## Sesi #24 Update — Isolasi StorefrontShell & Eliminasi Overlap Header Admin PWA/Mobile
+
+### 1. Komponen Pembungkus `StorefrontShell`
+- Membuat `src/components/layout/StorefrontShell.tsx` untuk membungkus elemen navigasi toko publik (`Navbar`, `BottomNav`, `Footer`, `WhatsAppButton`).
+- Memastikan elemen storefront tidak bocor atau tumpang tindih dengan UI/UX panel admin (`/admin/*`).
+
+### 2. Standardisasi Layout Mobile Panel Admin
+- Menyelaraskan header mobile panel admin (`h-14`, fixed, `z-30`) dengan sidebar desktop, slide-in navigation drawer, dan tombol logout persisten.
+- Mengubah posisi header halaman admin dari `sticky top-0` menjadi `relative z-10 md:sticky md:top-0 md:z-30` untuk mengeliminasi tumpang tindih dengan navbar mobile PWA.
+
+---
+
+## Sesi #25 Update — Penanganan Web Vitals, Link Preload, Hydration Keranjang & PWA Prompt
+
+### 1. Isolasi Error Ekstensi Web Vitals
+- Membungkus pelaporan Web Vitals di `src/app/layout.tsx` dalam blok try/catch untuk mencegah crash akibat intervensi ekstensi browser pihak ketiga (`reportAllChanges` / `startTime` undefined).
+
+### 2. Optimasi Preload & Hydration Safety
+- Menghapus tag link preload yang memicu warning konsol di Chrome.
+- Menyelaraskan inisialisasi state keranjang di `CartProvider` dan `PwaPrompt` agar bebas dari peringatan SSR/CSR hydration mismatch.
+
+---
+
+## Sesi #25B Update — Fitur Penawaran Jual Komoditas (/jual & SellOffer) + Fix Validasi Harga Produk
+
+### 1. Modul Penawaran Jual Supplier Tambang
+- **Halaman Formulir Publik (`/jual`)**: Form multi-step intuitif untuk pemilik tambang / supplier yang ingin memasok komoditas ke platform (Info Kontak → Info Komoditas & Volume → Foto & Konfirmasi).
+- **Skema Database & Migrasi**: Penambahan model `SellOffer` dan enum `SellOfferStatus` (`BARU`, `DIHUBUNGI`, `DIVERIFIKASI`, `DITOLAK`) di `prisma/schema.prisma`.
+- **Panel Admin (`/admin/penawaran-jual`)**: Tabel daftar penawaran masuk terfilter status, detail penawaran, serta formulir pembaruan status dan catatan admin.
+- **Endpoint API**: `POST /api/jual` (publik, rate limit 3/jam/IP), `GET /api/admin/penawaran-jual`, `GET /api/admin/penawaran-jual/[id]`, dan `PATCH /api/admin/penawaran-jual/[id]`.
+
+### 2. Fix Validasi Harga Produk Admin
+- Mengubah atribut input harga produk dari `step={1000}` menjadi `step={1}` dan validasi minimum dari `min={0}` menjadi `min={1}` di form admin produk baru dan edit.
 
 ---
 
 ## Sesi #26 Update — Tiptap Rich Text Editor, Tailwind Typography & Migrasi Next.js 16 Proxy
 
 ### 1. Tiptap WYSIWYG Rich Text Suite
-- **`RichTextEditor.tsx`**: Editor WYSIWYG multi-fitur berbasis paket Tiptap modern (`@tiptap/react`, `@tiptap/starter-kit`, `@tiptap/extension-text-align`, `@tiptap/extension-link`, `@tiptap/extension-image`, `@tiptap/extension-underline`, `@tiptap/extension-placeholder`, `@tiptap/extension-text-style`, `@tiptap/extension-color`).
-  - Fitur format: Headings (H1, H2, H3), Paragraf, Bold, Italic, Underline, Strikethrough, Text Color (16 preset palette), Text Align (kiri, tengah, kanan, justify), Bullet/Ordered List, Blockquote, Divider (HR), Link URL, Upload Gambar ke server endpoint (`/api/admin/upload`), Undo/Redo, dan Clear Formatting.
-  - Mendukung tema adaptif (`dark` untuk form produk komoditas tambang, `light` untuk form artikel & CMS).
-- **`RichTextRenderer.tsx`**: Komponen render HTML tersanitasi yang terintegrasi dengan plugin `@tailwindcss/typography` (`prose`, `prose-invert`) dengan custom styling untuk heading, paragraf, blockquote, link, gambar, list, code block, dan tabel border-collapse responsif.
-- **Sanitizer Whitelist**: `src/lib/sanitize.ts` diperluas untuk memperbolehkan atribut style spesifik yang dihasilkan Tiptap (`text-align`, `color`, `font-weight`, `font-style`, `max-width`) dengan regex ketat, menjamin keamanan mutlak dari Stored XSS.
+- **`RichTextEditor.tsx`**: Editor WYSIWYG multi-fitur berbasis Tiptap modern (`@tiptap/react`, `@tiptap/starter-kit`, text-align, link, image, underline, text-color). Mendukung tema adaptif (`dark` untuk form produk, `light` untuk form artikel & CMS).
+- **`RichTextRenderer.tsx`**: Komponen render HTML tersanitasi yang terintegrasi dengan plugin `@tailwindcss/typography` (`prose`, `prose-invert`).
+- **Sanitizer Whitelist**: `src/lib/sanitize.ts` diperluas untuk memperbolehkan style Tiptap spesifik dengan regex ketat, menjamin keamanan mutlak dari Stored XSS.
 
 ### 2. Migrasi Konvensi Resmi Next.js 16 (Middleware ke Proxy)
 - Menggantikan `src/middleware.ts` dengan `src/proxy.ts` (`export async function proxy(req: NextRequest)`) sesuai konvensi resmi Next.js 16.
-- Mengeliminasi warning deprecation build (`⚠ The "middleware" file convention is deprecated. Please use "proxy" instead`).
-- Proteksi otentikasi admin dua lapis tetap terjaga penuh: layer proxy edge guard (`/admin/:path*` dan `/api/admin/:path*`) + in-handler session guard (`getAdminSession()`).
+- Mengeliminasi warning deprecation build Next.js 16. Proteksi otentikasi admin dua lapis tetap terjaga penuh.
 
 ### 3. Standardisasi Tampilan Storefront & CMS
-- `src/app/artikel/[slug]/page.tsx`, `src/app/tentang-kami/page.tsx`, `src/app/syarat-ketentuan/page.tsx`, dan `src/components/storefront/ProductDetailClient.tsx` telah distandardisasi menggunakan `RichTextRenderer`, mengeliminasi bug layout `whitespace-pre-line` pada konten HTML.
-- Admin CMS dan katalog (`admin/konten`, `admin/artikel`, `admin/produk/baru`, `admin/produk/[id]`) telah terintegrasi dengan `RichTextEditor`.
-
-### Verifikasi Kualitas Sesi #26
-| Perintah | Hasil |
-|---|---|
-| `npx tsc --noEmit` | Exit Code 0, 0 TypeScript error ✅ |
-| `npm test` | Exit Code 0, 105/105 tests passed (100%) ✅ |
-| `npm run build` | Exit Code 0, 49/49 routes compiled successfully ✅ |
+- Mengintegrasikan `RichTextRenderer` pada artikel, tentang kami, syarat ketentuan, dan deskripsi detail produk, mengeliminasi bug layout whitespace.
 
 ---
 
 ## Sesi #27 Update — Shopee-Style Multi-Image Gallery, PWA Touch Swipe & Integrasi Hero CTA Penawaran Jual ke CMS
 
 ### 1. Galeri Multi-Gambar Interaktif Shopee-Style (`ProductGallery.tsx`)
-- **Komponen Galeri Khusus**: `src/components/storefront/ProductGallery.tsx` menyajikan tampilan produk modern:
-  - Display gambar utama beresolusi tinggi dengan rasio 4:3, transisi fade halus (`opacity-100 duration-300`), badge indikator slide (`1 / N`), badge kategori produk, dan tombol navigasi desktop (`<` dan `>`).
-  - **Dukungan Touch Swipe PWA/Mobile**: Menggunakan handler `onTouchStart`, `onTouchMove`, dan `onTouchEnd` dengan threshold 45px dan deteksi sumbu `Math.abs(diffX) > Math.abs(diffY)` untuk memastikan swipe gambar horizontal intuitif pada perangkat layar sentuh/PWA tanpa mengganggu scroll vertikal halaman.
-  - **Baris Thumbnail Shopee-Style**: Deretan kartu thumbnail kecil di bawah gambar utama dengan border emerald tebal (`border-2 border-emerald-600 ring-2 ring-emerald-500/30 scale-105`) pada item aktif, hover scaling, scroll horizontal responsif, tombol navigasi baris thumbnail, dan auto-scroll thumbnail ke tengah viewport saat gambar aktif berganti.
-  - **Batch Multi-Image Uploader**: `src/components/ui/ImageUploader.tsx` telah disempurnakan dengan `multiple` file picker dan pemrosesan multi-file secara serentak (`handleMultipleFilesUpload`).
+- **Komponen Galeri Khusus**: Display gambar resolusi tinggi (4:3), fade transition, slide badge, desktop navigation buttons, dan thumbnail row dengan emerald active border.
+- **PWA Touch Swipe**: Handler `onTouchStart`, `onTouchMove`, `onTouchEnd` dengan threshold 45px untuk swipe horizontal intuitif di layar sentuh tanpa mengganggu scroll vertikal.
+- **Batch Multi-Image Uploader**: Penyempurnaan `ImageUploader.tsx` dengan multi-file upload serentak.
 
-### 2. Relokasi Card Penawaran Jual (CTA Supplier) ke Hero Gelap & Integrasi CMS
-- **Relokasi ke Hero Gelap**: Memindahkan kartu ajakan *"Punya Stok Komoditas? Jual Melalui Platform Kami"* dari posisi lama di bawah katalog ke dalam section Hero gelap di beranda (`src/app/page.tsx`), tepat di bawah 3 badge keunggulan (*Spesifikasi Transparan*, *Pengiriman Fleksibel*, *Transaksi Aman*).
-- **Estetika Glassmorphism Gelap**: Mengadopsi styling glassmorphism emerald gelap yang selaras dengan hero beranda (`border-emerald-500/30 bg-gradient-to-r from-emerald-950/60 via-slate-900/80 to-teal-950/60 backdrop-blur-md shadow-soft-xl`), badge emerald transparan, judul tebal, serta tombol aksi *"Ajukan Penawaran Jual"* berkilau emerald (`bg-emerald-500 hover:bg-emerald-400 text-slate-950`).
-- **Integrasi CMS `supplier_cta`**:
-  - Didaftarkan ContentBlock key `'supplier_cta'` pada `BLOCK_TABS` di `/admin/konten` lengkap dengan icon `Gem` dari `lucide-react`.
-  - Disediakan data default di `DEFAULT_CONTENT_BLOCKS` (`src/lib/data-store.ts`), `prisma/seed.ts`, dan `.local-store.json`.
-  - Beranda secara dinamis memuat judul dan deskripsi dari CMS dengan fallback fail-safe dan dukungan render paragraf HTML tersanitasi.
+### 2. Relokasi Card Penawaran Jual ke Hero Gelap & CMS
+- Memindahkan CTA penawaran jual supplier ke dalam section Hero gelap di beranda (`src/app/page.tsx`) dengan estetika glassmorphism emerald gelap.
+- Mendaftarkan ContentBlock key `'supplier_cta'` di `/admin/konten` agar headline dan copy dapat diedit secara dinamis dari CMS.
 
-### Verifikasi Kualitas Sesi #27
-| Perintah | Hasil |
-|---|---|
-| `npx tsc --noEmit` | Exit Code 0, 0 TypeScript error ✅ |
-| `npm test` | Exit Code 0, 105/105 tests passed (100%) ✅ |
-| `npm run build` | Exit Code 0, 55 routes compiled successfully ✅ |
+---
+
+## Sesi #28 Update — Generator PDF Katalog Produk & B2B Sales Offer dengan Filter & Personalisasi Buyer
+
+### 1. Modul Generator Katalog PDF Resmi
+- Mengintegrasikan library `@react-pdf/renderer` dengan template dokumen profesional di `src/lib/pdf/catalog-template.tsx`.
+- Halaman admin `/admin/katalog-pdf` dan endpoint streaming `GET /api/admin/katalog-pdf`.
+- Menyediakan filter katalog berdasarkan kategori komoditas, taksonomi peruntukan, pencarian nama, opsi sembunyikan harga, serta personalisasi nama pembeli dan nama perusahaan klien.
+
+---
+
+## Sesi #29 Update — Hotfix Deployment Coolify: Resolusi Peer Dependency @react-pdf/renderer & React 19
+
+### 1. Resolusi Dependency Kontainer
+- Menyelaraskan peer dependencies antara React 19, Next.js 16, dan `@react-pdf/renderer` pada skrip instalasi container Coolify.
+- Menjamin stabilitas build di lingkungan Nixpacks dan Dockerfile standalone.
+
+---
+
+## Sesi #30 Update — Bugfix Runtime: Resolusi TypeError A.map & Proteksi Formula Injection CSV
+
+### 1. Defensive Array Checking
+- Memperbaiki potensi TypeError `A.map is not a function` pada halaman admin katalog PDF dan dashboard saat data komoditas kosong atau bernilai null.
+
+### 2. Proteksi CSV Formula Injection
+- Membuat utilitas terpusat `src/lib/csv.ts` (`buildCsv`) yang meng-escape karakter berisiko formula injection (`=`, `+`, `-`, `@`) pada seluruh fitur ekspor CSV pesanan dan pelanggan CRM.
+
+---
+
+## Sesi #31 Update — Polish Dokumen PDF: Stripping Tag HTML Tiptap & Resolusi Gambar Lokal Base64
+
+### 1. Pembersihan Konten HTML di Canvas PDF
+- Menambahkan regex stripping untuk membersihkan tag HTML Tiptap dari teks deskripsi produk sebelum diterjemahkan ke elemen teks primitif React-PDF.
+
+### 2. Penanganan Media Gambar Lokal
+- Mengonversi path gambar lokal ke buffer base64 inline saat rendering PDF, memastikan logo dan thumbnail produk ter-render sempurna tanpa bergantung pada fetch HTTP internal container.
+
+---
+
+## Sesi #32 Update — UX Transaksi Storefront (Input Kuantitas & KG ↔ TON), Reposisi Layout, & Multi-Page PDF Fix
+
+### 1. Penyempurnaan UX Transaksi B2B
+- Input kuantitas pesanan interaktif yang dapat diketik langsung via keyboard di samping tombol stepper plus/minus.
+- Tombol toggle satuan KG ↔ TON dengan konversi harga dan kalkulasi stok instan.
+- Reposisi layout blok transaksi ke atas deskripsi produk untuk mengoptimalkan konversi transaksi B2B.
+
+### 2. Perbaikan Multi-Page PDF Katalog
+- Mengimplementasikan chunking berpasangan berbasis baris (`wrap={false}`) pada template katalog PDF, mencegah pemotongan kartu produk di antara pergantian halaman dokumen.
+
+---
+
+## Sesi #33 Update — Hardening Pass Final: P0+P1+P2 Security, UOM Module & Health Check Endpoint
+
+### 1. Endpoint Health Check & Circuit Breaker
+- Menambahkan endpoint publik `GET /api/health` untuk memonitor kesiapan server dan status konektivitas database PostgreSQL.
+
+### 2. Modul UOM & Standarisasi Satuan
+- Menambahkan `src/lib/uom.ts` untuk validasi satuan komoditas B2B dan pencegahan input satuan liar.
+
+### 3. Eliminasi Status Zombi REJECTED
+- Menghapus nilai `REJECTED` dari enum `OrderStatus` di skema database (menggunakan `CANCELLED` secara terstandarisasi).
+
+### 4. Security Headers & Error Classification
+- Mengonfigurasi header keamanan ketat di `next.config.mjs` (CSP, X-Frame-Options, HSTS).
+- Menambahkan `src/lib/db-errors.ts` untuk mengklasifikasi kegagalan database secara presisi (`CONSTRAINT` vs `UNREACHABLE`).
+
+---
+
+## Sesi #34 Update — Hotfix Deployment Coolify & Build Stabilization
+
+### 1. Stabilisasi Alokasi Memori Build
+- Menyesuaikan batas heap memory Node.js pada pipeline CI/CD Coolify untuk mencegah pemutusan build saat kompilasi static pages.
 
 ---
 
 ## Sesi #35 Update — Infrastruktur Deployment Coolify, .dockerignore, Multi-Stage Dockerfile & nixpacks.toml
 
 ### 1. Diagnosa Deployment Coolify (Exit Code 255)
-- Evaluasi build log: Seluruh tahapan `prisma generate`, `next build` (Turbopack), `tsc`, dan 56/56 prerender static pages berhasil 100%.
-- Titik kegagalan: Terjadi saat `#16 exporting layers`. Nixpacks default menghasilkan image raksasa (3.5GB+) yang memicu Linux OOM-killer dan pemutusan socket SSH internal Coolify (`exit code 255`).
+- Evaluasi build log: Seluruh tahapan `prisma generate`, `next build`, dan 56 static pages berhasil.
+- Titik kegagalan: Nixpacks default menghasilkan image raksasa (3.5GB+) yang memicu Linux OOM-killer saat exporting layers (`exit code 255`).
 
 ### 2. Standarisasi Kontainerisasi & Hardening
-- **`.dockerignore`**: Dibuat komprehensif untuk mengecualikan `.next`, `node_modules`, `docs`, `scripts`, `.git`, `.local-store.json`, dsb. sehingga context build menjadi ringkas (< 1 MB).
-- **`Dockerfile` (Multi-Stage Next.js Standalone)**:
-  - Base: `node:22-alpine`
-  - Builder: Kompilasi dengan `output: 'standalone'`
-  - Runner: Menyalin `public`, `prisma`, `.next/standalone`, dan `.next/static`. Menjalankan `node server.js` dengan non-root user `nextjs:nodejs`.
-  - Ukuran image turun drastis ke ~150 MB (efisiensi 95% dibanding Nixpacks).
-- **`nixpacks.toml`**: Disediakan sebagai konfigurasi fallback jika operator tetap memilih Nixpacks pada Coolify, menjamin instalasi devDependencies dengan flag `--include=dev`.
+- **`.dockerignore`**: Dibuat komprehensif sehingga context build ringkas (< 1 MB).
+- **`Dockerfile` (Multi-Stage Next.js Standalone)**: Base `node:22-alpine`, runner standalone non-root user `nextjs:nodejs`, ukuran image turun drastis ke ~150 MB (efisiensi 95%).
+- **`nixpacks.toml`**: Disediakan sebagai konfigurasi fallback jika operator memilih Nixpacks, menjamin flag `--include=dev`.
 
-### 3. Verifikasi Kualitas Sesi #35
-| Perintah | Hasil |
-|---|---|
-| `npm test` | Exit Code 0, 23/23 tests passed (100%) ✅ |
-| `npm run build` | Exit Code 0, 56/56 routes compiled successfully ✅ |
+---
 
+## Sesi #36 Update — Audit Total Final & Remediasi Komprehensif (P0, P1, P2, Whitelabel, & B2B Invoicing)
 
+### 1. Penutupan Blocker Kritis (P0)
+- **P0-A (Kalkulasi Finansial)**: Sentralisasi kalkulasi pesanan via `src/lib/order-total.ts` (`computeOrderTotals`). Kolom `grandTotal`, `subtotal`, `taxRate`, `taxAmount`, dan `shippingCost` terhitung dan tersimpan akurat pada setiap transaksi checkout. Disediakan skrip `scripts/backfill-order-grandtotal.ts` untuk pesanan lama.
+- **P0-B (Snapshot OrderItem)**: Snapshot data produk (`productName`, `productSlug`, `productUnit`) ditulis permanen pada `createOrder`. Riwayat pesanan tetap utuh dan informatif meski produk komoditas dihapus.
+- **P0-C (Fail-Fast Environment)**: Validasi fail-fast `validateEnv()` dipanggil pada inisialisasi database di `src/lib/db.ts`, mencegah server berjalan dengan konfigurasi cacat.
+- **P0-D (Keamanan Fallback Produksi)**: Menyatukan logika fallback ke `isLocalFallbackAllowed()` yang mutlak bernilai `false` di lingkungan produksi (`NODE_ENV=production`).
+- **P0-E (Audit Naked Catches)**: Seluruh blok try/catch di `src/lib/data-store.ts` diaudit; mutasi dialihkan ke `handleDbFallback` dan error constraint dipisahkan dengan `classifyDbError`.
+- **P0-F (Pemisahan Pengaturan Publik & Rekening Asli)**: Endpoint publik `/api/public/settings` menyajikan daftar metode pembayaran aktif (tipe, bank) tanpa membocorkan nomor rekening penuh sebelum pesanan dibuat, mengeliminasi badge palsu di checkout.
+- **P0-G & P2-G (Pembersihan Tuntas REJECTED)**: Seluruh residu enum zombie `REJECTED` di skema Prisma, dropdown admin pesanan, dan pelacakan publik dibersihkan total.
+- **P0-H (Integritas Catatan Pembeli)**: Kolom `Order.adminNotes` dipisahkan dari `Order.notes` (catatan pembeli bersifat read-only setelah checkout).
 
+### 2. Penyempurnaan Logika Bisnis & Workflow (P1)
+- **P1-A & P1-B (Validasi MOQ & Step Kuantitas B2B)**: Enforcing kuantitas minimum (`minOrderQty`) dan kelipatan pemesanan (`incrementQty`) sisi server pada `createOrder` dan endpoint validasi realtime `POST /api/validate-cart`. Input B2B terintegrasi di form produk dan pengaturan admin dengan proteksi whitelist payload.
+- **P1-C (Retensi Audit Log)**: Dibuat script CLI `scripts/purge-audit-log.ts` dengan opsi `--dry-run` dan `--apply` sesuai konfigurasi `SiteSetting.auditRetentionDays`.
+- **P1-D (Atomic Restock & Failure Audit)**: Restock pembatalan pesanan diikat dalam transaksi atomik `prisma.$transaction`, mencatat `AUDIT_ACTIONS.RESTOCK_FAILED` jika terjadi kegagalan.
+- **P1-E (State Machine Pesanan)**: Validasi transisi pesanan strict (`ALLOWED_ORDER_TRANSITIONS`); status `PAID` hanya dapat dicapai melalui verifikasi bukti bayar, dan pesanan `PAID` diizinkan langsung beralih ke `COMPLETED` untuk model pengambilan mandiri (loco).
+- **P1-F & P1-G (Integrasi Supplier ke CRM)**: Formulir penawaran jual (`SellOffer`) otomatis menyinkronkan data supplier ke direktori CRM `Customer` (`source: 'SELL_OFFER'`) dan mencatat timeline `CustomerInteraction`. Foto penawaran divalidasi anti-SSRF via `validateUploadUrl` / `validateLocalUploadPath`.
+- **P1-I (Validasi Kontak Ketat)**: Validasi format nomor telepon (8–16 digit numerik) dan format email RFC di checkout; error validasi mengembalikan HTTP 400 terstandarisasi.
+- **P1-J (Harmonisasi RBAC Pengaturan)**: Superadmin memegang wewenang eksklusif mutasi finansial (`bankAccounts`, pajak, retensi), sedangkan Admin diizinkan mengelola identitas toko dan kontak operasional.
+- **P1-L & P1-M (Peringatan Stok Rendah)**: Statistik dashboard admin mengevaluasi ambang batas per-produk (`stock < (minStock ?? threshold)`) dan melempar error keras (fail-loud) jika database tidak dapat dijangkau di produksi.
+- **P1-N (Sanitasi Skema JSON-LD Anti-XSS)**: Dibuat modul `src/lib/json-ld.ts` (`safeJsonLd`) dan diterapkan pada seluruh 11 sink structured data (Beranda, Produk, Artikel, FAQ, Breadcrumbs).
+- **P1-O & P1-P (Arsitektur Keranjang Belanja)**: `CartProvider` diperbarui dengan masa retensi TTL 30 hari, key storage terisolasi via `getCartStorageKey()`, sinkronisasi revalidasi harga/stok sisi server, dan mutasi state yang immutable.
+- **P1-Q (Proteksi Enumerasi Kontak RFQ)**: Endpoint `/api/leads` mengembalikan respons sukses seragam untuk mencegah kebocoran informasi pendaftaran kontak pelanggan (*oracle attack*).
+- **P1-R (Gating Detail Rekening Bank)**: Detail nomor rekening dan QRIS diproteksi ganda, hanya tampil saat pesanan berada dalam status `PENDING_PAYMENT` atau `PENDING_VERIFICATION`.
+- **P1-S (Standarisasi Basis Poin Pajak)**: Nilai default tax rate di seed database diselaraskan menjadi 1100 basis poin (11%).
+
+### 3. Pembersihan Orphan, Duplikasi & Whitelabel Template (P2)
+- **P2-A (Integrasi Penuh Audit Actions)**: Seluruh 31 aksi di `AUDIT_ACTIONS` terhubung aktif ke handler produksi (0 orphan actions).
+- **P2-B (100% Whitelabel Template)**: Menghapus 125 kemunculan literal brand hardcoded ("Adably") di direktori `src/` hingga mencapai **tepat 0**. Seluruh teks brand, domain, dan cookie dikendalikan secara dinamis via `config.ts`, `SiteSetting`, dan env vars.
+- **P2-D (Scanner Matriks API Fail-Loud)**: Menulis ulang `scripts/verify-api-matrix.ts` untuk membaca tabel BLUEPRINT §7 secara aktif, membandingkan seluruh 44 route file dan 67 method handler, serta keluar dengan `process.exit(1)` saat ditemukan selisih.
+- **P2-E (Pembersihan Media Otomatis)**: Menghubungkan fungsi `deleteMedia` pada penghapusan produk, artikel, dan kategori untuk mencegah timbulan berkas yatim di storage.
+- **P2-I (Whitelist Gambar Produksi)**: Membatasi remote image patterns di produksi hanya pada domain resmi, S3, atau Cloudinary; melarang `localhost` dan placeholder eksternal.
+
+### 4. Fitur Tambahan Pemantapan Bisnis (Fase 4 ADD)
+- **ADD-01 (Faktur Komersial & Proforma Invoice B2B PDF)**: Menghadirkan template PDF resmi di `src/lib/invoice-pdf.tsx` dan endpoint publik terproteksi `GET /api/pesanan/[orderCode]/invoice` berbasis `@react-pdf/renderer`.
+- **ADD-02 (Negosiasi Ongkir Manual & Rekalkulasi Total)**: Admin dapat memasukkan nominal ongkir hasil koordinasi kargo/WA pada detail pesanan, yang secara otomatis menghitung ulang `grandTotal` pesanan.
+- **ADD-03 (Badge Notifikasi Realtime Sidebar Admin)**: Menambahkan badge counter real-time pada sidebar admin layout untuk penawaran jual masuk (`newSellOffers`) dan pesanan menunggu tindakan (`pendingOrders`).
+- **ADD-04 (Pendaftaran Sitemap Supplier)**: Mendaftarkan rute akuisisi supplier `/jual` ke `src/app/sitemap.ts` dengan priority 0.8.
+
+### 5. Sinkronisasi Dokumen & Gate Mutu
+- Menuntaskan 16 butir sinkronisasi dokumen (D-1 s/d D-16) di `docs/BLUEPRINT.md` dan `docs/NOTEPATCH.md`.
+- Memperbaiki penomoran duplikat Sesi #21 di NOTEPATCH menjadi Sesi #25B.
+- Seluruh 7 pemeriksaan otomatis gate mutu berhasil dengan Exit Code 0.

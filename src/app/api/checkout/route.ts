@@ -27,6 +27,22 @@ export async function POST(request: Request) {
       );
     }
 
+    // P1-I: Validasi panjang nomor telepon agar pembeli tidak terkunci saat pelacakan
+    const cleanPhoneDigits = String(customerPhone || '').replace(/[^0-9]/g, '');
+    if (cleanPhoneDigits.length < 8 || cleanPhoneDigits.length > 16) {
+      return NextResponse.json(
+        { error: 'Nomor WhatsApp/telepon harus terdiri dari minimal 8 digit dan maksimal 16 digit angka.' },
+        { status: 400 }
+      );
+    }
+
+    if (customerEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(customerEmail).trim())) {
+      return NextResponse.json(
+        { error: 'Format alamat email tidak valid.' },
+        { status: 400 }
+      );
+    }
+
     if (!items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json(
         { error: 'Keranjang belanja Anda masih kosong.' },
@@ -75,6 +91,8 @@ export async function POST(request: Request) {
       items: orderItems,
     });
 
+    const effectiveTotal = order.grandTotal > 0 ? order.grandTotal : order.total;
+
     // Sesi #22 (Audit): Hubungkan event checkout_success yang sebelumnya orphan di wa-notify.ts
     // wa_message disisipkan di response agar admin/sistem dapat meneruskan ke WA pembeli secara manual
     let wa_message: string | null = null;
@@ -84,11 +102,11 @@ export async function POST(request: Request) {
           orderCode: order.orderCode,
           buyerName: order.buyerName,
           buyerPhone: order.buyerPhone,
-          total: order.total,
+          total: effectiveTotal,
           items: order.items?.map((i: OrderItemData) => ({
-            name: String(i.product?.name || i.productId),
+            name: String(i.product?.name || (i as any).productName || i.productId),
             qty: i.qty,
-            unit: i.product?.unit || 'kg',
+            unit: i.product?.unit || (i as any).productUnit || 'kg',
           })),
         },
         'checkout_success'
@@ -100,16 +118,31 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       orderCode: order.orderCode,
-      total: order.total,
+      total: effectiveTotal,
+      grandTotal: effectiveTotal,
+      subtotal: order.subtotal ?? order.total,
+      taxAmount: order.taxAmount ?? 0,
+      shippingCost: order.shippingCost ?? 0,
       // wa_message: teks siap-copy untuk admin/CS teruskan ke WA pembeli setelah checkout
       wa_message,
       wa_phone: order.buyerPhone,
     });
   } catch (error: any) {
     console.error('Error creating order:', error);
+    const msg = error?.message || 'Gagal memproses pesanan.';
+    // NEW-03 & P1-I: Kembalikan HTTP 400 untuk validasi bisnis
+    const isBusinessError =
+      msg.includes('Stok komoditas') ||
+      msg.includes('tidak mencukupi') ||
+      msg.includes('minimum order') ||
+      msg.includes('tidak tersedia') ||
+      msg.includes('tidak ditemukan') ||
+      msg.includes('kelipatan') ||
+      msg.includes('Validasi kuantitas');
+
     return NextResponse.json(
-      { error: error.message || 'Gagal memproses pesanan.' },
-      { status: 500 }
+      { error: msg },
+      { status: isBusinessError ? 400 : 500 }
     );
   }
 }

@@ -39,19 +39,35 @@ async function main() {
       address: 'Kawasan Pergudangan & Industri Logistik Blok M-9, Jakarta Barat',
       bankAccounts: [
         {
+          id: 'bank-bca',
+          type: 'BANK',
           bank: 'BCA',
+          accountNumber: '8001234567',
+          accountName: 'PT Mineral Niaga Nusantara',
           noRekening: '8001234567',
-          atasNama: 'Adably',
+          atasNama: 'PT Mineral Niaga Nusantara',
+          isActive: true,
         },
         {
+          id: 'bank-mandiri',
+          type: 'BANK',
           bank: 'Mandiri',
+          accountNumber: '1230009876543',
+          accountName: 'PT Mineral Niaga Nusantara',
           noRekening: '1230009876543',
-          atasNama: 'Adably',
+          atasNama: 'PT Mineral Niaga Nusantara',
+          isActive: true,
         },
       ],
-      footerText: '© 2026 Adably. Solusi pengadaan komoditas mineral & hasil alam terpercaya.',
-      metaTitle: 'Adably — Marketplace Komoditas Mineral & Hasil Alam',
+      footerText: '© 2026 Mineral Platform. Solusi pengadaan komoditas mineral & hasil alam terpercaya.',
+      metaTitle: 'Marketplace Komoditas Mineral & Hasil Alam',
       metaDesc: 'Jual beli komoditas mineral tambang berkualitas: Zeolite, Bentonite, Timah murni, serta Gaharu super untuk industri, agrikultur, dan ekspor.',
+      paymentToleranceAmount: 50000,
+      defaultTaxRate: 1100,
+      taxEnabled: true,
+      shippingPolicy: 'Pengiriman darat dan laut menggunakan armada truk kargo rekanan resmi dengan pelacakan berkala.',
+      auditRetentionDays: 90,
+      lowStockAlertThreshold: 10,
     },
   });
   console.log(`✓ SiteSetting disiapkan: ${settings.siteName}`);
@@ -200,6 +216,9 @@ async function main() {
         'https://images.unsplash.com/photo-1590402494587-44b71d7772f6?auto=format&fit=crop&w=800&q=80',
       ],
       tags: ['zeolite', 'mineralalam', 'penyaringair', 'pupukorganik'],
+      unit: 'Kg',
+      minOrderQty: 10,
+      incrementQty: 5,
       categoryId: catMineral.id,
       usageSlugs: ['pertanian-pupuk', 'pengolahan-air', 'peternakan-pakan-ternak'],
     },
@@ -215,6 +234,9 @@ async function main() {
         'https://images.unsplash.com/photo-1590402494682-cd3fb53b1f70?auto=format&fit=crop&w=800&q=80',
       ],
       tags: ['bentonite', 'clay', 'drillingmud', 'catlitter'],
+      unit: 'Kg',
+      minOrderQty: 10,
+      incrementQty: 5,
       categoryId: catMineral.id,
       usageSlugs: ['industri-konstruksi', 'pengolahan-air', 'pertanian-pupuk'],
     },
@@ -230,6 +252,9 @@ async function main() {
         'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=800&q=80',
       ],
       tags: ['timah', 'tin', 'logam', 'ekspor'],
+      unit: 'Kg',
+      minOrderQty: 1,
+      incrementQty: 1,
       categoryId: catMineral.id,
       usageSlugs: ['industri-elektronik', 'ekspor-bahan-mentah'],
     },
@@ -245,6 +270,9 @@ async function main() {
         'https://images.unsplash.com/photo-1513836279014-a89f7a76ae86?auto=format&fit=crop&w=800&q=80',
       ],
       tags: ['gaharu', 'agarwood', 'parfum', 'dupa'],
+      unit: 'Kg',
+      minOrderQty: 1,
+      incrementQty: 1,
       categoryId: catHutan.id,
       usageSlugs: ['kesehatan-kosmetik', 'parfum-dupa', 'ekspor-bahan-mentah'],
     },
@@ -254,7 +282,11 @@ async function main() {
     const { usageSlugs, ...productData } = p;
     const product = await prisma.product.upsert({
       where: { slug: p.slug },
-      update: {},
+      update: {
+        unit: productData.unit,
+        minOrderQty: productData.minOrderQty,
+        incrementQty: productData.incrementQty,
+      },
       create: productData,
     });
 
@@ -324,6 +356,80 @@ async function main() {
     });
   }
   console.log(`✓ Artikel disiapkan: ${articles.length} artikel`);
+
+  // 9. Sample B2B Order & Customer (Financial Validation)
+  const sampleZeolite = await prisma.product.findUnique({
+    where: { slug: 'zeolite-aktif-alam-granular-mesh-20-40' },
+  });
+
+  if (sampleZeolite) {
+    const customer = await prisma.customer.upsert({
+      where: { phone: '081298765432' },
+      update: {},
+      create: {
+        name: 'Budi Santoso',
+        company: 'PT Agro Makmur Sentosa',
+        phone: '081298765432',
+        email: 'purchasing@agromakmur.id',
+        address: 'Jl. Raya Industri Agraria Kav. 12, Surabaya',
+        type: 'CUSTOMER',
+        status: 'DEAL',
+        source: 'MANUAL_ORDER',
+        totalOrders: 1,
+        totalSpent: 2647500,
+        notes: 'Pelanggan korporat pupuk organik - repeat order bulanan.',
+      },
+    });
+
+    const existingOrder = await prisma.order.findUnique({
+      where: { orderCode: 'ORD-SAMPLE-001' },
+    });
+
+    if (!existingOrder) {
+      await prisma.order.create({
+        data: {
+          orderCode: 'ORD-SAMPLE-001',
+          buyerName: 'Budi Santoso',
+          buyerPhone: '081298765432',
+          buyerEmail: 'purchasing@agromakmur.id',
+          buyerAddress: 'Jl. Raya Industri Agraria Kav. 12, Surabaya',
+          subtotal: 2250000,
+          taxRate: 1100,
+          taxAmount: 247500,
+          shippingCost: 150000,
+          grandTotal: 2647500,
+          total: 2647500,
+          status: 'PAID',
+          notes: 'Kirim via truk colt diesel bak terbuka.',
+          adminNotes: 'Verifikasi bank BCA valid. Batch pertama.',
+          customerId: customer.id,
+          proof: {
+            create: {
+              fileUrl: '/uploads/sample-proof.jpg',
+              senderBank: 'BCA',
+              senderName: 'PT Agro Makmur Sentosa',
+              amount: 2647500,
+              status: 'APPROVED',
+              verifiedAt: new Date(),
+            },
+          },
+          items: {
+            create: [
+              {
+                productId: sampleZeolite.id,
+                productName: sampleZeolite.name,
+                productSlug: sampleZeolite.slug,
+                productUnit: sampleZeolite.unit || 'Kg',
+                qty: 50,
+                price: 45000,
+              },
+            ],
+          },
+        },
+      });
+      console.log('✓ Pesanan contoh B2B & CRM disiapkan: ORD-SAMPLE-001 (GrandTotal: Rp 2.647.500)');
+    }
+  }
 
   console.log('--- Seeding Selesai Sukses ---');
 }

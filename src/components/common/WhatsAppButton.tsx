@@ -10,7 +10,7 @@ interface WhatsAppButtonProps {
 
 export function WhatsAppButton({
   csWhatsapp = '6281234567890',
-  defaultMessage = 'Halo Tim Adably, saya tertarik berkonsultasi mengenai pemesanan komoditas mineral...',
+  defaultMessage = 'Halo Tim Layanan, saya tertarik berkonsultasi mengenai pemesanan komoditas mineral...',
 }: WhatsAppButtonProps) {
   const [showTooltip, setShowTooltip] = useState(false);
 
@@ -39,7 +39,7 @@ export function WhatsAppButton({
             </button>
           </div>
           <p className="mt-1 text-[11px] text-slate-500 leading-relaxed">
-            Chat langsung dengan tim teknis & logistik Adably via WhatsApp.
+            Chat langsung dengan tim teknis & logistik kami via WhatsApp.
           </p>
         </div>
       )}

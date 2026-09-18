@@ -1,7 +1,8 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createSellOffer, getSiteSettings } from '@/lib/data-store';
 import { checkSellOfferRateLimit, getClientIp } from '@/lib/rate-limit';
 import { buildSellOfferWaMessage } from '@/lib/wa-notify';
+import { validateLocalUploadPath, validateUploadUrl } from '@/lib/upload-url';
 
 export async function POST(req: NextRequest) {
   const ip = getClientIp(req);
@@ -24,6 +25,35 @@ export async function POST(req: NextRequest) {
     if (!commodityName || typeof commodityName !== 'string' || !commodityName.trim())
       return NextResponse.json({ error: 'Nama komoditas wajib diisi' }, { status: 400 });
 
+    // P1-G: Proteksi upload foto komoditas di form jual
+    const validatedPhotoUrls: string[] = [];
+    if (Array.isArray(photoUrls)) {
+      for (const url of photoUrls) {
+        if (typeof url === 'string' && url.trim()) {
+          const trimmed = url.trim();
+          if (trimmed.startsWith('/uploads/')) {
+            const localCheck = validateLocalUploadPath(trimmed);
+            if (!localCheck.valid) {
+              return NextResponse.json(
+                { error: `Foto tidak valid: ${localCheck.error}` },
+                { status: 400 }
+              );
+            }
+            validatedPhotoUrls.push(trimmed);
+          } else {
+            const urlCheck = validateUploadUrl(trimmed);
+            if (!urlCheck.valid) {
+              return NextResponse.json(
+                { error: `URL foto tidak valid: ${urlCheck.error}` },
+                { status: 400 }
+              );
+            }
+            validatedPhotoUrls.push(trimmed);
+          }
+        }
+      }
+    }
+
     const offer = await createSellOffer({
       name: name.trim(), company: company?.trim() || undefined,
       phone: phone.trim(), email: email?.trim() || undefined,
@@ -31,7 +61,7 @@ export async function POST(req: NextRequest) {
       commodityName: commodityName.trim(), commoditySpec: commoditySpec?.trim() || undefined,
       estimatedVolume: estimatedVolume?.trim() || undefined,
       priceExpected: priceExpected?.trim() || undefined,
-      photoUrls: Array.isArray(photoUrls) ? photoUrls : [],
+      photoUrls: validatedPhotoUrls,
     });
 
     let settings: any = null;

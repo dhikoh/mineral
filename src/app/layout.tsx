@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
+import { getBaseUrl, getDefaultSiteName } from '@/lib/config';
 import { StorefrontShell } from '@/components/layout/StorefrontShell';
 import { getSiteSettings } from '@/lib/data-store';
 import { CartProvider } from '@/lib/cart-context';
@@ -14,10 +15,11 @@ export const viewport: Viewport = {
 };
 
 export async function generateMetadata(): Promise<Metadata> {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://adably.id';
+  const baseUrl = getBaseUrl();
+  const defaultName = getDefaultSiteName();
   try {
     const setting = await getSiteSettings();
-    const siteTitle = setting.siteName || 'Adably';
+    const siteTitle = setting.siteName || defaultName;
     const siteTagline = setting.tagline || 'Pusat Komoditas Mineral Tambang & Hasil Alam';
     const siteDescription =
       'Platform B2B & Retail Terpercaya Penyedia Komoditas Tambang Indonesia: Zeolite, Bentonite, Timah murni, serta Gaharu super untuk industri, agrikultur, dan ekspor.';
@@ -87,13 +89,14 @@ export async function generateMetadata(): Promise<Metadata> {
       appleWebApp: {
         capable: true,
         statusBarStyle: 'default',
-        title: 'Adably',
+        title: siteTitle,
       },
     };
   } catch {
+    const fallbackName = getDefaultSiteName();
     return {
       metadataBase: new URL(baseUrl),
-      title: 'Adably — Pusat Komoditas Tambang',
+      title: `${fallbackName} — Pusat Komoditas Tambang`,
       description: 'Penyedia komoditas mineral tambang berkualitas.',
     };
   }
@@ -105,8 +108,9 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const siteSetting = await getSiteSettings();
+  const defaultName = getDefaultSiteName();
 
-  const siteName = siteSetting.siteName || 'Adably';
+  const siteName = siteSetting.siteName || defaultName;
   const csWhatsapp = siteSetting.csWhatsapp || '6281234567890';
   const tagline = siteSetting.tagline || 'Pusat Komoditas Mineral Tambang & Hasil Alam Berkualitas Ekspor';
   const address = siteSetting.address || 'Kawasan Pergudangan & Industri Logistik Blok M-9, Jakarta Barat';
@@ -114,10 +118,10 @@ export default async function RootLayout({
   const bankAccounts = Array.isArray(siteSetting.bankAccounts)
     ? siteSetting.bankAccounts
     : [
-        { bank: 'BCA', noRekening: '8001234567', atasNama: 'Adably' },
-        { bank: 'Mandiri', noRekening: '1230009876543', atasNama: 'Adably' },
+        { bank: 'BCA', noRekening: '8001234567', atasNama: siteName },
+        { bank: 'Mandiri', noRekening: '1230009876543', atasNama: siteName },
       ];
-  const footerText = siteSetting.footerText || '© 2026 Adably. All rights reserved.';
+  const footerText = siteSetting.footerText || `© ${new Date().getFullYear()} ${siteName}. All rights reserved.`;
 
   return (
     <html lang="id" className="scroll-smooth">

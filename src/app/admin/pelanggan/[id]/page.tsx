@@ -369,7 +369,7 @@ export default function CustomerDetailPage({
         <div className="flex gap-2 sm:flex-shrink-0">
           {customer.phone && (
             <a
-              href={`https://wa.me/${customer.phone}?text=${encodeURIComponent(`Halo ${customer.name}, saya dari tim Adably.`)}`}
+              href={`https://wa.me/${customer.phone}?text=${encodeURIComponent(`Halo ${customer.name}, saya dari tim pengadaan kami.`)}`}
               target="_blank"
               rel="noreferrer"
               className="inline-flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-medium rounded-lg transition-colors"

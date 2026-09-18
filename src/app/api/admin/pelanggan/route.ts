@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAdminSession } from '@/lib/auth';
 import { getCustomers, createCustomer } from '@/lib/data-store';
+import { recordAuditLog, AUDIT_ACTIONS } from '@/lib/audit-log';
 
 export async function GET(req: Request) {
   const session = await getAdminSession();
@@ -76,6 +77,20 @@ export async function POST(req: Request) {
       preferredCommodity: preferredCommodity?.trim() || null,
       estimatedVolume: estimatedVolume?.trim() || null,
       notes: notes?.trim() || null,
+    });
+
+    await recordAuditLog({
+      actorId: session.id,
+      actorName: session.name,
+      actorRole: session.role,
+      action: AUDIT_ACTIONS.CREATE_CUSTOMER,
+      targetType: 'Customer',
+      targetId: newCustomer.id,
+      metadata: {
+        customerName: newCustomer.name,
+        customerPhone: newCustomer.phone,
+        type: newCustomer.type,
+      },
     });
 
     return NextResponse.json({

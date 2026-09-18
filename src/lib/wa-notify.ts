@@ -39,7 +39,7 @@ export function buildWhatsAppMessage(
   context: WaOrderContext,
   event: WaEventType
 ): string | null {
-  const site = context.siteName || 'Adably';
+  const site = context.siteName || 'Kami';
   const cs = context.csWhatsapp ? `\n📞 CS: ${context.csWhatsapp}` : '';
   const total = formatRupiah(context.total);
 
@@ -131,7 +131,7 @@ export interface WaSellOfferContext {
 }
 
 export function buildSellOfferWaMessage(ctx: WaSellOfferContext): string {
-  const site = ctx.siteName || 'Adably';
+  const site = ctx.siteName || 'Kami';
   const lines = [
     `🔔 *Penawaran Jual Komoditas Baru — ${site}*`,
     ``,

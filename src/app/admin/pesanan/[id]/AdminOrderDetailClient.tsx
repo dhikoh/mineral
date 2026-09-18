@@ -18,7 +18,9 @@ import {
   Loader2,
   FileCheck,
   ShoppingBag,
+  FileText,
 } from 'lucide-react';
+import { getDefaultSiteName } from '@/lib/config';
 
 export function AdminOrderDetailClient({ initialOrder }: { initialOrder: any }) {
   const [order, setOrder] = useState(initialOrder);
@@ -28,7 +30,8 @@ export function AdminOrderDetailClient({ initialOrder }: { initialOrder: any }) 
   // Fulfillment status form
   const [status, setStatus] = useState(order.status);
   const [trackingNumber, setTrackingNumber] = useState(order.trackingNumber || '');
-  const [notes, setNotes] = useState(order.notes || '');
+  const [adminNotes, setAdminNotes] = useState((order as any).adminNotes || '');
+  const [shippingCost, setShippingCost] = useState<number | string>((order as any).shippingCost || 0);
 
   // Reject modal state
   const [showRejectModal, setShowRejectModal] = useState(false);
@@ -77,7 +80,8 @@ export function AdminOrderDetailClient({ initialOrder }: { initialOrder: any }) 
         body: JSON.stringify({
           status,
           trackingNumber,
-          notes,
+          adminNotes,
+          shippingCost: Number(shippingCost) || 0,
         }),
       });
 
@@ -95,7 +99,7 @@ export function AdminOrderDetailClient({ initialOrder }: { initialOrder: any }) 
 
   const buyerCleanPhone = order.buyerPhone ? order.buyerPhone.replace(/\D/g, '') : '';
   const waUrl = `https://wa.me/${buyerCleanPhone}?text=${encodeURIComponent(
-    `Halo ${order.buyerName}, kami dari Admin Adably mengonfirmasi pesanan Anda dengan nomor ${order.orderCode}.`
+    `Halo ${order.buyerName}, kami dari Tim Admin ${getDefaultSiteName()} mengonfirmasi pesanan Anda dengan nomor ${order.orderCode}.`
   )}`;
 
   return (
@@ -123,15 +127,27 @@ export function AdminOrderDetailClient({ initialOrder }: { initialOrder: any }) 
             </div>
           </div>
 
-          <a
-            href={waUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-bold text-white hover:bg-emerald-700 transition-colors shadow-soft-xs"
-          >
-            <MessageCircle className="h-3.5 w-3.5" />
-            <span>Chat WhatsApp Pembeli</span>
-          </a>
+          <div className="flex flex-wrap items-center gap-2">
+            <a
+              href={`/api/pesanan/${order.orderCode}/invoice`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-surface-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-surface-100 hover:text-slate-900 transition-colors shadow-soft-xs"
+            >
+              <FileText className="h-3.5 w-3.5 text-primary-600" />
+              <span>Faktur / Invoice PDF</span>
+            </a>
+
+            <a
+              href={waUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-bold text-white hover:bg-emerald-700 transition-colors shadow-soft-xs"
+            >
+              <MessageCircle className="h-3.5 w-3.5" />
+              <span>Chat WhatsApp Pembeli</span>
+            </a>
+          </div>
         </div>
 
         {/* Alert Feedback Banner */}
@@ -344,7 +360,6 @@ export function AdminOrderDetailClient({ initialOrder }: { initialOrder: any }) 
                     <option value="PROCESSING">Sedang Diproses Gudang (PROCESSING)</option>
                     <option value="SHIPPED">Sedang Dikirim (SHIPPED)</option>
                     <option value="COMPLETED">Pesanan Selesai (COMPLETED)</option>
-                    <option value="REJECTED">Ditolak (REJECTED)</option>
                     <option value="CANCELLED">Dibatalkan (CANCELLED)</option>
                   </select>
                   {order.status !== 'PAID' && (
@@ -367,15 +382,41 @@ export function AdminOrderDetailClient({ initialOrder }: { initialOrder: any }) 
                   />
                 </div>
 
+                {/* P0-H: Catatan asli pembeli ditampilkan read-only */}
+                {order.notes && (
+                  <div className="rounded-xl border border-blue-200 bg-blue-50/60 p-3 text-xs text-blue-950">
+                    <span className="font-bold block text-blue-900 mb-1">Catatan Pembeli (Saat Checkout):</span>
+                    <p className="whitespace-pre-wrap font-sans text-slate-700">{order.notes}</p>
+                  </div>
+                )}
+
+                {/* ADD-02: Input Ongkos Kirim Manual */}
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Catatan Internal Admin / Catatan Pengadaan
+                    Ongkos Kirim Manual (Rp)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={shippingCost}
+                    onChange={(e) => setShippingCost(e.target.value)}
+                    placeholder="0"
+                    className="w-full rounded-xl border border-surface-300 bg-white px-3.5 py-2 text-xs font-mono text-slate-800 placeholder-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Mengisi ongkir akan otomatis menghitung ulang grand total pesanan.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Catatan Internal Admin / Catatan Pengadaan (Hanya Terlihat Staf)
                   </label>
                   <textarea
                     rows={3}
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Catatan internal pengiriman atau instruksi khusus..."
+                    value={adminNotes}
+                    onChange={(e) => setAdminNotes(e.target.value)}
+                    placeholder="Catatan internal pengiriman atau instruksi khusus staf..."
                     className="w-full rounded-xl border border-surface-300 bg-white px-3.5 py-2 text-xs text-slate-800 placeholder-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                   />
                 </div>

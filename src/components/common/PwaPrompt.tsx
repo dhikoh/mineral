@@ -45,7 +45,7 @@ export function PwaPrompt() {
 
   return (
     <aside
-      aria-label="Prompt PWA Adably"
+      aria-label="Prompt Pasang Aplikasi"
       className="fixed bottom-20 left-4 right-4 z-50 mx-auto max-w-md animate-in fade-in slide-in-from-bottom-5 duration-300 md:bottom-6 md:right-6 md:left-auto"
     >
       <div className="relative flex flex-col gap-3 rounded-2xl border border-emerald-500/30 bg-slate-900/95 p-4 text-white shadow-2xl backdrop-blur-md">
@@ -55,7 +55,7 @@ export function PwaPrompt() {
             <Sparkles className="h-5 w-5 text-white" />
           </div>
           <div className="flex-1 min-w-0">
-            <h4 className="text-sm font-semibold tracking-tight text-white">Pasang Aplikasi Adably</h4>
+            <h4 className="text-sm font-semibold tracking-tight text-white">Pasang Aplikasi Web</h4>
             <p className="text-xs text-slate-300 leading-tight mt-0.5">Akses cepat &amp; katalog luring di layar HP Anda</p>
           </div>
           <button

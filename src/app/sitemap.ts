@@ -1,8 +1,9 @@
 import type { MetadataRoute } from 'next';
 import { getProducts, getCategories, getArticles } from '@/lib/data-store';
+import { getBaseUrl } from '@/lib/config';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://adably.id';
+  const baseUrl = getBaseUrl();
   const currentDate = new Date();
 
   // 1. Static Pages
@@ -18,6 +19,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: currentDate,
       changeFrequency: 'daily',
       priority: 0.9,
+    },
+    {
+      url: `${baseUrl}/jual`,
+      lastModified: currentDate,
+      changeFrequency: 'weekly',
+      priority: 0.8,
     },
     {
       url: `${baseUrl}/artikel`,

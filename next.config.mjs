@@ -21,7 +21,14 @@ function getAllowedImageHostnames() {
   }
 
   // Domain aplikasi produksi dan asset eksternal
-  hosts.push('adably.id', 'cdn.adably.id', 'images.unsplash.com', 'localhost');
+  if (process.env.APP_DOMAIN) {
+    hosts.push(process.env.APP_DOMAIN, `cdn.${process.env.APP_DOMAIN}`);
+  }
+
+  // Fallback dev & seed data demo HANYA saat development/testing (bukan produksi!)
+  if (process.env.NODE_ENV !== 'production') {
+    hosts.push('localhost', 'images.unsplash.com');
+  }
 
   return [...new Set(hosts.filter(Boolean))];
 }
@@ -56,6 +63,10 @@ const nextConfig = {
   async headers() {
     const isProduction = process.env.NODE_ENV === 'production';
 
+    const scriptSrc = isProduction
+      ? "script-src 'self' 'unsafe-inline'"
+      : "script-src 'self' 'unsafe-inline' 'unsafe-eval'"; // P2-J: unsafe-eval hanya diizinkan untuk HMR dev
+
     const securityHeaders = [
       // Cegah clickjacking
       { key: 'X-Frame-Options', value: 'DENY' },
@@ -74,7 +85,7 @@ const nextConfig = {
         key: 'Content-Security-Policy',
         value: [
           "default-src 'self'",
-          "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // Next.js membutuhkan unsafe-eval untuk HMR dev
+          scriptSrc,
           "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
           "font-src 'self' https://fonts.gstatic.com",
           `img-src 'self' data: blob: ${allowedHostnames.map(h => `https://${h}`).join(' ')} https://images.unsplash.com`,

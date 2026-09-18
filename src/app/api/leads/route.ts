@@ -44,12 +44,11 @@ export async function POST(req: Request) {
       notes: notes?.trim() || null,
     });
 
-    // 2. Cegah kebocoran data pelanggan (PII): jangan kembalikan objek customer penuh ke publik
+    // P1-Q: Cegah kebocoran data pelanggan (PII) dan oracle enumerasi
     return NextResponse.json({
       success: true,
-      message: result.isNew
-        ? 'Permintaan penawaran resmi berhasil dikirim. Tim spesialis Adably akan segera menghubungi WhatsApp Anda.'
-        : 'Permintaan penawaran tambahan berhasil dicatat. Tim sales kami akan segera menindaklanjuti kebutuhan terbaru Anda.',
+      message:
+        'Permintaan penawaran resmi berhasil dikirim. Tim spesialis kami akan segera menghubungi WhatsApp Anda.',
     });
   } catch (error: any) {
     console.error('Error submitting RFQ lead:', error);

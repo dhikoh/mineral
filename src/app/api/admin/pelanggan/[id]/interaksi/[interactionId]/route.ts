@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAdminSession } from '@/lib/auth';
 import { deleteCustomerInteraction } from '@/lib/data-store';
+import { recordAuditLog, AUDIT_ACTIONS } from '@/lib/audit-log';
 
 // DELETE /api/admin/pelanggan/[id]/interaksi/[interactionId]
 // Sesi #20: Hapus log interaksi — hanya pembuat atau SUPERADMIN, entri SYSTEM tidak bisa dihapus
@@ -14,9 +15,19 @@ export async function DELETE(
   }
 
   try {
-    const { interactionId } = await params;
+    const { id, interactionId } = await params;
 
     await deleteCustomerInteraction(interactionId, session.id, session.role);
+
+    await recordAuditLog({
+      actorId: session.id,
+      actorName: session.name,
+      actorRole: session.role,
+      action: AUDIT_ACTIONS.DELETE_INTERACTION,
+      targetType: 'CustomerInteraction',
+      targetId: interactionId,
+      metadata: { customerId: id },
+    });
 
     return NextResponse.json({
       success: true,

@@ -188,7 +188,7 @@ export default function AdminDashboardPage() {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-base font-bold text-slate-900">Adably Admin</h1>
+                <h1 className="text-base font-bold text-slate-900">Admin Panel</h1>
                 <span className="rounded-md bg-emerald-100 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-emerald-800">
                   {user?.role || 'SUPERADMIN'}
                 </span>
@@ -222,7 +222,7 @@ export default function AdminDashboardPage() {
           <div className="relative z-10 max-w-2xl space-y-2">
             <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold backdrop-blur-md">
               <Sparkles className="h-3.5 w-3.5 text-emerald-400" />
-              <span>Pusat Kendali Tunggal Ekosistem Adably</span>
+              <span>Pusat Kendali Tunggal Ekosistem Marketplace</span>
             </div>
             <h2 className="text-2xl font-black tracking-tight sm:text-3xl">
               Selamat Datang Kembali, {user?.name || 'Superadmin'}

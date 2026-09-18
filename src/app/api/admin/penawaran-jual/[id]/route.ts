@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSession } from '@/lib/auth';
 import { getSellOfferById, updateSellOffer } from '@/lib/data-store';
 import type { SellOfferStatus } from '@/lib/data-store';
+import { recordAuditLog, AUDIT_ACTIONS } from '@/lib/audit-log';
 
 export async function GET(
   _req: NextRequest,
@@ -36,6 +37,19 @@ export async function PATCH(
     const updated = await updateSellOffer(id, {
       status: status as SellOfferStatus | undefined,
       adminNotes: adminNotes !== undefined ? String(adminNotes) : undefined,
+    });
+
+    await recordAuditLog({
+      actorId: session.id,
+      actorName: session.name,
+      actorRole: session.role,
+      action: AUDIT_ACTIONS.UPDATE_SELL_OFFER_STATUS,
+      targetType: 'SellOffer',
+      targetId: id,
+      metadata: {
+        newStatus: status || null,
+        adminNotes: adminNotes ?? null,
+      },
     });
 
     return NextResponse.json({ success: true, data: updated });

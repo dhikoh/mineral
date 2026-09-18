@@ -1,4 +1,8 @@
 import { PrismaClient } from '@prisma/client';
+import { validateEnv, isLocalFallbackAllowed } from './env';
+
+// P0-C & P2-14: Fail-fast validasi konfigurasi environment saat modul database diinisialisasi
+validateEnv();
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
@@ -14,7 +18,8 @@ export function markDbUnavailable(durationMs = 60000) {
 }
 
 export function shouldBypassPrisma(): boolean {
-  if (process.env.NODE_ENV === 'production' && process.env.ALLOW_LOCAL_FALLBACK !== 'true') {
+  // P0-D: Di produksi (NODE_ENV=production), bypass Prisma MUSTAHIL tanpa kecuali
+  if (!isLocalFallbackAllowed()) {
     return false;
   }
   if (process.env.FORCE_LOCAL_STORE === 'true') {

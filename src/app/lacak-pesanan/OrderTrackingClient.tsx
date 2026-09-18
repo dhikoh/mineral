@@ -28,18 +28,6 @@ export function OrderTrackingClient({ csWhatsapp }: { csWhatsapp: string }) {
   const [errorMsg, setErrorMsg] = useState('');
   const [order, setOrder] = useState<any>(null);
 
-  // Auto-fill from URL params if available
-  useEffect(() => {
-    const codeParam = searchParams.get('code') || searchParams.get('orderCode');
-    const phoneParam = searchParams.get('phone');
-    if (codeParam) setOrderCode(codeParam);
-    if (phoneParam) setPhone(phoneParam);
-
-    if (codeParam && phoneParam) {
-      performTracking(codeParam, phoneParam);
-    }
-  }, [searchParams]);
-
   const performTracking = async (codeToTrack: string, phoneToTrack: string) => {
     setIsLoading(true);
     setErrorMsg('');
@@ -67,6 +55,18 @@ export function OrderTrackingClient({ csWhatsapp }: { csWhatsapp: string }) {
       setIsLoading(false);
     }
   };
+
+  // Auto-fill from URL params if available
+  useEffect(() => {
+    const codeParam = searchParams.get('code') || searchParams.get('orderCode');
+    const phoneParam = searchParams.get('phone');
+    if (codeParam) setOrderCode(codeParam);
+    if (phoneParam) setPhone(phoneParam);
+
+    if (codeParam && phoneParam) {
+      performTracking(codeParam, phoneParam);
+    }
+  }, [searchParams]);
 
   const handleTrackSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -239,14 +239,12 @@ export function OrderTrackingClient({ csWhatsapp }: { csWhatsapp: string }) {
           </div>
 
           {/* Stepper Timeline */}
-          {order.status === 'CANCELLED' || order.status === 'REJECTED' ? (
+          {order.status === 'CANCELLED' ? (
             <div className="rounded-2xl bg-rose-50 border border-rose-200 p-5 text-center space-y-2">
               <XCircle className="h-8 w-8 text-rose-600 mx-auto" />
-              <h3 className="text-sm font-bold text-rose-900">
-                {order.status === 'CANCELLED' ? 'Pesanan Telah Dibatalkan' : 'Bukti Pembayaran Ditolak'}
-              </h3>
+              <h3 className="text-sm font-bold text-rose-900">Pesanan Telah Dibatalkan</h3>
               <p className="text-xs text-rose-700 max-w-md mx-auto">
-                {order.proof?.rejectionReason || 'Silakan unggah bukti pembayaran yang valid atau hubungi CS kami.'}
+                Pesanan ini telah dibatalkan. Silakan hubungi tim CS kami jika membutuhkan bantuan.
               </p>
             </div>
           ) : (
@@ -362,7 +360,7 @@ export function OrderTrackingClient({ csWhatsapp }: { csWhatsapp: string }) {
 
             <a
               href={`https://wa.me/${waNumber}?text=${encodeURIComponent(
-                `Halo Admin Adably, saya ingin menanyakan status pesanan saya: ${order.orderCode}`
+                `Halo Admin, saya ingin menanyakan status pesanan saya: ${order.orderCode}`
               )}`}
               target="_blank"
               rel="noopener noreferrer"

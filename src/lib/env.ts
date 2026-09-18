@@ -66,9 +66,18 @@ const ENV_VARS: EnvVar[] = [
  * Panggil di awal modul server-side (misalnya di lib/db.ts atau layout server).
  */
 export function validateEnv(): void {
+  // Melewatkan pemeriksaan koneksi database saat fase static compilation build jika DB eksternal belum tersambung
+  const isBuildPhase =
+    process.env.NEXT_PHASE === 'phase-production-build' ||
+    process.env.npm_lifecycle_event === 'build';
+
   const errors: string[] = [];
 
   for (const envVar of ENV_VARS) {
+    if (isBuildPhase && envVar.key === 'DATABASE_URL') {
+      continue;
+    }
+
     const value = process.env[envVar.key];
 
     if (envVar.required && (!value || value.trim() === '')) {
@@ -105,7 +114,11 @@ export function isProduction(): boolean {
   return process.env.NODE_ENV === 'production';
 }
 
-/** Apakah fallback lokal diizinkan? (hanya development) */
+/** 
+ * Apakah fallback lokal diizinkan?
+ * Di produksi (NODE_ENV=production), SELALU mengembalikan false tanpa syarat.
+ * Fallback lokal hanya diizinkan untuk mode development/test.
+ */
 export function isLocalFallbackAllowed(): boolean {
   if (isProduction()) return false;
   return process.env.ALLOW_LOCAL_FALLBACK === 'true';

@@ -49,7 +49,7 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const { status, notes, trackingNumber } = body;
+    const { status, notes, adminNotes, trackingNumber, shippingCost } = body;
 
     // Validasi status jika dikirimkan dalam payload
     if (status !== undefined) {
@@ -84,7 +84,8 @@ export async function PATCH(
     }
 
     const targetStatus = status !== undefined ? status : order.status;
-    const updated = await updateOrderStatus(id, targetStatus, notes, trackingNumber);
+    const finalAdminNotes = adminNotes !== undefined ? adminNotes : notes;
+    const updated = await updateOrderStatus(id, targetStatus, finalAdminNotes, trackingNumber, shippingCost);
 
     // Sesi #17 (Temuan K): Audit log perubahan status
     if (status !== undefined && status !== order.status) {
@@ -99,8 +100,9 @@ export async function PATCH(
           orderCode: order.orderCode,
           from: order.status,
           to: status,
-          notes: notes || null,
+          adminNotes: finalAdminNotes || null,
           trackingNumber: trackingNumber || null,
+          shippingCost: shippingCost || null,
         },
       });
     }

@@ -3,6 +3,7 @@ import { revalidatePath } from 'next/cache';
 import { getAdminSession } from '@/lib/auth';
 import { getProductById, updateProduct, deleteProduct } from '@/lib/data-store';
 import { recordAuditLog, AUDIT_ACTIONS } from '@/lib/audit-log';
+import { deleteMedia } from '@/lib/storage';
 
 
 export async function GET(
@@ -48,6 +49,8 @@ export async function PUT(
       stock,
       unit,
       minStock,
+      minOrderQty,
+      incrementQty,
       images,
       tags,
       categoryId,
@@ -65,6 +68,8 @@ export async function PUT(
     const oldStock = existing?.stock ?? null;
 
     const numMinStock = minStock !== undefined ? Number(minStock) : 50;
+    const numMinOrderQty = minOrderQty !== undefined ? Number(minOrderQty) : 1;
+    const numIncrementQty = incrementQty !== undefined ? Number(incrementQty) : 1;
 
     const updated = await updateProduct(id, {
       name: name.trim(),
@@ -73,6 +78,8 @@ export async function PUT(
       stock: Number(stock),
       unit: unit ? String(unit).trim() : 'kg',
       minStock: isNaN(numMinStock) ? 50 : numMinStock,
+      minOrderQty: isNaN(numMinOrderQty) || numMinOrderQty < 1 ? 1 : Math.floor(numMinOrderQty),
+      incrementQty: isNaN(numIncrementQty) || numIncrementQty < 1 ? 1 : Math.floor(numIncrementQty),
       images: Array.isArray(images) ? images : [],
       tags: Array.isArray(tags) ? tags : [],
       categoryId,
@@ -83,7 +90,21 @@ export async function PUT(
     // Sesi #19 (Fix #7): Rekam audit log jika harga atau stok berubah
     const newPrice = Number(price);
     const newStock = Number(stock);
-    const auditPromises: Promise<any>[] = [];
+    const auditPromises: Promise<any>[] = [
+      recordAuditLog({
+        actorId: session.id,
+        actorName: session.name,
+        actorRole: session.role,
+        action: AUDIT_ACTIONS.UPDATE_PRODUCT,
+        targetType: 'Product',
+        targetId: id,
+        metadata: {
+          productName: name.trim(),
+          price: newPrice,
+          stock: newStock,
+        },
+      }),
+    ];
 
     if (oldPrice !== null && oldPrice !== newPrice) {
       auditPromises.push(
@@ -154,7 +175,30 @@ export async function DELETE(
   }
   try {
     const { id } = await params;
+    const existing = await getProductById(id).catch(() => null);
     await deleteProduct(id);
+
+    // P2-E: Bersihkan berkas media gambar terkait di storage agar tidak menjadi media orphan
+    if (existing?.images && Array.isArray(existing.images)) {
+      for (const imgUrl of existing.images) {
+        if (typeof imgUrl === 'string' && imgUrl) {
+          deleteMedia(imgUrl).catch(() => {});
+        }
+      }
+    }
+
+    await recordAuditLog({
+      actorId: session.id,
+      actorName: session.name,
+      actorRole: session.role,
+      action: AUDIT_ACTIONS.DELETE_PRODUCT,
+      targetType: 'Product',
+      targetId: id,
+      metadata: {
+        productName: existing?.name || null,
+      },
+    });
+
     revalidatePath('/');
     revalidatePath('/produk');
     return NextResponse.json({

@@ -1,7 +1,13 @@
+import { getDefaultSiteName } from './config';
 import { prisma, markDbUnavailable } from '@/lib/db';
 import { slugify, generateOrderCode } from '@/lib/utils';
 import { sanitize } from '@/lib/sanitize';
 import { isValidOrderTransition } from '@/lib/order-security';
+import { isLocalFallbackAllowed } from '@/lib/env';
+import { computeOrderTotals } from '@/lib/order-total';
+import { validateOrderQty } from '@/lib/uom';
+import { classifyDbError, throwConstraintError } from '@/lib/db-errors';
+import { AUDIT_ACTIONS, recordAuditLog } from '@/lib/audit-log';
 import bcrypt from 'bcryptjs';
 import fs from 'fs';
 import path from 'path';
@@ -42,6 +48,8 @@ export interface ProductItem {
   stock: number;
   unit?: string; // kg, ton, sak 25kg, jumbo bag 1 ton, ingot, dll
   minStock?: number; // ambang peringatan stok tipis
+  minOrderQty?: number;
+  incrementQty?: number;
   images: string[];
   tags: string[];
   categoryId: string;
@@ -101,14 +109,16 @@ export interface OrderData {
     | 'PROCESSING'
     | 'SHIPPED'
     | 'COMPLETED'
-    | 'REJECTED'
     | 'CANCELLED';
   total: number;
   grandTotal?: number | null;
   subtotal?: number | null;
+  taxRate?: number | null;
   taxAmount?: number | null;
+  discountAmount?: number | null;
   shippingCost?: number | null;
   adminNotes?: string | null;
+  customerId?: string | null;
   items: OrderItemData[];
   proof?: PaymentProofData | null;
   createdAt: string;
@@ -146,6 +156,10 @@ export interface SiteSettingsData {
   lowStockAlertThreshold?: number | null;
   paymentToleranceAmount?: number | null;
   taxPercentage?: number | null;
+  taxEnabled?: boolean | null;
+  defaultTaxRate?: number | null;
+  shippingPolicy?: string | null;
+  auditRetentionDays?: number | null;
   minOrderTotalAmount?: number | null;
 }
 
@@ -275,28 +289,34 @@ export const DEFAULT_CUSTOMERS: CustomerItem[] = [
 ];
 
 export const DEFAULT_SITE_SETTINGS: SiteSettingsData = {
-  siteName: 'Adably',
+  siteName: getDefaultSiteName(),
   tagline: 'Pusat Komoditas Mineral Tambang & Hasil Alam Berkualitas Ekspor',
   logoUrl: '',
   faviconUrl: '',
   primaryColor: '#059669',
   csWhatsapp: '6281234567890',
-  csEmail: 'cs@adably.id',
+  csEmail: 'cs@example.com',
   csOperationalHours: 'Senin - Sabtu, 08.00 - 17.00 WIB',
   address: 'Kawasan Pergudangan & Industri Logistik Blok M-9, Jakarta Barat',
   bankAccounts: [
     {
       bank: 'BCA',
       noRekening: '8001234567',
-      atasNama: 'Adably',
+      atasNama: getDefaultSiteName(),
     },
     {
       bank: 'Mandiri',
       noRekening: '1230009876543',
-      atasNama: 'Adably',
+      atasNama: getDefaultSiteName(),
     },
   ],
-  footerText: '© 2026 Adably. All rights reserved.',
+  footerText: `© ${new Date().getFullYear()} ${getDefaultSiteName()}. All rights reserved.`,
+  lowStockAlertThreshold: 50,
+  paymentToleranceAmount: 0,
+  defaultTaxRate: 0,
+  taxEnabled: false,
+  shippingPolicy: 'Pengiriman dihitung manual berdasarkan volume komoditas dan armada kargo.',
+  auditRetentionDays: 365,
 };
 
 export interface UserItem {
@@ -315,8 +335,8 @@ export interface UserItemStored extends UserItem {
 export const DEFAULT_USERS: UserItemStored[] = [
   {
     id: 'seed-admin-01',
-    name: 'Super Admin Adably',
-    email: 'admin@adably.com',
+    name: `Super Admin ${getDefaultSiteName()}`,
+    email: 'admin@example.com',
     role: 'SUPERADMIN',
     isActive: true,
     createdAt: new Date().toISOString(),
@@ -334,6 +354,7 @@ interface LocalStoreData {
   faqs: FAQItem[];
   customers: CustomerItem[];
   users?: UserItemStored[];
+  sellOffers?: SellOfferItem[];
 }
 
 const DEFAULT_CATEGORIES: CategoryItem[] = [
@@ -532,14 +553,14 @@ export const DEFAULT_CONTENT_BLOCKS: ContentBlockItem[] = [
   {
     id: 'block-about',
     key: 'about_us',
-    title: 'Tentang Adably',
-    content: 'Adably adalah platform penyedia komoditas mineral industri dan hasil alam berkualitas di Indonesia. Didirikan dengan komitmen transparansi dan keandalan suplai, kami melayani kebutuhan bahan baku industri manufaktur, agrikultur, pengolahan air (water treatment), dan eksportir melalui rantai pasok terpercaya.\n\nSetiap komoditas disajikan dengan data spesifikasi fisik yang jelas serta opsi verifikasi sampel sebelum transaksi. Kami siap melayani pengadaan berkala maupun partai besar dengan dukungan koordinasi logistik kargo terpercaya ke berbagai wilayah di Indonesia.',
+    title: `Tentang Kami`,
+    content: 'Platform kami adalah penyedia komoditas mineral industri dan hasil alam berkualitas di Indonesia. Didirikan dengan komitmen transparansi dan keandalan suplai, kami melayani kebutuhan bahan baku industri manufaktur, agrikultur, pengolahan air (water treatment), dan eksportir melalui rantai pasok terpercaya.\n\nSetiap komoditas disajikan dengan data spesifikasi fisik yang jelas serta opsi verifikasi sampel sebelum transaksi. Kami siap melayani pengadaan berkala maupun partai besar dengan dukungan koordinasi logistik kargo terpercaya ke berbagai wilayah di Indonesia.',
     updatedAt: new Date().toISOString(),
   },
   {
     id: 'block-why',
     key: 'why_us',
-    title: 'Mengapa Memilih Adably?',
+    title: `Mengapa Memilih Platform Kami?`,
     content: '1. Legalitas Usaha & Kemitraan Terverifikasi: Menjalankan aktivitas niaga melalui badan usaha resmi dengan rantai pasok yang jelas, mengutamakan keterbukaan dokumen pengiriman dan kepatuhan terhadap ketentuan perdagangan yang berlaku.\n2. Kesesuaian Spesifikasi & Uji Sampel: Informasi kadar kemurnian, mesh, dan parameter fisik disajikan sesuai data fisik komoditas. Kami mendukung pengiriman sampel fisik dan penyediaan dokumen uji teknis sesuai ketersediaan pada masing-masing komoditas.\n3. Fleksibilitas Pengambilan & Ekspedisi: Mendukung opsi pengambilan mandiri di sentra/gudang penyimpanan (Loco/FOB) maupun koordinasi pengiriman dengan mitra jasa ekspedisi kargo independen sesuai kuantitas pesanan Anda.\n4. Skema Grosir & Harga Kompetitif: Penawaran harga yang rasional dan transparan dengan penyesuaian khusus untuk pembelian partai besar, kebutuhan kontinuitas industri, maupun pemesanan berkala.',
     updatedAt: new Date().toISOString(),
   },
@@ -554,14 +575,14 @@ export const DEFAULT_CONTENT_BLOCKS: ContentBlockItem[] = [
     id: 'block-terms',
     key: 'terms',
     title: 'Syarat & Ketentuan Pemesanan Komoditas',
-    content: '1. Pemesanan & Kontrak: Pembelian dapat dilakukan secara langsung melalui platform atau melalui Purchase Order (PO) resmi untuk volume industri kontrak berkala.\n2. Minimum Order Quantity (MOQ): Setiap produk memiliki batas minimum pemesanan sesuai satuan kemasan (karung sak 25kg, jumbo bag 1 ton, atau batangan ingot).\n3. Verifikasi Pembayaran: Pembayaran wajib ditransfer ke rekening bank resmi atas nama perusahaan (Adably). Bukti transfer akan diverifikasi oleh bagian keuangan maksimal 1x24 jam kerja.\n4. Inspeksi & Komplain: Pembeli berhak melakukan verifikasi fisik dan kesesuaian spesifikasi saat barang tiba di lokasi pembongkaran dengan toleransi susut standar logistik komoditas.',
+    content: '1. Pemesanan & Kontrak: Pembelian dapat dilakukan secara langsung melalui platform atau melalui Purchase Order (PO) resmi untuk volume industri kontrak berkala.\n2. Minimum Order Quantity (MOQ): Setiap produk memiliki batas minimum pemesanan sesuai satuan kemasan (karung sak 25kg, jumbo bag 1 ton, atau batangan ingot).\n3. Verifikasi Pembayaran: Pembayaran wajib ditransfer ke rekening bank resmi atas nama rekening resmi perusahaan. Bukti transfer akan diverifikasi oleh bagian keuangan maksimal 1x24 jam kerja.\n4. Inspeksi & Komplain: Pembeli berhak melakukan verifikasi fisik dan kesesuaian spesifikasi saat barang tiba di lokasi pembongkaran dengan toleransi susut standar logistik komoditas.',
     updatedAt: new Date().toISOString(),
   },
   {
     id: 'block-privacy',
     key: 'privacy_policy',
     title: 'Kebijakan Privasi & Perlindungan Data',
-    content: 'Adably berkomitmen menjaga kerahasiaan data seluruh mitra dan pelanggan. Informasi nama, kontak WhatsApp, alamat pergudangan, dan rincian transaksi hanya digunakan untuk kepentingan pemrosesan pesanan, pengiriman logistik, dan konfirmasi pembayaran resmi. Kami tidak pernah membagikan atau memperjualbelikan data pelanggan kepada pihak ketiga mana pun tanpa persetujuan tertulis.',
+    content: 'Kami berkomitmen menjaga kerahasiaan data seluruh mitra dan pelanggan. Informasi nama, kontak WhatsApp, alamat pergudangan, dan rincian transaksi hanya digunakan untuk kepentingan pemrosesan pesanan, pengiriman logistik, dan konfirmasi pembayaran resmi. Kami tidak pernah membagikan atau memperjualbelikan data pelanggan kepada pihak ketiga mana pun tanpa persetujuan tertulis.',
     updatedAt: new Date().toISOString(),
   },
 ];
@@ -591,7 +612,7 @@ export const DEFAULT_FAQS: FAQItem[] = [
   {
     id: 'faq-4',
     question: 'Bagaimana alur pembayaran dan verifikasinya?',
-    answer: 'Pembayaran dilakukan melalui transfer bank manual ke rekening resmi perusahaan yang tertera di halaman instruksi pembayaran (BCA & Bank Mandiri a.n Adably). Setelah mentransfer, unggah foto bukti transfer di halaman pesanan Anda. Tim keuangan kami akan memverifikasi bukti tersebut dalam waktu 15-30 menit pada jam kerja.',
+    answer: 'Pembayaran dilakukan melalui transfer bank manual ke rekening resmi perusahaan yang tertera di halaman instruksi pembayaran (BCA & Bank Mandiri a.n Rekening Resmi Perusahaan). Setelah mentransfer, unggah foto bukti transfer di halaman pesanan Anda. Tim keuangan kami akan memverifikasi bukti tersebut dalam waktu 15-30 menit pada jam kerja.',
     order: 4,
     isActive: true,
   },
@@ -613,7 +634,7 @@ export const DEFAULT_FAQS: FAQItem[] = [
 
 export function handleDbFallback(fnName: string, err: any): boolean {
   const isProduction = process.env.NODE_ENV === 'production';
-  const allowFallback = process.env.ALLOW_LOCAL_FALLBACK === 'true' || !isProduction;
+  const allowFallback = isLocalFallbackAllowed();
 
   console.warn(
     JSON.stringify({
@@ -638,7 +659,7 @@ export function handleDbFallback(fnName: string, err: any): boolean {
 
   if (!allowFallback) {
     throw new Error(
-      `[CRITICAL DATABASE ERROR] Failed executing ${fnName} against database: ${err?.message || err}. Local store fallback is disabled in production.`
+      `[CRITICAL DATABASE ERROR] Failed executing ${fnName} against database: ${err?.message || err}. Local store fallback is strictly forbidden in production.`
     );
   }
   return true;
@@ -749,8 +770,15 @@ export async function createCategory(data: { name: string; image?: string }) {
         image: data.image || null,
       },
     });
-  } catch {
+  } catch (err: any) {
+    if (classifyDbError(err) === 'CONSTRAINT') {
+      throwConstraintError(err, `kategori "${data.name}"`);
+    }
+    handleDbFallback('createCategory', err);
     const store = readLocalStore();
+    if (store.categories.some((c) => c.slug === slug)) {
+      throw new Error(`Kategori dengan nama atau slug "${slug}" sudah ada.`);
+    }
     const newCat: CategoryItem = {
       id: `cat-${Date.now()}`,
       name: data.name,
@@ -774,10 +802,17 @@ export async function updateCategory(id: string, data: { name: string; image?: s
         image: data.image || null,
       },
     });
-  } catch {
+  } catch (err: any) {
+    if (classifyDbError(err) === 'CONSTRAINT') {
+      throwConstraintError(err, `kategori "${data.name}"`);
+    }
+    handleDbFallback('updateCategory', err);
     const store = readLocalStore();
     const idx = store.categories.findIndex((c) => c.id === id);
     if (idx !== -1) {
+      if (store.categories.some((c) => c.slug === slug && c.id !== id)) {
+        throw new Error(`Kategori lain dengan slug "${slug}" sudah ada.`);
+      }
       store.categories[idx] = {
         ...store.categories[idx],
         name: data.name,
@@ -839,8 +874,15 @@ export async function createUsage(data: { name: string }) {
     return await prisma.usage.create({
       data: { name: data.name, slug },
     });
-  } catch {
+  } catch (err: any) {
+    if (classifyDbError(err) === 'CONSTRAINT') {
+      throwConstraintError(err, `peruntukan "${data.name}"`);
+    }
+    handleDbFallback('createUsage', err);
     const store = readLocalStore();
+    if (store.usages.some((u) => u.slug === slug)) {
+      throw new Error(`Peruntukan dengan nama atau slug "${slug}" sudah ada.`);
+    }
     const newUsage: UsageItem = {
       id: `u-${Date.now()}`,
       name: data.name,
@@ -859,10 +901,17 @@ export async function updateUsage(id: string, data: { name: string }) {
       where: { id },
       data: { name: data.name, slug },
     });
-  } catch {
+  } catch (err: any) {
+    if (classifyDbError(err) === 'CONSTRAINT') {
+      throwConstraintError(err, `peruntukan "${data.name}"`);
+    }
+    handleDbFallback('updateUsage', err);
     const store = readLocalStore();
     const idx = store.usages.findIndex((u) => u.id === id);
     if (idx !== -1) {
+      if (store.usages.some((u) => u.slug === slug && u.id !== id)) {
+        throw new Error(`Peruntukan lain dengan slug "${slug}" sudah ada.`);
+      }
       store.usages[idx] = { ...store.usages[idx], name: data.name, slug };
       writeLocalStore(store);
       return store.usages[idx];
@@ -1097,6 +1146,8 @@ export async function createProduct(data: {
   stock: number;
   unit?: string;
   minStock?: number;
+  minOrderQty?: number;
+  incrementQty?: number;
   images: string[];
   tags: string[];
   categoryId: string;
@@ -1116,6 +1167,8 @@ export async function createProduct(data: {
         stock: data.stock,
         unit: data.unit || 'kg',
         minStock: data.minStock ?? 50,
+        minOrderQty: data.minOrderQty ?? 1,
+        incrementQty: data.incrementQty ?? 1,
         images: data.images,
         tags: data.tags,
         categoryId: data.categoryId,
@@ -1148,6 +1201,8 @@ export async function createProduct(data: {
       stock: data.stock,
       unit: data.unit || 'kg',
       minStock: data.minStock ?? 50,
+      minOrderQty: data.minOrderQty ?? 1,
+      incrementQty: data.incrementQty ?? 1,
       images: data.images,
       tags: data.tags,
       categoryId: data.categoryId,
@@ -1173,6 +1228,8 @@ export async function updateProduct(
     stock: number;
     unit?: string;
     minStock?: number;
+    minOrderQty?: number;
+    incrementQty?: number;
     images: string[];
     tags: string[];
     categoryId: string;
@@ -1192,6 +1249,8 @@ export async function updateProduct(
         stock: data.stock,
         unit: data.unit || 'kg',
         minStock: data.minStock ?? 50,
+        minOrderQty: data.minOrderQty ?? 1,
+        incrementQty: data.incrementQty ?? 1,
         images: data.images,
         tags: data.tags,
         categoryId: data.categoryId,
@@ -1225,6 +1284,8 @@ export async function updateProduct(
         stock: data.stock,
         unit: data.unit || store.products[idx].unit || 'kg',
         minStock: data.minStock ?? store.products[idx].minStock ?? 50,
+        minOrderQty: data.minOrderQty ?? store.products[idx].minOrderQty ?? 1,
+        incrementQty: data.incrementQty ?? store.products[idx].incrementQty ?? 1,
         images: data.images,
         tags: data.tags,
         categoryId: data.categoryId,
@@ -1294,6 +1355,11 @@ export async function getSiteSettings(): Promise<SiteSettingsData> {
         bankAccounts: (s.bankAccounts as any) || DEFAULT_SITE_SETTINGS.bankAccounts,
         footerText: s.footerText || DEFAULT_SITE_SETTINGS.footerText,
         lowStockAlertThreshold: s.lowStockAlertThreshold ?? DEFAULT_SITE_SETTINGS.lowStockAlertThreshold,
+        paymentToleranceAmount: s.paymentToleranceAmount ?? DEFAULT_SITE_SETTINGS.paymentToleranceAmount,
+        defaultTaxRate: s.defaultTaxRate ?? DEFAULT_SITE_SETTINGS.defaultTaxRate,
+        taxEnabled: s.taxEnabled ?? DEFAULT_SITE_SETTINGS.taxEnabled,
+        shippingPolicy: s.shippingPolicy || DEFAULT_SITE_SETTINGS.shippingPolicy,
+        auditRetentionDays: s.auditRetentionDays ?? DEFAULT_SITE_SETTINGS.auditRetentionDays,
       };
     }
   } catch {}
@@ -1319,6 +1385,11 @@ export async function updateSiteSettings(data: Partial<SiteSettingsData>): Promi
     bankAccounts: data.bankAccounts ?? current.bankAccounts,
     footerText: data.footerText !== undefined ? data.footerText : current.footerText,
     lowStockAlertThreshold: data.lowStockAlertThreshold !== undefined ? data.lowStockAlertThreshold : current.lowStockAlertThreshold,
+    paymentToleranceAmount: data.paymentToleranceAmount !== undefined ? data.paymentToleranceAmount : current.paymentToleranceAmount,
+    defaultTaxRate: data.defaultTaxRate !== undefined ? data.defaultTaxRate : current.defaultTaxRate,
+    taxEnabled: data.taxEnabled !== undefined ? data.taxEnabled : current.taxEnabled,
+    shippingPolicy: data.shippingPolicy !== undefined ? data.shippingPolicy : current.shippingPolicy,
+    auditRetentionDays: data.auditRetentionDays !== undefined ? data.auditRetentionDays : current.auditRetentionDays,
   };
 
   try {
@@ -1337,6 +1408,11 @@ export async function updateSiteSettings(data: Partial<SiteSettingsData>): Promi
         bankAccounts: updated.bankAccounts as any,
         footerText: updated.footerText,
         lowStockAlertThreshold: updated.lowStockAlertThreshold,
+        paymentToleranceAmount: updated.paymentToleranceAmount ?? 0,
+        defaultTaxRate: updated.defaultTaxRate ?? 0,
+        taxEnabled: Boolean(updated.taxEnabled),
+        shippingPolicy: updated.shippingPolicy ?? null,
+        auditRetentionDays: updated.auditRetentionDays ?? 365,
       },
       create: {
         id: 'default-setting',
@@ -1352,6 +1428,11 @@ export async function updateSiteSettings(data: Partial<SiteSettingsData>): Promi
         bankAccounts: updated.bankAccounts as any,
         footerText: updated.footerText,
         lowStockAlertThreshold: updated.lowStockAlertThreshold,
+        paymentToleranceAmount: updated.paymentToleranceAmount ?? 0,
+        defaultTaxRate: updated.defaultTaxRate ?? 0,
+        taxEnabled: Boolean(updated.taxEnabled),
+        shippingPolicy: updated.shippingPolicy ?? null,
+        auditRetentionDays: updated.auditRetentionDays ?? 365,
       },
     });
 
@@ -1368,6 +1449,11 @@ export async function updateSiteSettings(data: Partial<SiteSettingsData>): Promi
       bankAccounts: (s.bankAccounts as any) || DEFAULT_SITE_SETTINGS.bankAccounts,
       footerText: s.footerText || DEFAULT_SITE_SETTINGS.footerText,
       lowStockAlertThreshold: s.lowStockAlertThreshold ?? DEFAULT_SITE_SETTINGS.lowStockAlertThreshold,
+      paymentToleranceAmount: s.paymentToleranceAmount ?? DEFAULT_SITE_SETTINGS.paymentToleranceAmount,
+      defaultTaxRate: s.defaultTaxRate ?? DEFAULT_SITE_SETTINGS.defaultTaxRate,
+      taxEnabled: s.taxEnabled ?? DEFAULT_SITE_SETTINGS.taxEnabled,
+      shippingPolicy: s.shippingPolicy || DEFAULT_SITE_SETTINGS.shippingPolicy,
+      auditRetentionDays: s.auditRetentionDays ?? DEFAULT_SITE_SETTINGS.auditRetentionDays,
     };
   } catch (e: any) {
     handleDbFallback('updateSiteSettings', e);
@@ -1410,6 +1496,13 @@ export async function createOrder(data: {
     if (p.isActive === false) {
       throw new Error(`Produk "${p.name}" saat ini tidak tersedia untuk dipesan. Silakan hapus dari keranjang.`);
     }
+
+    // P1-A: Tegakkan validasi MOQ dan kelipatan pemesanan (incrementQty) di server
+    const uomError = validateOrderQty(item.qty, p.minOrderQty ?? 1, p.incrementQty ?? 1);
+    if (uomError) {
+      throw new Error(`Validasi kuantitas gagal untuk komoditas "${p.name}": ${uomError}`);
+    }
+
     if (p.stock !== null && p.stock !== undefined && p.stock < item.qty) {
       throw new Error(`Stok komoditas ${p.name} tidak mencukupi (tersedia: ${p.stock}).`);
     }
@@ -1427,7 +1520,16 @@ export async function createOrder(data: {
     };
   });
 
-  const total = resolvedItems.reduce((acc, curr) => acc + curr.price * curr.qty, 0);
+  // P0-A: Ambil setelan pajak & hitung finansial pesanan secara terpusat
+  const settings = await getSiteSettings();
+  const totals = computeOrderTotals({
+    items: resolvedItems.map((ri) => ({ price: ri.price, qty: ri.qty })),
+    taxEnabled: Boolean(settings?.taxEnabled),
+    taxRateBasisPoints: settings?.defaultTaxRate ?? 0,
+    manualShippingCost: 0,
+    discountAmount: 0,
+  });
+
   let finalOrderCode = '';
   let order: any = null;
   const maxRetries = 5;
@@ -1457,7 +1559,7 @@ export async function createOrder(data: {
             }
           }
 
-          // 2. Buat record Order beserta OrderItem dalam transaksi yang sama
+          // 2. Buat record Order beserta OrderItem dalam transaksi yang sama (P0-A & P0-B)
           return await tx.order.create({
             data: {
               orderCode,
@@ -1466,13 +1568,22 @@ export async function createOrder(data: {
               buyerEmail: data.buyerEmail || null,
               buyerAddress: data.buyerAddress,
               notes: data.notes || null,
-              total,
+              subtotal: totals.subtotal,
+              shippingCost: totals.shippingCost,
+              taxRate: totals.taxRate,
+              taxAmount: totals.taxAmount,
+              discountAmount: totals.discountAmount,
+              grandTotal: totals.grandTotal,
+              total: totals.total,
               status: 'PENDING_PAYMENT',
               items: {
                 create: resolvedItems.map((item) => ({
                   productId: item.productId,
                   qty: item.qty,
                   price: item.price,
+                  productName: item.product.name,
+                  productSlug: item.product.slug,
+                  productUnit: item.product.unit || 'kg',
                 })),
               },
             },
@@ -1503,7 +1614,6 @@ export async function createOrder(data: {
     }
 
     // 3. Catat calon pembeli sebagai prospek (R-7: belum DEAL, LTV/totalOrders belum bertambah)
-    // Sesi #20: tangkap customer yang dikembalikan, lalu link Order.customerId
     const leadCustomer = await recordLeadFromCheckout({
       buyerName: data.buyerName,
       buyerPhone: data.buyerPhone,
@@ -1518,7 +1628,6 @@ export async function createOrder(data: {
       }).catch((e) => console.warn('Warning: gagal link order.customerId:', e?.message));
     }
 
-
     return {
       ...order,
       items: order.items.map((it: any) => {
@@ -1530,8 +1639,13 @@ export async function createOrder(data: {
       }),
     };
   } catch (err: any) {
-    // Jika kegagalan disebabkan stok habis saat transaksi atomik, lempar langsung ke pengguna!
-    if (err?.message?.includes('Stok komoditas') && err?.message?.includes('tidak mencukupi')) {
+    // Error bisnis tidak boleh tertelan ke fallback
+    if (
+      (err?.message?.includes('Stok komoditas') && err?.message?.includes('tidak mencukupi')) ||
+      err?.message?.includes('Validasi kuantitas') ||
+      err?.message?.includes('tidak ditemukan') ||
+      err?.message?.includes('tidak tersedia')
+    ) {
       throw err;
     }
 
@@ -1568,13 +1682,22 @@ export async function createOrder(data: {
       notes: data.notes || null,
       trackingNumber: null,
       status: 'PENDING_PAYMENT',
-      total,
+      total: totals.total,
+      grandTotal: totals.grandTotal,
+      subtotal: totals.subtotal,
+      shippingCost: totals.shippingCost,
+      taxRate: totals.taxRate,
+      taxAmount: totals.taxAmount,
+      discountAmount: totals.discountAmount,
       items: resolvedItems.map((it, idx) => ({
         id: `oi-${Date.now()}-${idx}`,
         orderId: `ord-${Date.now()}`,
         productId: it.productId,
         qty: it.qty,
         price: it.price,
+        productName: it.product.name,
+        productSlug: it.product.slug,
+        productUnit: it.product.unit || 'kg',
         product: it.product,
       })),
       proof: null,
@@ -1585,12 +1708,20 @@ export async function createOrder(data: {
     writeLocalStore(store);
 
     // Sync lead prospek in local fallback (R-7)
-    await recordLeadFromCheckout({
+    const customer = await recordLeadFromCheckout({
       buyerName: data.buyerName,
       buyerPhone: data.buyerPhone,
       buyerEmail: data.buyerEmail,
       buyerAddress: data.buyerAddress,
-    }).catch((e) => console.error('Error syncing lead in local fallback:', e));
+    }).catch((e) => {
+      console.error('Error syncing lead in local fallback:', e);
+      return null;
+    });
+
+    if (customer?.id) {
+      newOrder.customerId = customer.id;
+      writeLocalStore(store);
+    }
 
     return newOrder;
   }
@@ -1601,26 +1732,37 @@ export async function getOrderByCode(orderCode: string) {
     const order = await prisma.order.findUnique({
       where: { orderCode },
       include: {
-        items: true,
+        items: {
+          include: {
+            product: true,
+          },
+        },
         proof: true,
       },
     });
     if (order) {
-      const allProds = await getProducts();
       return {
         ...order,
-        items: order.items.map((it) => {
-          const prod = (allProds as any[]).find((p: any) => p.id === it.productId);
+        items: order.items.map((it: any) => {
+          const prod = it.product;
           return {
             ...it,
             product: prod
               ? { id: prod.id, name: prod.name, slug: prod.slug, images: prod.images, unit: prod.unit || 'kg' }
-              : { id: it.productId, name: '[Komoditas Diarsipkan]', slug: '#', images: [], unit: 'kg' },
+              : {
+                  id: it.productId || '',
+                  name: it.productName || '[Komoditas Diarsipkan]',
+                  slug: it.productSlug || '#',
+                  images: [],
+                  unit: it.productUnit || 'kg',
+                },
           };
         }),
       };
     }
-  } catch {}
+  } catch (err: any) {
+    handleDbFallback('getOrderByCode', err);
+  }
 
   const store = readLocalStore();
   const found = (store.orders || []).find((o) => o.orderCode === orderCode);
@@ -1628,14 +1770,20 @@ export async function getOrderByCode(orderCode: string) {
 
   return {
     ...found,
-    items: found.items.map((it) => {
+    items: found.items.map((it: any) => {
       if (it.product) return it;
       const p = store.products.find((prod) => prod.id === it.productId);
       return {
         ...it,
         product: p
           ? { id: p.id, name: p.name, slug: p.slug, images: p.images, unit: p.unit || 'kg' }
-          : { id: it.productId, name: '[Komoditas Diarsipkan]', slug: '#', images: [], unit: 'kg' },
+          : {
+              id: it.productId || '',
+              name: it.productName || '[Komoditas Diarsipkan]',
+              slug: it.productSlug || '#',
+              images: [],
+              unit: it.productUnit || 'kg',
+            },
       };
     }),
   };
@@ -1646,26 +1794,37 @@ export async function getOrderById(id: string) {
     const order = await prisma.order.findUnique({
       where: { id },
       include: {
-        items: true,
+        items: {
+          include: {
+            product: true,
+          },
+        },
         proof: true,
       },
     });
     if (order) {
-      const allProds = await getProducts();
       return {
         ...order,
-        items: order.items.map((it) => {
-          const prod = (allProds as any[]).find((p: any) => p.id === it.productId);
+        items: order.items.map((it: any) => {
+          const prod = it.product;
           return {
             ...it,
             product: prod
               ? { id: prod.id, name: prod.name, slug: prod.slug, images: prod.images, unit: prod.unit || 'kg' }
-              : { id: it.productId, name: '[Komoditas Diarsipkan]', slug: '#', images: [], unit: 'kg' },
+              : {
+                  id: it.productId || '',
+                  name: it.productName || '[Komoditas Diarsipkan]',
+                  slug: it.productSlug || '#',
+                  images: [],
+                  unit: it.productUnit || 'kg',
+                },
           };
         }),
       };
     }
-  } catch {}
+  } catch (err: any) {
+    handleDbFallback('getOrderById', err);
+  }
 
   const store = readLocalStore();
   const found = (store.orders || []).find((o) => o.id === id);
@@ -1673,14 +1832,20 @@ export async function getOrderById(id: string) {
 
   return {
     ...found,
-    items: found.items.map((it) => {
+    items: found.items.map((it: any) => {
       if (it.product) return it;
       const p = store.products.find((prod) => prod.id === it.productId);
       return {
         ...it,
         product: p
           ? { id: p.id, name: p.name, slug: p.slug, images: p.images, unit: p.unit || 'kg' }
-          : { id: it.productId, name: '[Komoditas Diarsipkan]', slug: '#', images: [], unit: 'kg' },
+          : {
+              id: it.productId || '',
+              name: it.productName || '[Komoditas Diarsipkan]',
+              slug: it.productSlug || '#',
+              images: [],
+              unit: it.productUnit || 'kg',
+            },
       };
     }),
   };
@@ -1783,7 +1948,7 @@ export async function submitPaymentProof(
   }
 ) {
   try {
-    // P0: Status Gate — hanya izinkan jika PENDING_PAYMENT, PENDING_VERIFICATION, atau REJECTED
+    // P0: Status Gate — hanya izinkan jika PENDING_PAYMENT atau PENDING_VERIFICATION
     const currentOrder = await prisma.order.findUnique({
       where: { id: orderId },
     });
@@ -1798,11 +1963,6 @@ export async function submitPaymentProof(
 
     if (currentOrder.status === 'CANCELLED') {
       throw new Error('Pesanan ini telah dibatalkan dan tidak dapat menerima bukti pembayaran baru.');
-    }
-
-    // Gap #5 fix: pesanan REJECTED hanya boleh upload bukti baru via alur resmi
-    if (currentOrder.status === 'REJECTED') {
-      throw new Error('Pesanan ini telah ditolak. Silakan hubungi admin untuk klarifikasi sebelum mengunggah ulang bukti.');
     }
 
     await prisma.paymentProof.upsert({
@@ -2010,8 +2170,9 @@ export async function verifyPaymentProof(
 export async function updateOrderStatus(
   orderId: string,
   status: any,
-  notes?: string,
-  trackingNumber?: string
+  adminNotes?: string,
+  trackingNumber?: string,
+  shippingCost?: number
 ) {
   const currentOrder = await getOrderById(orderId);
   if (!currentOrder) throw new Error('Pesanan tidak ditemukan');
@@ -2023,22 +2184,41 @@ export async function updateOrderStatus(
   }
 
   const prevStatus = currentOrder.status;
-  const isCancelling =
-    (status === 'CANCELLED' || status === 'REJECTED') &&
-    prevStatus !== 'CANCELLED' &&
-    prevStatus !== 'REJECTED';
+  // P2-G: REJECTED telah dihapus resmi dari enum dan state machine
+  const isCancelling = status === 'CANCELLED' && prevStatus !== 'CANCELLED';
   const wasPaid = ['PAID', 'PROCESSING', 'SHIPPED', 'COMPLETED'].includes(prevStatus);
 
   try {
     return await prisma.$transaction(async (tx) => {
       // R-5: Kembalikan stok jika pesanan dibatalkan atau ditolak permanen
+      // P1-D: Fail-loud restock dalam transaksi atomik
       if (isCancelling && currentOrder.items && currentOrder.items.length > 0) {
         for (const item of currentOrder.items) {
           if (!item.productId) continue;
-          await tx.product.update({
-            where: { id: item.productId },
-            data: { stock: { increment: item.qty } },
-          }).catch((e) => console.warn(`Restock warning for product ${item.productId}:`, e?.message));
+          try {
+            await tx.product.update({
+              where: { id: item.productId },
+              data: { stock: { increment: item.qty } },
+            });
+          } catch (restockErr: any) {
+            await recordAuditLog({
+              actorId: 'SYSTEM',
+              actorName: 'SYSTEM_RESTOCK',
+              actorRole: 'SUPERADMIN',
+              action: AUDIT_ACTIONS.RESTOCK_FAILED,
+              targetType: 'Product',
+              targetId: item.productId,
+              metadata: {
+                orderId,
+                orderCode: currentOrder.orderCode,
+                qty: item.qty,
+                error: restockErr?.message || String(restockErr),
+              },
+            }).catch(() => {});
+            throw new Error(
+              `Gagal mengembalikan stok produk "${item.productName || item.productId}" saat pembatalan pesanan: ${restockErr?.message}`
+            );
+          }
         }
       }
 
@@ -2079,8 +2259,24 @@ export async function updateOrderStatus(
 
 
       const updateData: any = { status };
-      if (notes !== undefined) updateData.notes = notes;
+      // P0-H: Hanya mutasi adminNotes, catatan pembeli (notes) tetap read-only
+      if (adminNotes !== undefined) updateData.adminNotes = adminNotes;
       if (trackingNumber !== undefined) updateData.trackingNumber = trackingNumber;
+
+      // ADD-02: Dukungan negosiasi ongkir manual
+      if (shippingCost !== undefined && !isNaN(Number(shippingCost))) {
+        const manualShipping = Math.max(0, Math.round(Number(shippingCost)));
+        const recomputed = computeOrderTotals({
+          items: (currentOrder.items || []).map((it: any) => ({ price: it.price, qty: it.qty })),
+          taxEnabled: ((currentOrder as any).taxRate || 0) > 0,
+          taxRateBasisPoints: (currentOrder as any).taxRate || 0,
+          manualShippingCost: manualShipping,
+          discountAmount: (currentOrder as any).discountAmount || 0,
+        });
+        updateData.shippingCost = recomputed.shippingCost;
+        updateData.grandTotal = recomputed.grandTotal;
+        updateData.total = recomputed.total;
+      }
 
       return await tx.order.update({
         where: { id: currentOrder.id },
@@ -2118,8 +2314,14 @@ export async function updateOrderStatus(
     }
 
     store.orders[oIdx].status = status;
-    if (notes !== undefined) store.orders[oIdx].notes = notes;
+    if (adminNotes !== undefined) store.orders[oIdx].adminNotes = adminNotes;
     if (trackingNumber !== undefined) store.orders[oIdx].trackingNumber = trackingNumber;
+    if (shippingCost !== undefined && !isNaN(Number(shippingCost))) {
+      store.orders[oIdx].shippingCost = Math.max(0, Math.round(Number(shippingCost)));
+      store.orders[oIdx].grandTotal =
+        (store.orders[oIdx].subtotal || store.orders[oIdx].total) + store.orders[oIdx].shippingCost;
+      store.orders[oIdx].total = store.orders[oIdx].grandTotal;
+    }
 
     writeLocalStore(store);
     return store.orders[oIdx];
@@ -2612,6 +2814,7 @@ export async function getAdminDashboardStats() {
       totalProspectsCount,
       lowStockProducts,
       recentOrders,
+      newSellOffersCount,
     ] = await Promise.all([
       prisma.order.count(),
       prisma.order.count({ where: { status: 'PENDING_VERIFICATION' } }),
@@ -2629,17 +2832,20 @@ export async function getAdminDashboardStats() {
       prisma.product.findMany({
         where: {
           isActive: true,
-          stock: { lt: defaultThreshold },
         },
         select: { id: true, name: true, slug: true, stock: true, unit: true, minStock: true, price: true, images: true },
         orderBy: { stock: 'asc' },
-        take: 20,
-      }),
+      }).then((prods) =>
+        prods
+          .filter((p) => p.stock < (p.minStock ?? defaultThreshold))
+          .slice(0, 20)
+      ),
       prisma.order.findMany({
         orderBy: { createdAt: 'desc' },
         take: 7,
         include: { proof: { select: { id: true } }, _count: { select: { items: true } } },
       }),
+      countNewSellOffers(),
     ]);
 
     const totalRevenue = revenueAgg._sum.total ?? 0;
@@ -2657,6 +2863,7 @@ export async function getAdminDashboardStats() {
       totalCustomersCount,
       totalProspectsCount,
       totalLeadsCount,
+      newSellOffersCount,
       lowStockProducts: lowStockProducts.map((p) => ({
         id: p.id,
         name: p.name,
@@ -2679,8 +2886,9 @@ export async function getAdminDashboardStats() {
         hasProof: Boolean(o.proof),
       })),
     };
-  } catch {
-    // DB tidak tersedia — fallback ke local store dengan hitung manual
+  } catch (err) {
+    handleDbFallback('getAdminDashboardStats', err);
+    // DB tidak tersedia — fallback ke local store dengan hitung manual (hanya dev)
     const store = readLocalStore();
     const orders = store.orders || [];
     const products = store.products || [];
@@ -2724,6 +2932,7 @@ export async function getAdminDashboardStats() {
       totalCustomersCount: customers.filter((c) => c.type === 'CUSTOMER').length,
       totalProspectsCount: customers.filter((c) => c.type === 'PROSPECT').length,
       totalLeadsCount: customers.length,
+      newSellOffersCount: (store.sellOffers || []).filter((o: any) => o.status === 'BARU').length,
       lowStockProducts,
       recentOrders,
     };
@@ -3964,11 +4173,93 @@ function mapSellOffer(raw: any): SellOfferItem {
  * Buat penawaran jual baru dari form publik.
  */
 export async function createSellOffer(input: CreateSellOfferInput): Promise<SellOfferItem> {
-  const raw = await prisma.sellOffer.create({
-    data: {
+  const normalizedPhone = normalizePhone(input.phone);
+  try {
+    const raw = await prisma.sellOffer.create({
+      data: {
+        name: sanitize(input.name.trim()),
+        company: input.company ? sanitize(input.company.trim()) : null,
+        phone: normalizedPhone,
+        email: input.email ? input.email.trim().toLowerCase() : null,
+        province: input.province ? sanitize(input.province.trim()) : null,
+        commodityName: sanitize(input.commodityName.trim()),
+        commoditySpec: input.commoditySpec ? sanitize(input.commoditySpec.trim()) : null,
+        estimatedVolume: input.estimatedVolume ? input.estimatedVolume.trim() : null,
+        priceExpected: input.priceExpected ? input.priceExpected.trim() : null,
+        photoUrls: Array.isArray(input.photoUrls) ? input.photoUrls : [],
+        status: 'BARU',
+      },
+    });
+
+    // P1-F: Hubungkan ke Customer CRM (source: SELL_OFFER) & catat CustomerInteraction
+    try {
+      const existingCustomer = await prisma.customer.findUnique({
+        where: { phone: normalizedPhone },
+      });
+
+      let customerId: string;
+      if (existingCustomer) {
+        const mergedNotes = [
+          existingCustomer.notes,
+          `[Penawaran Jual Komoditas ${raw.commodityName}]: Estimasi ${raw.estimatedVolume || 'N/A'}, Ekspektasi ${raw.priceExpected || 'N/A'}`,
+        ]
+          .filter(Boolean)
+          .join('\n---\n');
+
+        const updatedCust = await prisma.customer.update({
+          where: { id: existingCustomer.id },
+          data: {
+            name: existingCustomer.name || raw.name,
+            company: raw.company || existingCustomer.company,
+            email: raw.email || existingCustomer.email,
+            preferredCommodity: raw.commodityName,
+            estimatedVolume: raw.estimatedVolume || existingCustomer.estimatedVolume,
+            notes: mergedNotes,
+            lastContactAt: new Date(),
+          },
+        });
+        customerId = updatedCust.id;
+      } else {
+        const createdCust = await prisma.customer.create({
+          data: {
+            name: raw.name,
+            phone: normalizedPhone,
+            company: raw.company,
+            email: raw.email,
+            type: 'PROSPECT',
+            status: 'BARU',
+            source: 'SELL_OFFER',
+            preferredCommodity: raw.commodityName,
+            estimatedVolume: raw.estimatedVolume,
+            notes: `Penawaran jual komoditas ${raw.commodityName}. Spesifikasi: ${raw.commoditySpec || '-'}. Ekspektasi harga: ${raw.priceExpected || '-'}`,
+            lastContactAt: new Date(),
+          },
+        });
+        customerId = createdCust.id;
+      }
+
+      await prisma.customerInteraction.create({
+        data: {
+          customerId,
+          type: 'NOTE',
+          summary: `Penawaran Jual Komoditas: ${raw.commodityName} (${raw.estimatedVolume || 'Volume tidak ditentukan'}). Penawar: ${raw.name}${raw.company ? ` (${raw.company})` : ''}, Spesifikasi: ${raw.commoditySpec || '-'}, Target: ${raw.priceExpected || '-'} [ID: ${raw.id}]`,
+          actorName: 'Sistem',
+        },
+      });
+    } catch (crmErr) {
+      console.warn('[createSellOffer] CRM sync failed (non-critical):', crmErr);
+    }
+
+    return mapSellOffer(raw);
+  } catch (err) {
+    handleDbFallback('createSellOffer', err);
+    const store = readLocalStore();
+    if (!store.sellOffers) store.sellOffers = [];
+    const localOffer: any = {
+      id: `offer-${Date.now()}`,
       name: sanitize(input.name.trim()),
       company: input.company ? sanitize(input.company.trim()) : null,
-      phone: normalizePhone(input.phone),
+      phone: normalizedPhone,
       email: input.email ? input.email.trim().toLowerCase() : null,
       province: input.province ? sanitize(input.province.trim()) : null,
       commodityName: sanitize(input.commodityName.trim()),
@@ -3977,9 +4268,14 @@ export async function createSellOffer(input: CreateSellOfferInput): Promise<Sell
       priceExpected: input.priceExpected ? input.priceExpected.trim() : null,
       photoUrls: Array.isArray(input.photoUrls) ? input.photoUrls : [],
       status: 'BARU',
-    },
-  });
-  return mapSellOffer(raw);
+      adminNotes: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    store.sellOffers.unshift(localOffer);
+    writeLocalStore(store);
+    return mapSellOffer(localOffer);
+  }
 }
 
 /**

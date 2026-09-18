@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { getAdminSession } from '@/lib/auth';
 import { getArticles, createArticle } from '@/lib/data-store';
+import { recordAuditLog, AUDIT_ACTIONS } from '@/lib/audit-log';
 
 export async function GET(request: Request) {
   const session = await getAdminSession();
@@ -52,6 +53,20 @@ export async function POST(request: Request) {
       thumbnail: thumbnail || null,
       metaDesc: metaDesc ? metaDesc.trim() : null,
       isPublished: Boolean(isPublished),
+    });
+
+    await recordAuditLog({
+      actorId: session.id,
+      actorName: session.name,
+      actorRole: session.role,
+      action: AUDIT_ACTIONS.CREATE_ARTICLE,
+      targetType: 'Article',
+      targetId: article.id,
+      metadata: {
+        title: article.title,
+        slug: article.slug,
+        isPublished: article.isPublished,
+      },
     });
 
     revalidatePath('/artikel');

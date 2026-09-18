@@ -24,6 +24,7 @@ import {
   ShoppingBag,
   FileDown,
 } from 'lucide-react';
+import { getDefaultSiteName } from '@/lib/config';
 
 interface NavItem {
   href: string;
@@ -60,6 +61,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [user, setUser] = useState<{ name: string; email: string; role: string } | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [badges, setBadges] = useState<{ newSellOffers?: number; pendingOrders?: number }>({});
 
   // Jangan render sidebar untuk halaman login
   const isLoginPage = pathname === '/admin/login';
@@ -69,6 +71,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     fetch('/api/admin/auth/me')
       .then((r) => r.json())
       .then((d) => { if (d.user) setUser(d.user); })
+      .catch(() => {});
+
+    fetch('/api/admin/dashboard/stats')
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.stats) {
+          setBadges({
+            newSellOffers: d.stats.newSellOffersCount || 0,
+            pendingOrders: d.stats.pendingVerificationCount || 0,
+          });
+        }
+      })
       .catch(() => {});
   }, [isLoginPage]);
 
@@ -102,7 +116,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               A
             </div>
             <div>
-              <div className="text-sm font-bold text-white leading-tight">Adably</div>
+              <div className="text-sm font-bold text-white leading-tight">{getDefaultSiteName()}</div>
               <div className="text-[10px] text-slate-500">Admin Panel</div>
             </div>
           </div>
@@ -115,6 +129,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               item.href === '/admin/dashboard'
                 ? pathname === '/admin/dashboard'
                 : pathname.startsWith(item.href);
+
+            let badgeCount = 0;
+            if (item.href === '/admin/penawaran-jual') badgeCount = badges.newSellOffers || 0;
+            if (item.href === '/admin/pesanan') badgeCount = badges.pendingOrders || 0;
+
             return (
               <Link
                 key={item.href}
@@ -128,7 +147,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               >
                 <item.icon className="h-3.5 w-3.5 flex-shrink-0" />
                 <span>{item.label}</span>
-                {isActive && <ChevronRight className="h-3 w-3 ml-auto opacity-60" />}
+                {badgeCount > 0 && (
+                  <span className="ml-auto rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.5 text-[10px] font-bold">
+                    {badgeCount}
+                  </span>
+                )}
+                {isActive && badgeCount === 0 && <ChevronRight className="h-3 w-3 ml-auto opacity-60" />}
               </Link>
             );
           })}
@@ -164,7 +188,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             A
           </div>
           <div>
-            <span className="text-xs font-bold text-white block leading-tight">Adably Admin</span>
+            <span className="text-xs font-bold text-white block leading-tight">Admin Panel</span>
             <span className="text-[10px] text-emerald-400 font-medium">Panel Manajemen</span>
           </div>
         </div>
@@ -206,6 +230,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   item.href === '/admin/dashboard'
                     ? pathname === '/admin/dashboard'
                     : pathname.startsWith(item.href);
+
+                let badgeCount = 0;
+                if (item.href === '/admin/penawaran-jual') badgeCount = badges.newSellOffers || 0;
+                if (item.href === '/admin/pesanan') badgeCount = badges.pendingOrders || 0;
+
                 return (
                   <Link
                     key={item.href}
@@ -220,6 +249,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   >
                     <item.icon className="h-4 w-4 flex-shrink-0" />
                     <span className="text-[13px]">{item.label}</span>
+                    {badgeCount > 0 && (
+                      <span className="ml-auto rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 text-[10px] font-bold">
+                        {badgeCount}
+                      </span>
+                    )}
                   </Link>
                 );
               })}

@@ -16,6 +16,7 @@ import {
 
 import { useCart } from '@/lib/cart-context';
 import { usePwa } from '@/lib/pwa-context';
+import { getDefaultSiteName } from '@/lib/config';
 
 interface NavbarProps {
   siteName?: string;
@@ -24,7 +25,7 @@ interface NavbarProps {
 }
 
 export function Navbar({
-  siteName = 'Adably',
+  siteName = getDefaultSiteName(),
   csWhatsapp = '6281234567890',
   cartCount,
 }: NavbarProps) {
@@ -42,7 +43,7 @@ export function Navbar({
   };
 
   const whatsappUrl = `https://wa.me/${csWhatsapp}?text=${encodeURIComponent(
-    'Halo CS Adably, saya ingin konsultasi mengenai produk mineral dan komoditas.'
+    `Halo CS ${siteName}, saya ingin konsultasi mengenai produk mineral dan komoditas.`
   )}`;
 
   return (
@@ -159,8 +160,8 @@ export function Navbar({
               id="navbar-pwa-install-btn"
               type="button"
               onClick={() => promptInstall()}
-              aria-label="Pasang Aplikasi Adably"
-              title="Pasang Aplikasi Adably"
+              aria-label={`Pasang Aplikasi ${siteName}`}
+              title={`Pasang Aplikasi ${siteName}`}
               className="relative flex h-10 w-10 items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-500 hover:bg-emerald-100 transition-colors shadow-soft-sm"
             >
               <Download className="h-4 w-4" />

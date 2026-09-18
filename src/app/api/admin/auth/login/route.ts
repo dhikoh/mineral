@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
         process.env.NODE_ENV === 'development' &&
         process.env.ALLOW_DEV_FALLBACK_LOGIN === 'true';
 
-      const devEmail = process.env.DEV_FALLBACK_EMAIL || 'admin@adably.com';
+      const devEmail = process.env.DEV_FALLBACK_EMAIL || 'admin@example.com';
       const devPass = process.env.DEV_FALLBACK_PASSWORD || 'admin123456';
 
       if (isDevFallbackAllowed && normalizedEmail === devEmail && password === devPass) {

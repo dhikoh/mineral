@@ -1,3 +1,4 @@
+import { getDefaultSiteName } from '@/lib/config';
 import { Metadata } from 'next';
 import Link from 'next/link';
 import { FileText, ShieldCheck, Truck, HelpCircle } from 'lucide-react';
@@ -5,9 +6,9 @@ import { getContentBlockByKey } from '@/lib/data-store';
 import { RichTextRenderer } from '@/components/editor/RichTextRenderer';
 
 export const metadata: Metadata = {
-  title: 'Syarat & Ketentuan — Adably',
+  title: `Syarat & Ketentuan — ${getDefaultSiteName()}`,
   description:
-    'Syarat, ketentuan pemesanan, kebijakan pengiriman logistik, dan inspeksi komoditas mineral di Adably.',
+    'Syarat, ketentuan pemesanan, kebijakan pengiriman logistik, dan inspeksi komoditas mineral.',
 };
 
 export default async function SyaratKetentuanPage() {

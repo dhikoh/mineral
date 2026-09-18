@@ -21,14 +21,31 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const orderCode = searchParams.get('orderCode');
 
-  // Keputusan Owner: rekening bank hanya ditampilkan jika orderCode valid
-  if (!orderCode) {
-    return NextResponse.json(
-      { error: 'Parameter orderCode wajib disertakan untuk mendapatkan informasi pembayaran.' },
-      { status: 400 }
-    );
+  const settings = await getSiteSettings().catch(() => null);
+  if (!settings) {
+    return NextResponse.json({ error: 'Konfigurasi sistem tidak tersedia.' }, { status: 503 });
   }
 
+  // P0-F: Kebutuhan Pra-Order (Halaman Checkout)
+  // Menampilkan daftar metode pembayaran yang tersedia (nama bank & QRIS) tanpa membocorkan nomor rekening penuh
+  if (!orderCode) {
+    const availableMethods = (settings.bankAccounts || [])
+      .filter((b: any) => b.isActive !== false)
+      .map((b: any) => ({
+        bank: b.bank,
+        type: b.type || 'BANK',
+        isActive: b.isActive !== false,
+      }));
+
+    return NextResponse.json({
+      siteName: settings.siteName,
+      csWhatsapp: settings.csWhatsapp,
+      bankAccounts: availableMethods,
+      paymentMethods: availableMethods,
+    });
+  }
+
+  // Kebutuhan Pasca-Order: verifikasi orderCode dan tampilkan detail rekening lengkap untuk transfer
   const order = await getOrderByCode(orderCode).catch(() => null);
   if (!order) {
     return NextResponse.json(
@@ -45,18 +62,16 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const settings = await getSiteSettings().catch(() => null);
-  if (!settings) {
-    return NextResponse.json({ error: 'Konfigurasi sistem tidak tersedia.' }, { status: 503 });
-  }
+  const effectiveTotal = ((order.grandTotal ?? 0) > 0 ? order.grandTotal : order.total) ?? 0;
 
-  // Hanya kembalikan field yang dibutuhkan untuk checkout — bukan seluruh settings
+  // Kembalikan rincian rekening penuh terikat orderCode
   return NextResponse.json({
     siteName: settings.siteName,
     csWhatsapp: settings.csWhatsapp,
     bankAccounts: settings.bankAccounts,
-    // grandTotal pesanan untuk konfirmasi nominal transfer
-    orderTotal: order.grandTotal ?? order.total,
+    paymentMethods: settings.bankAccounts,
+    orderTotal: effectiveTotal,
+    grandTotal: effectiveTotal,
     orderCode: order.orderCode,
   });
 }

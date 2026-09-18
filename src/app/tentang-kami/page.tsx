@@ -1,3 +1,4 @@
+import { getDefaultSiteName } from '@/lib/config';
 import { Metadata } from 'next';
 import Link from 'next/link';
 import {
@@ -14,9 +15,9 @@ import { getContentBlockByKey, getSiteSettings } from '@/lib/data-store';
 import { RichTextRenderer } from '@/components/editor/RichTextRenderer';
 
 export const metadata: Metadata = {
-  title: 'Tentang Kami — Adably',
+  title: `Tentang Kami — ${getDefaultSiteName()}`,
   description:
-    'Profil Adably sebagai mitra penyedia komoditas mineral tambang dan bahan baku industri dengan spesifikasi transparan dan layanan profesional.',
+    'Profil kami sebagai mitra penyedia komoditas mineral tambang dan bahan baku industri dengan spesifikasi transparan dan layanan profesional.',
 };
 
 export default async function TentangKamiPage() {
@@ -54,7 +55,7 @@ export default async function TentangKamiPage() {
               <span>Integritas Rantai Pasok Tambang & Alam</span>
             </div>
             <h1 className="text-3xl font-black tracking-tight sm:text-4xl lg:text-5xl">
-              {aboutBlock?.title || 'Tentang Adably'}
+              {aboutBlock?.title || 'Tentang Kami'}
             </h1>
             <p className="text-xs sm:text-sm text-slate-300 leading-relaxed pt-2">
               Menghubungkan sektor industri manufaktur, agrikultur modern, dan pelaku usaha dengan pasokan komoditas mineral nusantara secara profesional, transparan, dan terpercaya.
@@ -86,7 +87,7 @@ export default async function TentangKamiPage() {
             <RichTextRenderer
               html={
                 aboutBlock?.content ||
-                '<p>Adably berdedikasi menyediakan komoditas mineral dan hasil hutan non-kayu berkualitas tinggi dengan standar transparansi tertinggi.</p>'
+                '<p>Kami berdedikasi menyediakan komoditas mineral dan hasil hutan non-kayu berkualitas tinggi dengan standar transparansi tertinggi.</p>'
               }
               theme="light"
               className="mt-4 text-xs sm:text-sm text-slate-600"

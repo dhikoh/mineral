@@ -26,6 +26,7 @@ import {
   UploadCloud,
   XCircle,
   CreditCard,
+  FileDown,
 } from 'lucide-react';
 
 interface OrderDetailClientProps {
@@ -106,7 +107,7 @@ export function OrderDetailClient({
 
   const waNumber = csWhatsapp ? csWhatsapp.replace(/[^0-9]/g, '') : '6281234567890';
   const waMessage = encodeURIComponent(
-    `Halo Admin Adably, saya ingin konfirmasi pesanan:\n` +
+    `Halo Admin, saya ingin konfirmasi pesanan:\n` +
       `• Kode Pesanan: ${order.orderCode}\n` +
       `• Nama: ${order.buyerName}\n` +
       `• Total: ${formatRupiah(order.total)}\n` +
@@ -117,13 +118,29 @@ export function OrderDetailClient({
   const renderStatusBanner = () => {
     switch (order.status) {
       case 'PENDING_PAYMENT':
+        if (order.proof?.status === 'REJECTED') {
+          return (
+            <div className="rounded-2xl bg-rose-50 border border-rose-200 p-4 sm:p-5 text-rose-900 flex items-start gap-3.5">
+              <XCircle className="h-5 w-5 text-rose-600 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <h3 className="text-sm font-bold">Bukti Pembayaran Sebelumnya Ditolak</h3>
+                <p className="text-xs text-rose-800 leading-relaxed">
+                  {order.proof.rejectionReason
+                    ? `Alasan penolakan: "${order.proof.rejectionReason}". `
+                    : 'Bukti transfer tidak dapat divalidasi. '}
+                  Silakan periksa kembali mutasi Anda dan unggah ulang bukti transfer yang valid di formulir bawah.
+                </p>
+              </div>
+            </div>
+          );
+        }
         return (
           <div className="rounded-2xl bg-amber-50 border border-amber-200 p-4 sm:p-5 text-amber-900 flex items-start gap-3.5">
             <Clock className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
             <div className="space-y-1">
               <h3 className="text-sm font-bold">Menunggu Pembayaran Transfer Bank</h3>
               <p className="text-xs text-amber-800 leading-relaxed">
-                Silakan lakukan transfer sejumlah <strong>{formatRupiah(order.total)}</strong> ke salah satu rekening resmi di bawah ini, lalu unggah struk atau bukti transfer Anda agar pesanan segera diverifikasi.
+                Silakan lakukan transfer sejumlah <strong>{formatRupiah((order.grandTotal && order.grandTotal > 0) ? order.grandTotal : order.total)}</strong> ke salah satu rekening resmi di bawah ini, lalu unggah struk atau bukti transfer Anda agar pesanan segera diverifikasi.
               </p>
             </div>
           </div>
@@ -189,22 +206,7 @@ export function OrderDetailClient({
             <div className="space-y-1">
               <h3 className="text-sm font-bold">Pesanan Telah Selesai</h3>
               <p className="text-xs text-emerald-800 leading-relaxed">
-                Pengadaan komoditas ini telah selesai diterima di lokasi tujuan. Terima kasih telah mempercayakan kebutuhan mineral Anda kepada Adably.
-              </p>
-            </div>
-          </div>
-        );
-      case 'REJECTED':
-        return (
-          <div className="rounded-2xl bg-rose-50 border border-rose-200 p-4 sm:p-5 text-rose-900 flex items-start gap-3.5">
-            <XCircle className="h-5 w-5 text-rose-600 shrink-0 mt-0.5" />
-            <div className="space-y-1">
-              <h3 className="text-sm font-bold">Bukti Pembayaran Ditolak</h3>
-              <p className="text-xs text-rose-800 leading-relaxed">
-                {order.proof?.rejectionReason
-                  ? `Alasan penolakan: "${order.proof.rejectionReason}". `
-                  : 'Bukti transfer tidak dapat divalidasi. '}
-                Silakan periksa kembali mutasi Anda dan unggah ulang bukti transfer yang valid di formulir bawah.
+                Pengadaan komoditas ini telah selesai diterima di lokasi tujuan. Terima kasih telah mempercayakan kebutuhan komoditas Anda kepada kami.
               </p>
             </div>
           </div>
@@ -237,13 +239,22 @@ export function OrderDetailClient({
           <ArrowLeft className="h-3.5 w-3.5" />
           <span>Kembali ke Katalog</span>
         </Link>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <Link
             href="/lacak-pesanan"
             className="text-xs font-semibold text-emerald-600 hover:underline"
           >
-            Lacak Pesanan Lain
+            Lacak Lain
           </Link>
+          <a
+            href={`/api/pesanan/${order.orderCode}/invoice?phone=${encodeURIComponent(order.buyerPhone || '')}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white px-3.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors shadow-soft-xs"
+          >
+            <FileDown className="h-3.5 w-3.5 text-emerald-600" />
+            <span>Faktur / Invoice PDF</span>
+          </a>
           <a
             href={waUrl}
             target="_blank"
@@ -345,8 +356,8 @@ export function OrderDetailClient({
         )}
       </div>
 
-      {/* Form Upload Bukti Transfer (Shown if PENDING_PAYMENT or REJECTED) */}
-      {(order.status === 'PENDING_PAYMENT' || order.status === 'REJECTED') && (
+      {/* Form Upload Bukti Transfer (Shown if PENDING_PAYMENT) */}
+      {order.status === 'PENDING_PAYMENT' && (
         <div className="rounded-3xl border border-emerald-200 bg-emerald-50/40 p-6 sm:p-8 shadow-soft-sm space-y-6">
           <div className="flex items-center gap-2 pb-4 border-b border-emerald-200/60">
             <UploadCloud className="h-5 w-5 text-emerald-700" />
@@ -447,7 +458,7 @@ export function OrderDetailClient({
       )}
 
       {/* Display Uploaded Proof Preview if Pending Verification or Paid */}
-      {order.proof && order.status !== 'PENDING_PAYMENT' && order.status !== 'REJECTED' && (
+      {order.proof && order.status !== 'PENDING_PAYMENT' && (
         <div className="rounded-3xl border border-surface-200 bg-white p-6 shadow-soft-sm space-y-4">
           <div className="flex items-center justify-between pb-3 border-b border-surface-200">
             <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">

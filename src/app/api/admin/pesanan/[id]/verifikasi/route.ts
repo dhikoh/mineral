@@ -8,7 +8,7 @@ import { getAdminSession } from '@/lib/auth';
 import { verifyPaymentProof, getOrderById, getSiteSettings } from '@/lib/data-store';
 import { recordAuditLog, AUDIT_ACTIONS } from '@/lib/audit-log';
 import { buildWhatsAppMessage } from '@/lib/wa-notify';
-import { canVerifyPayment, canRejectPayment } from '@/lib/order-security';
+import { canVerifyPayment, canRejectPayment, isValidOrderTransition } from '@/lib/order-security';
 
 export async function POST(
   request: NextRequest,
@@ -59,10 +59,10 @@ export async function POST(
 
     // P1-03: Rekonsiliasi nominal — bandingkan amount bukti vs total pesanan
     const settings = await getSiteSettings().catch(() => null);
-    const tolerance = settings?.paymentToleranceAmount ?? 0;
+    const tolerance = settings?.paymentToleranceAmount ?? 5000;
+    const orderTotal = ((order.grandTotal ?? 0) > 0 ? order.grandTotal : order.total) ?? 0;
 
     if (isApproved && order.proof?.amount != null) {
-      const orderTotal = order.grandTotal ?? order.total;
       const proofAmount = order.proof.amount;
       const diff = Math.abs(proofAmount - orderTotal);
 
@@ -96,6 +96,15 @@ export async function POST(
           );
         }
       }
+    }
+
+    // P1-E: Validasi state machine resmi
+    const targetStatus = isApproved ? 'PAID' : 'PENDING_PAYMENT';
+    if (!isValidOrderTransition(order.status, targetStatus)) {
+      return NextResponse.json(
+        { error: `Transisi status pesanan dari '${order.status}' ke '${targetStatus}' tidak diizinkan.` },
+        { status: 409 }
+      );
     }
 
     // Eksekusi verifikasi
@@ -132,7 +141,7 @@ export async function POST(
           orderCode: order.orderCode,
           buyerName: order.buyerName,
           buyerPhone: order.buyerPhone,
-          total: order.grandTotal ?? order.total,
+          total: orderTotal,
           rejectionReason: isApproved ? undefined : (notes || 'Bukti pembayaran tidak valid'),
         },
         isApproved ? 'payment_verified' : 'payment_rejected'

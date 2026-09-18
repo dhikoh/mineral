@@ -1,6 +1,8 @@
+import { getBaseUrl, getDefaultSiteName } from '@/lib/config';
 import { notFound } from 'next/navigation';
 import { getProductBySlug } from '@/lib/data-store';
 import { ProductDetailClient } from '@/components/storefront/ProductDetailClient';
+import { safeJsonLd } from '@/lib/json-ld';
 import type { Metadata } from 'next';
 
 export const dynamic = 'force-dynamic';
@@ -12,18 +14,18 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const product = await getProductBySlug(slug);
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://adably.id';
+  const baseUrl = getBaseUrl();
 
   if (!product) {
     return {
-      title: 'Produk Tidak Ditemukan — Adably',
+      title: `Produk Tidak Ditemukan — ${getDefaultSiteName()}`,
     };
   }
 
-  const title = `${product.name} — Pasokan Komoditas Adably`;
+  const title = `${product.name} — Pasokan Komoditas ${getDefaultSiteName()}`;
   const description =
     product.description ||
-    `Beli ${product.name} kualitas ekspor & industri dengan spesifikasi teruji lab dari Adably.`;
+    `Beli ${product.name} kualitas ekspor & industri dengan spesifikasi teruji lab dari ${getDefaultSiteName()}.`;
   const images = Array.isArray(product.images) ? (product.images as string[]) : [];
   const mainImage = images[0] || `${baseUrl}/icons/icon-512.png`;
 
@@ -34,7 +36,7 @@ export async function generateMetadata({
       title,
       description,
       url: `${baseUrl}/produk/${product.slug}`,
-      siteName: 'Adably',
+      siteName: getDefaultSiteName(),
       type: 'website',
       images: [
         {
@@ -64,18 +66,18 @@ export default async function ProductDetailPage({
     notFound();
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://adably.id';
+  const baseUrl = getBaseUrl();
 
   const productSchema = {
     '@context': 'https://schema.org',
     '@type': 'Product',
     name: product.name,
     image: Array.isArray(product.images) && product.images.length > 0 ? product.images : [`${baseUrl}/icons/icon-512.png`],
-    description: product.description || `Komoditas ${product.name} berkualitas tinggi dari Adably.`,
+    description: product.description || `Komoditas ${product.name} berkualitas tinggi dari ${getDefaultSiteName()}.`,
     sku: product.id,
     brand: {
       '@type': 'Brand',
-      name: 'Adably',
+      name: getDefaultSiteName(),
     },
     category: product.category?.name || 'Mineral Tambang',
     offers: {
@@ -88,7 +90,7 @@ export default async function ProductDetailPage({
       availability: product.stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
       seller: {
         '@type': 'Organization',
-        name: 'Adably',
+        name: getDefaultSiteName(),
       },
     },
   };
@@ -123,11 +125,11 @@ export default async function ProductDetailPage({
       {/* Schema.org Structured Data */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(productSchema) }}
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(breadcrumbSchema) }}
       />
 
       <ProductDetailClient product={product as any} />

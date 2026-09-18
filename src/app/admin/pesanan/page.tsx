@@ -27,7 +27,7 @@ const STATUS_TABS = [
   { key: 'PROCESSING', label: 'Diproses' },
   { key: 'SHIPPED', label: 'Dikirim' },
   { key: 'COMPLETED', label: 'Selesai' },
-  { key: 'REJECTED', label: 'Ditolak' },
+  { key: 'CANCELLED', label: 'Dibatalkan' },
 ];
 
 export default function AdminPesananPage() {

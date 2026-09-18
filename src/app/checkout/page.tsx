@@ -39,15 +39,20 @@ export default function CheckoutPage() {
   const [paymentMethods, setPaymentMethods] = useState<BankAccount[]>([]);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
 
-  // Ambil metode pembayaran dari pengaturan situs
+  // P0-F: Ambil metode pembayaran aktif dari pengaturan situs pra-order
   useEffect(() => {
     fetch('/api/public/settings')
-      .then((r) => r.json())
-      .then((d) => {
-        const methods = d?.bankAccounts;
-        if (Array.isArray(methods) && methods.length > 0) setPaymentMethods(methods);
+      .then((r) => {
+        if (!r.ok) throw new Error('Gagal memuat metode pembayaran');
+        return r.json();
       })
-      .catch(() => {});
+      .then((d) => {
+        const methods = d?.bankAccounts || d?.paymentMethods;
+        if (Array.isArray(methods)) setPaymentMethods(methods);
+      })
+      .catch((err) => {
+        console.warn('Error loading public payment settings:', err);
+      });
   }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -66,8 +71,14 @@ export default function CheckoutPage() {
       return;
     }
 
-    if (!formData.customerPhone.trim()) {
-      setErrorMsg('Nomor WhatsApp aktif wajib diisi untuk pelacakan dan konfirmasi pesanan.');
+    const cleanPhoneDigits = formData.customerPhone.replace(/[^0-9]/g, '');
+    if (!formData.customerPhone.trim() || cleanPhoneDigits.length < 8) {
+      setErrorMsg('Nomor WhatsApp aktif minimal 8 digit wajib diisi untuk pelacakan dan konfirmasi pesanan.');
+      return;
+    }
+
+    if (formData.customerEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.customerEmail.trim())) {
+      setErrorMsg('Format alamat email tidak valid.');
       return;
     }
 
@@ -84,15 +95,35 @@ export default function CheckoutPage() {
     setIsLoading(true);
 
     try {
+      // P1-P: Validasi ulang harga, ketersediaan stok, dan MOQ ke server sebelum pesanan dibuat
+      const valRes = await fetch('/api/validate-cart', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: items.map((it) => ({
+            productId: it.id,
+            id: it.id,
+            qty: it.qty,
+          })),
+        }),
+      });
+
+      const valData = await valRes.json();
+      if (!valRes.ok || !valData.valid) {
+        throw new Error(
+          valData.errors?.[0] || 'Kuantitas atau ketersediaan stok berubah. Silakan periksa kembali keranjang Anda.'
+        );
+      }
+
       const res = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          customerName: formData.customerName,
-          customerPhone: formData.customerPhone,
-          customerEmail: formData.customerEmail,
-          shippingAddress: formData.shippingAddress,
-          notes: formData.notes,
+          customerName: formData.customerName.trim(),
+          customerPhone: formData.customerPhone.trim(),
+          customerEmail: formData.customerEmail ? formData.customerEmail.trim() : undefined,
+          shippingAddress: formData.shippingAddress.trim(),
+          notes: formData.notes ? formData.notes.trim() : undefined,
           items: items.map((it) => ({
             productId: it.id,
             quantity: it.qty,
@@ -318,18 +349,11 @@ export default function CheckoutPage() {
                   <span className="text-xs font-bold text-purple-700">QRIS</span>
                 </button>
               )}
-              {/* Fallback jika settings belum dimuat */}
+              {/* P0-F: Empty state jujur jika penjual belum mengaktifkan metode pembayaran */}
               {paymentMethods.length === 0 && (
-                <>
-                  <div className="flex items-center gap-1.5 rounded-xl border border-surface-200 bg-surface-50 px-3 py-2">
-                    <Building2 className="h-3.5 w-3.5 text-slate-500" />
-                    <span className="text-xs font-bold text-slate-700">Transfer Bank</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 rounded-xl border border-purple-200 bg-purple-50 px-3 py-2">
-                    <QrCode className="h-3.5 w-3.5 text-purple-600" />
-                    <span className="text-xs font-bold text-purple-700">QRIS</span>
-                  </div>
-                </>
+                <div className="w-full rounded-2xl border border-amber-200 bg-amber-50/70 p-3 text-xs text-amber-800">
+                  Metode pembayaran daring belum dikonfigurasi oleh penjual. Anda tetap dapat membuat pesanan dan detail invoice akan dikoordinasikan langsung melalui WhatsApp.
+                </div>
               )}
             </div>
           </div>

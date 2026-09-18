@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAdminSession } from '@/lib/auth';
 import { getCustomerById, updateCustomer, deleteCustomer } from '@/lib/data-store';
+import { recordAuditLog, AUDIT_ACTIONS } from '@/lib/audit-log';
 
 export async function GET(
   req: Request,
@@ -46,6 +47,21 @@ export async function PUT(
     // Sesi #20: teruskan actor agar perubahan status dicatat sebagai CustomerInteraction NOTE
     const actor = { id: session.id, name: session.name };
     const updated = await updateCustomer(id, body, actor);
+
+    await recordAuditLog({
+      actorId: session.id,
+      actorName: session.name,
+      actorRole: session.role,
+      action: AUDIT_ACTIONS.UPDATE_CUSTOMER,
+      targetType: 'Customer',
+      targetId: id,
+      metadata: {
+        customerName: updated.name,
+        type: updated.type,
+        status: updated.status,
+      },
+    });
+
     return NextResponse.json({
       success: true,
       message: 'Data pelanggan berhasil diperbarui',
@@ -71,7 +87,22 @@ export async function DELETE(
   }
   try {
     const { id } = await params;
+    const existing = await getCustomerById(id);
     await deleteCustomer(id);
+
+    await recordAuditLog({
+      actorId: session.id,
+      actorName: session.name,
+      actorRole: session.role,
+      action: AUDIT_ACTIONS.DELETE_CUSTOMER,
+      targetType: 'Customer',
+      targetId: id,
+      metadata: {
+        customerName: existing?.name,
+        customerPhone: existing?.phone,
+      },
+    });
+
     return NextResponse.json({
       success: true,
       message: 'Kontak pelanggan berhasil dihapus',

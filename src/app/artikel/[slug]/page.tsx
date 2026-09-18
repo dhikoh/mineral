@@ -1,3 +1,4 @@
+import { getBaseUrl, getDefaultSiteName } from '@/lib/config';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -15,6 +16,7 @@ import {
   ShieldCheck,
   BookOpen,
 } from 'lucide-react';
+import { safeJsonLd } from '@/lib/json-ld';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,15 +27,15 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const article = await getArticleBySlug(slug);
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://adably.id';
+  const baseUrl = getBaseUrl();
 
   if (!article || !article.isPublished) {
     return {
-      title: 'Artikel Tidak Ditemukan — Adably',
+      title: `Artikel Tidak Ditemukan — ${getDefaultSiteName()}`,
     };
   }
 
-  const title = `${article.title} — Riset Adably`;
+  const title = `${article.title} — Riset ${getDefaultSiteName()}`;
   const description = article.metaDesc || article.title;
   const mainImage = article.thumbnail || `${baseUrl}/icons/icon-512.png`;
 
@@ -44,7 +46,7 @@ export async function generateMetadata({
       title,
       description,
       url: `${baseUrl}/artikel/${article.slug}`,
-      siteName: 'Adably',
+      siteName: getDefaultSiteName(),
       type: 'article',
       publishedTime: article.publishedAt
         ? new Date(article.publishedAt).toISOString()
@@ -102,10 +104,10 @@ export default async function ArtikelDetailPage({
   const finalRelated = relatedProducts.length > 0 ? relatedProducts : allProducts.slice(0, 3);
 
   const shareText = encodeURIComponent(
-    `Baca artikel menarik: "${article.title}" di Adably.\n`
+    `Baca artikel menarik: "${article.title}" di ${getDefaultSiteName()}.\n`
   );
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://adably.id';
+  const baseUrl = getBaseUrl();
 
   const articleSchema = {
     '@context': 'https://schema.org',
@@ -120,12 +122,12 @@ export default async function ArtikelDetailPage({
       : new Date(article.createdAt).toISOString(),
     author: {
       '@type': 'Organization',
-      name: 'Tim Riset Adably',
+      name: `Tim Riset ${getDefaultSiteName()}`,
       url: baseUrl,
     },
     publisher: {
       '@type': 'Organization',
-      name: 'Adably',
+      name: getDefaultSiteName(),
       logo: {
         '@type': 'ImageObject',
         url: `${baseUrl}/icons/icon-512.png`,
@@ -168,11 +170,11 @@ export default async function ArtikelDetailPage({
       {/* Schema.org Structured Data */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(articleSchema) }}
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(breadcrumbSchema) }}
       />
 
       {/* Breadcrumb Navigation */}
@@ -221,7 +223,7 @@ export default async function ArtikelDetailPage({
               MH
             </div>
             <div>
-              <div className="font-bold text-slate-900">Tim Riset &amp; Pengadaan Adably</div>
+              <div className="font-bold text-slate-900">Tim Riset &amp; Pengadaan</div>
               <div className="text-[11px] text-slate-400">Spesialis Komoditas Mineral Tambang</div>
             </div>
           </div>

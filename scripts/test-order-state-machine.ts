@@ -33,7 +33,10 @@ expect('ALLOWED_ORDER_TRANSITIONS has no REJECTED key', 'REJECTED' in ALLOWED_OR
 console.log('\nTransisi sah:');
 expect('PENDING_PAYMENT → PENDING_VERIFICATION', isValidOrderTransition('PENDING_PAYMENT', 'PENDING_VERIFICATION'), true);
 expect('PENDING_PAYMENT → CANCELLED', isValidOrderTransition('PENDING_PAYMENT', 'CANCELLED'), true);
+expect('PENDING_VERIFICATION → PAID (alur verifikasi pembayaran sah)', isValidOrderTransition('PENDING_VERIFICATION', 'PAID'), true);
+expect('PENDING_VERIFICATION → PENDING_PAYMENT (tolak bukti bayar)', isValidOrderTransition('PENDING_VERIFICATION', 'PENDING_PAYMENT'), true);
 expect('PAID → PROCESSING', isValidOrderTransition('PAID', 'PROCESSING'), true);
+expect('PAID → COMPLETED (loco / ambil gudang)', isValidOrderTransition('PAID', 'COMPLETED'), true);
 expect('PROCESSING → SHIPPED', isValidOrderTransition('PROCESSING', 'SHIPPED'), true);
 expect('SHIPPED → COMPLETED', isValidOrderTransition('SHIPPED', 'COMPLETED'), true);
 expect('Same status (PENDING_PAYMENT → PENDING_PAYMENT)', isValidOrderTransition('PENDING_PAYMENT', 'PENDING_PAYMENT'), true);
@@ -43,8 +46,8 @@ console.log('\nTransisi tidak sah (P0-04 state machine gate):');
 expect('PENDING_PAYMENT → PAID (langsung, bypass verifikasi)', isValidOrderTransition('PENDING_PAYMENT', 'PAID'), false);
 expect('COMPLETED → CANCELLED (terminal)', isValidOrderTransition('COMPLETED', 'CANCELLED'), false);
 expect('CANCELLED → PAID (terminal)', isValidOrderTransition('CANCELLED', 'PAID'), false);
-expect('PENDING_VERIFICATION → PAID (via PATCH generik)', isValidOrderTransition('PENDING_VERIFICATION', 'PAID'), false);
 expect('SHIPPED → PENDING_PAYMENT (backward)', isValidOrderTransition('SHIPPED', 'PENDING_PAYMENT'), false);
+expect('COMPLETED → PROCESSING (backward dari terminal)', isValidOrderTransition('COMPLETED', 'PROCESSING'), false);
 
 // canVerifyPayment / canRejectPayment
 console.log('\ncanVerifyPayment:');

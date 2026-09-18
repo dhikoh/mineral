@@ -1,6 +1,6 @@
 /**
  * src/lib/pdf/catalog-template.tsx
- * Sesi #28 — Template PDF Katalog Produk Adably
+ * Sesi #28 — Template PDF Katalog Produk Komoditas
  * Menggunakan @react-pdf/renderer primitives (tidak ada JSX browser).
  */
 
@@ -12,7 +12,6 @@ import {
   Text,
   Image,
   StyleSheet,
-  Font,
 } from '@react-pdf/renderer';
 import type { ProductItem, SiteSettingsData } from '@/lib/data-store';
 
@@ -414,7 +413,7 @@ export function CatalogDocument({
       title={`Katalog Produk ${settings.siteName}`}
       author={settings.siteName}
       subject="Katalog Komoditas Mineral & Hasil Alam"
-      creator="Adably Admin Panel"
+      creator="Admin Panel"
     >
       <Page size="A4" style={styles.page} wrap>
         {/* ================================================================

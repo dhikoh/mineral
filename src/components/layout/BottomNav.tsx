@@ -4,13 +4,16 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Home, Layers, ShoppingBag, Truck, Headphones } from 'lucide-react';
 import { useCart } from '@/lib/cart-context';
+import { getDefaultSiteName } from '@/lib/config';
 
 interface BottomNavProps {
   cartCount?: number;
   csWhatsapp?: string;
+  siteName?: string;
 }
 
-export function BottomNav({ cartCount, csWhatsapp = '6281234567890' }: BottomNavProps) {
+export function BottomNav({ cartCount, csWhatsapp = '6281234567890', siteName }: BottomNavProps) {
+  const brand = siteName || getDefaultSiteName();
   const pathname = usePathname();
   const { totalItems } = useCart();
   const effectiveCartCount = cartCount !== undefined ? cartCount : totalItems;
@@ -44,7 +47,7 @@ export function BottomNav({ cartCount, csWhatsapp = '6281234567890' }: BottomNav
   ];
 
   const whatsappUrl = `https://wa.me/${csWhatsapp}?text=${encodeURIComponent(
-    'Halo CS Adably, saya membutuhkan bantuan informasi produk/pesanan.'
+    `Halo CS ${brand}, saya membutuhkan bantuan informasi produk/pesanan.`
   )}`;
 
   return (

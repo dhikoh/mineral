@@ -94,7 +94,7 @@ export default function AdminPenawaranJualDetailPage({
 
   const waLink = offer
     ? `https://wa.me/${offer.phone}?text=${encodeURIComponent(
-        `Halo ${offer.name}, kami dari tim Adably ingin menindaklanjuti penawaran komoditas ${offer.commodityName} yang Anda ajukan. `
+        `Halo ${offer.name}, kami dari tim pengadaan kami ingin menindaklanjuti penawaran komoditas ${offer.commodityName} yang Anda ajukan. `
       )}`
     : '#';
 

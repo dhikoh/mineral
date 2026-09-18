@@ -1,7 +1,8 @@
 import type { MetadataRoute } from 'next';
+import { getBaseUrl } from '@/lib/config';
 
 export default function robots(): MetadataRoute.Robots {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://adably.id';
+  const baseUrl = getBaseUrl();
 
   return {
     rules: [

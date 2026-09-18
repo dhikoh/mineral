@@ -4,7 +4,7 @@ import { getAdminCookieName } from './lib/config';
 
 /**
  * src/proxy.ts
- * P2-10: COOKIE_NAME dari config.ts (tidak hardcode 'adably_admin_token')
+ * P2-10: COOKIE_NAME dari config.ts (tidak hardcode 'admin_token')
  * P2-03d: Verifikasi JWT menggunakan fungsi terpusat (sama logika dengan auth.ts)
  * P2-16: Proxy hanya verifikasi tanda tangan JWT — role check di Server Components
  */

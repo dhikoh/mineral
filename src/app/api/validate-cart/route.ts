@@ -35,7 +35,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const productIds = [...new Set(items.map((i: { productId: string }) => i.productId))];
+    const productIds = [
+      ...new Set(
+        items
+          .map((i: { productId?: string; id?: string }) => i.productId || i.id)
+          .filter((id): id is string => Boolean(id))
+      ),
+    ];
 
     // P2-08: Satu query findMany menggantikan N query individual
     const products = await prisma.product.findMany({
@@ -45,12 +51,13 @@ export async function POST(req: NextRequest) {
 
     const productMap = new Map(products.map(p => [p.id, p]));
 
-    const validatedItems = items.map((item: { productId: string; qty: number }) => {
-      const product = productMap.get(item.productId);
+    const validatedItems = items.map((item: { productId?: string; id?: string; qty: number }) => {
+      const pid = item.productId || item.id || '';
+      const product = productMap.get(pid);
 
       if (!product) {
         return {
-          productId: item.productId,
+          productId: pid,
           valid: false,
           reason: 'Produk tidak tersedia atau telah dihapus.',
           qty: item.qty,
@@ -94,8 +101,9 @@ export async function POST(req: NextRequest) {
     });
 
     const allValid = validatedItems.every(i => i.valid);
+    const errors = validatedItems.filter(i => !i.valid).map(i => i.reason).filter(Boolean);
 
-    return NextResponse.json({ valid: allValid, items: validatedItems });
+    return NextResponse.json({ valid: allValid, items: validatedItems, errors });
   } catch (error: unknown) {
     const err = error as Error;
     console.error('Error validating cart:', err);

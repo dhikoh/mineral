@@ -38,6 +38,8 @@ export default function AdminEditProdukPage({
   const [stock, setStock] = useState<string>('0');
   const [unit, setUnit] = useState<string>('kg');
   const [minStock, setMinStock] = useState<string>('50');
+  const [minOrderQty, setMinOrderQty] = useState<string>('1');
+  const [incrementQty, setIncrementQty] = useState<string>('1');
   const [description, setDescription] = useState('');
   const [tags, setTags] = useState<string[]>([]);
   const [images, setImages] = useState<string[]>([]);
@@ -72,6 +74,8 @@ export default function AdminEditProdukPage({
           setStock(String(p.stock ?? 0));
           setUnit(p.unit || 'kg');
           setMinStock(String(p.minStock ?? 50));
+          setMinOrderQty(String(p.minOrderQty ?? 1));
+          setIncrementQty(String(p.incrementQty ?? 1));
           setDescription(p.description || '');
           setTags(Array.isArray(p.tags) ? p.tags : []);
           setImages(Array.isArray(p.images) ? p.images : []);
@@ -142,6 +146,8 @@ export default function AdminEditProdukPage({
           stock: numStock,
           unit: unit.trim() || 'kg',
           minStock: Number(minStock) || 50,
+          minOrderQty: Math.max(1, Number(minOrderQty) || 1),
+          incrementQty: Math.max(1, Number(incrementQty) || 1),
           categoryId,
           usageIds: selectedUsageIds,
           tags,
@@ -366,6 +372,40 @@ export default function AdminEditProdukPage({
                 />
                 <p className="mt-1 text-[11px] text-slate-400">
                   Peringatan stok tipis muncul di dashboard jika stok &le; angka ini
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
+                  Minimum Pemesanan (MOQ) ({unit || 'kg'})
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  placeholder="Contoh: 1"
+                  value={minOrderQty}
+                  onChange={(e) => setMinOrderQty(e.target.value)}
+                  className="w-full rounded-xl border border-slate-700 bg-slate-800/90 py-2.5 px-3.5 text-xs text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none font-mono"
+                />
+                <p className="mt-1 text-[11px] text-slate-400">
+                  Jumlah minimal yang harus dipesan pembeli B2B
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
+                  Kelipatan Pemesanan (Increment Step) ({unit || 'kg'})
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  placeholder="Contoh: 1"
+                  value={incrementQty}
+                  onChange={(e) => setIncrementQty(e.target.value)}
+                  className="w-full rounded-xl border border-slate-700 bg-slate-800/90 py-2.5 px-3.5 text-xs text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none font-mono"
+                />
+                <p className="mt-1 text-[11px] text-slate-400">
+                  Pemesanan harus dalam kelipatan angka ini (misal kelipatan sak / ton)
                 </p>
               </div>
             </div>

@@ -19,10 +19,14 @@ export default async function PesananDetailPage({
     notFound();
   }
 
+  // P1-R: Hanya sertakan detail rekening bank jika pesanan butuh pembayaran/verifikasi
+  const canShowBankAccounts =
+    order.status === 'PENDING_PAYMENT' || order.status === 'PENDING_VERIFICATION';
+
   return (
     <OrderDetailClient
       initialOrder={order}
-      bankAccounts={settings.bankAccounts}
+      bankAccounts={canShowBankAccounts ? settings.bankAccounts : []}
       csWhatsapp={settings.csWhatsapp}
     />
   );

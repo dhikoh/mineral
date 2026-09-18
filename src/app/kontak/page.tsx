@@ -1,3 +1,4 @@
+import { getDefaultSiteName } from '@/lib/config';
 import { Metadata } from 'next';
 import Link from 'next/link';
 import {
@@ -14,9 +15,9 @@ import {
 import { getSiteSettings } from '@/lib/data-store';
 
 export const metadata: Metadata = {
-  title: 'Hubungi Kami — Adably',
+  title: `Hubungi Kami — ${getDefaultSiteName()}`,
   description:
-    'Kontak resmi WhatsApp Customer Service, email, alamat kantor pergudangan, dan rekening transfer resmi Adably.',
+    'Kontak resmi WhatsApp Customer Service, email, alamat kantor pergudangan, dan rekening transfer resmi perusahaan.',
 };
 
 export default async function KontakPage() {
@@ -158,7 +159,7 @@ export default async function KontakPage() {
               <h3>Rekening Bank Transfer Resmi</h3>
             </div>
             <p className="text-xs text-slate-500 leading-relaxed">
-              Pastikan seluruh pembayaran hanya dialihkan ke nomor rekening resmi terdaftar di bawah ini a.n Adably:
+              Pastikan seluruh pembayaran hanya dialihkan ke nomor rekening resmi terdaftar di bawah ini rekening resmi perusahaan:
             </p>
 
             <div className="space-y-3">

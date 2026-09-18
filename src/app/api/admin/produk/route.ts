@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { getAdminSession } from '@/lib/auth';
 import { getProducts, createProduct } from '@/lib/data-store';
+import { recordAuditLog, AUDIT_ACTIONS } from '@/lib/audit-log';
 
 export async function GET(req: NextRequest) {
   const session = await getAdminSession();
@@ -44,6 +45,8 @@ export async function POST(req: NextRequest) {
       stock,
       unit,
       minStock,
+      minOrderQty,
+      incrementQty,
       images,
       tags,
       categoryId,
@@ -70,6 +73,8 @@ export async function POST(req: NextRequest) {
     }
 
     const numMinStock = minStock !== undefined ? Number(minStock) : 50;
+    const numMinOrderQty = minOrderQty !== undefined ? Number(minOrderQty) : 1;
+    const numIncrementQty = incrementQty !== undefined ? Number(incrementQty) : 1;
 
     const newProduct = await createProduct({
       name: name.trim(),
@@ -78,11 +83,27 @@ export async function POST(req: NextRequest) {
       stock: numStock,
       unit: unit ? String(unit).trim() : 'kg',
       minStock: isNaN(numMinStock) ? 50 : numMinStock,
+      minOrderQty: isNaN(numMinOrderQty) || numMinOrderQty < 1 ? 1 : Math.floor(numMinOrderQty),
+      incrementQty: isNaN(numIncrementQty) || numIncrementQty < 1 ? 1 : Math.floor(numIncrementQty),
       images: Array.isArray(images) ? images : [],
       tags: Array.isArray(tags) ? tags : [],
       categoryId,
       usageIds: Array.isArray(usageIds) ? usageIds : [],
       isActive: isActive !== undefined ? Boolean(isActive) : true,
+    });
+
+    await recordAuditLog({
+      actorId: session.id,
+      actorName: session.name,
+      actorRole: session.role,
+      action: AUDIT_ACTIONS.CREATE_PRODUCT,
+      targetType: 'Product',
+      targetId: newProduct.id,
+      metadata: {
+        productName: newProduct.name,
+        price: newProduct.price,
+        stock: newProduct.stock,
+      },
     });
 
     revalidatePath('/');

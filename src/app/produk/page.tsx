@@ -7,6 +7,8 @@ import { MobileFilterDrawerTrigger } from '@/components/storefront/MobileFilterD
 import { SortSelect } from '@/components/storefront/SortSelect';
 import { ActiveFilterChips } from '@/components/storefront/ActiveFilterChips';
 import { PackageSearch, Filter, Sparkles, Layers } from 'lucide-react';
+import { safeJsonLd } from '@/lib/json-ld';
+import {  getDefaultSiteName , getBaseUrl } from '@/lib/config';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,13 +22,13 @@ export async function generateMetadata({
   const kategori = params.kategori;
 
   let title = 'Katalog Produk Komoditas Mineral';
-  let description =
+  const description =
     'Jelajahi pilihan komoditas tambang dan mineral berkualitas tinggi: Zeolite aktif, Bentonite, Timah murni, dan Gaharu super.';
 
   if (q) {
     title = `Hasil Pencarian "${q}" — Katalog Komoditas Mineral`;
   } else if (kategori) {
-    title = `Komoditas Kategori ${kategori} — Adably`;
+    title = `Komoditas Kategori ${kategori} — ${getDefaultSiteName()}`;
   }
 
   return {
@@ -70,7 +72,7 @@ export default async function KatalogProdukPage({
     getUsages(),
   ]);
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://adably.id';
+  const baseUrl = getBaseUrl();
   const breadcrumbSchema = {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
@@ -95,7 +97,7 @@ export default async function KatalogProdukPage({
       {/* Schema.org Breadcrumbs */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(breadcrumbSchema) }}
       />
 
       {/* Header Banner */}

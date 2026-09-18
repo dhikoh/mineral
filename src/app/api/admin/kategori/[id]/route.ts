@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { getAdminSession } from '@/lib/auth';
-import { updateCategory, deleteCategory } from '@/lib/data-store';
+import { updateCategory, deleteCategory, getCategories } from '@/lib/data-store';
+import { deleteMedia } from '@/lib/storage';
 
 export async function PUT(
   req: NextRequest,
@@ -54,7 +55,14 @@ export async function DELETE(
   }
   try {
     const { id } = await params;
+    const categories = await getCategories().catch(() => []);
+    const existing = (categories as any[]).find((c: any) => c.id === id);
     await deleteCategory(id);
+
+    // P2-E: Bersihkan berkas gambar kategori di storage agar tidak menjadi media orphan
+    if (existing?.image) {
+      deleteMedia(existing.image).catch(() => {});
+    }
     revalidatePath('/');
     revalidatePath('/produk');
     return NextResponse.json({

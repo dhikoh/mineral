@@ -42,3 +42,6 @@ next-env.d.ts
 # local runtime store
 .local-store.json
 
+# windows device artifact
+nul
+

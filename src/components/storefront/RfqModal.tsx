@@ -92,7 +92,7 @@ export function RfqModal({ isOpen, onClose, defaultCommodity = '' }: RfqModalPro
       }
 
       setSuccess(true);
-      setSuccessMsg(data.message || 'Permintaan penawaran resmi Anda berhasil dikirim ke tim sales Adably.');
+      setSuccessMsg(data.message || 'Permintaan penawaran resmi Anda berhasil dikirim ke tim sales kami.');
     } catch (err: any) {
       setError(err?.message || 'Terjadi kesalahan sistem. Silakan coba lagi.');
     } finally {
@@ -115,7 +115,7 @@ export function RfqModal({ isOpen, onClose, defaultCommodity = '' }: RfqModalPro
 
   // WhatsApp follow-up link for buyer
   const cleanPhone = phone.replace(/[^0-9]/g, '');
-  const waSalesText = `Halo Tim Sales Adably, saya telah mengirimkan formulir permintaan penawaran resmi (RFQ):\n\nNama: ${name}\nPerusahaan: ${company || '-'}\nKomoditas: ${preferredCommodity || '-'}\nKebutuhan: ${estimatedVolume || '-'}\nLokasi: ${address || '-'}\n\nMohon info ketersediaan stok & quotation resmi. Terima kasih.`;
+  const waSalesText = `Halo Tim Sales, saya telah mengirimkan formulir permintaan penawaran resmi (RFQ):\n\nNama: ${name}\nPerusahaan: ${company || '-'}\nKomoditas: ${preferredCommodity || '-'}\nKebutuhan: ${estimatedVolume || '-'}\nLokasi: ${address || '-'}\n\nMohon info ketersediaan stok & quotation resmi. Terima kasih.`;
   const waSalesUrl = `https://wa.me/6281234567890?text=${encodeURIComponent(waSalesText)}`;
 
   return (
@@ -334,7 +334,7 @@ export function RfqModal({ isOpen, onClose, defaultCommodity = '' }: RfqModalPro
               <div className="flex items-center gap-2 rounded-xl bg-slate-50 p-2.5 text-[11px] text-slate-500 border border-slate-200/60">
                 <HelpCircle className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
                 <span>
-                  Data kontak Anda aman dan hanya digunakan untuk keperluan pengiriman quotation resmi dari Adably.
+                  Data kontak Anda aman dan hanya digunakan untuk keperluan pengiriman quotation resmi dari kami.
                 </span>
               </div>
 

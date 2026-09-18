@@ -1,9 +1,11 @@
+import { getBaseUrl, getDefaultSiteName } from '@/lib/config';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { getCategoryBySlug, getProducts, getCategories } from '@/lib/data-store';
 import { ProductCard } from '@/components/storefront/ProductCard';
 import { Layers, ArrowLeft, ArrowRight, PackageSearch, Sparkles, Filter } from 'lucide-react';
+import { safeJsonLd } from '@/lib/json-ld';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,15 +16,15 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const category = await getCategoryBySlug(slug);
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://adably.id';
+  const baseUrl = getBaseUrl();
 
   if (!category) {
     return {
-      title: 'Kategori Tidak Ditemukan — Adably',
+      title: `Kategori Tidak Ditemukan — ${getDefaultSiteName()}`,
     };
   }
 
-  const title = `Komoditas ${category.name} — Adably`;
+  const title = `Komoditas ${category.name} — ${getDefaultSiteName()}`;
   const description = `Katalog lengkap produk komoditas mineral kategori ${category.name}. Pasokan langsung dari sentra tambang bergaransi uji lab terstandarisasi.`;
 
   return {
@@ -32,7 +34,7 @@ export async function generateMetadata({
       title,
       description,
       url: `${baseUrl}/kategori/${category.slug}`,
-      siteName: 'Adably',
+      siteName: getDefaultSiteName(),
       type: 'website',
       images: category.image ? [{ url: category.image }] : ['/icons/icon-512.png'],
     },
@@ -61,7 +63,7 @@ export default async function CategoryDetailPage({
     notFound();
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://adably.id';
+  const baseUrl = getBaseUrl();
 
   const breadcrumbSchema = {
     '@context': 'https://schema.org',
@@ -101,11 +103,11 @@ export default async function CategoryDetailPage({
       {/* Schema.org Structured Data */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(breadcrumbSchema) }}
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionSchema) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(collectionSchema) }}
       />
 
       {/* Breadcrumb Navigation */}

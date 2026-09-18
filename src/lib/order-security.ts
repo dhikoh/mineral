@@ -24,9 +24,9 @@ export type OrderStatusType = (typeof VALID_ORDER_STATUSES)[number];
  */
 export const ALLOWED_ORDER_TRANSITIONS: Record<string, string[]> = {
   PENDING_PAYMENT:      ['PENDING_VERIFICATION', 'CANCELLED'],
-  PENDING_VERIFICATION: ['CANCELLED'], // PAID hanya via alur verifikasi resmi
-  PAID:                 ['PROCESSING', 'SHIPPED', 'CANCELLED'],
-  PROCESSING:           ['SHIPPED', 'CANCELLED'],
+  PENDING_VERIFICATION: ['PENDING_PAYMENT', 'PAID', 'CANCELLED'], // Approve -> PAID, Tolak Bukti -> PENDING_PAYMENT, Batal -> CANCELLED
+  PAID:                 ['PROCESSING', 'SHIPPED', 'COMPLETED', 'CANCELLED'], // Model loco/ambil gudang mendukung langsung COMPLETED
+  PROCESSING:           ['SHIPPED', 'COMPLETED', 'CANCELLED'],
   SHIPPED:              ['COMPLETED', 'CANCELLED'],
   COMPLETED:            [], // Terminal
   CANCELLED:            [], // Terminal
@@ -108,8 +108,10 @@ export function maskOrderPII(order: Record<string, unknown>, isVerified: boolean
     id: order.id,
     orderCode: order.orderCode,
     status: order.status,
-    total: order.total,
-    grandTotal: order.grandTotal ?? order.total,
+    total: (typeof order.total === 'number' ? order.total : 0),
+    grandTotal: (typeof order.grandTotal === 'number' && order.grandTotal > 0)
+      ? order.grandTotal
+      : (typeof order.total === 'number' ? order.total : 0),
     trackingNumber: order.trackingNumber,
     createdAt: order.createdAt,
     items: order.items,

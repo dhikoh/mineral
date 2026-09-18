@@ -28,6 +28,8 @@ import { getAdminSession } from '@/lib/auth';
 import { getProducts, getCategories, getUsages, getSiteSettings } from '@/lib/data-store';
 import type { ProductItem } from '@/lib/data-store';
 import { CatalogDocument } from '@/lib/pdf/catalog-template';
+import { recordAuditLog, AUDIT_ACTIONS } from '@/lib/audit-log';
+import { getBaseUrl } from '@/lib/config';
 
 // Batas ukuran string dari query param
 const MAX_PARAM_LENGTH = 100;
@@ -126,7 +128,7 @@ export async function GET(request: NextRequest) {
       process.env.COOLIFY_URL ||
       process.env.NEXT_PUBLIC_SITE_URL ||
       request.nextUrl.origin ||
-      'https://adably.id';
+      getBaseUrl();
 
     const resolvedProducts: ProductItem[] = await Promise.all(
       products.map(async (p) => {
@@ -187,6 +189,21 @@ export async function GET(request: NextRequest) {
 
     // Konversi Buffer → Uint8Array agar kompatibel dengan NextResponse (Next.js 16)
     const uint8 = new Uint8Array(pdfBuffer);
+
+    await recordAuditLog({
+      actorId: session.id,
+      actorName: session.name,
+      actorRole: session.role,
+      action: AUDIT_ACTIONS.EXPORT_CATALOG_PDF,
+      targetType: 'Catalog',
+      metadata: {
+        refNumber,
+        showPrice,
+        buyerCompany: buyerCompany || null,
+        buyerName: buyerName || null,
+        productCount: resolvedProducts.length,
+      },
+    });
 
     return new NextResponse(uint8, {
       status: 200,
