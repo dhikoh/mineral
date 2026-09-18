@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "tsx scripts/test-phase7-e2e.ts && tsx scripts/test-crm-module.ts && tsx scripts/test-crm-http.ts && tsx scripts/test-audit-p0-p1.ts && tsx scripts/test-uom.ts && tsx scripts/test-order-state-machine.ts && tsx scripts/test-csv-injection.ts && tsx scripts/verify-api-matrix.ts && tsx scripts/verify-env-docs.ts",
+    "db:push": "prisma db push --accept-data-loss",
     "postinstall": "prisma generate"
   },
   "prisma": {

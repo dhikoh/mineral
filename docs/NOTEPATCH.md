@@ -2170,3 +2170,14 @@ Sesi ini menuntaskan secara menyeluruh perintah kerja **AUDIT TOTAL FINAL & REME
 | 11 | `npx tsx scripts/test-flow-8-9-10.ts` | Exit Code 0 | 21/21 skenario Uji #8, #9, #10 lulus | ✅ LULUS |
 | 12 | `npm run build` | Exit Code 0 | Next.js Standalone Build (29 prerendered routes, standalone/server.js) | ✅ LULUS |
 
+### 8. Hotfix Deployment Coolify — Prisma db push --accept-data-loss
+- **Penyebab Error**:
+  Saat build di Coolify, perintah build yang dikonfigurasi (`npx prisma db push && npm run build`) mendeteksi bahwa nilai enum `REJECTED` pada `OrderStatus` dihapus dari `prisma/schema.prisma` (Sesi #33 / #36). PostgreSQL produksi menganggap pembuangan nilai enum sebagai potensi kehilangan data sehingga Prisma meminta konfirmasi flag `--accept-data-loss`.
+- **Solusi Repositori**:
+  1. `nixpacks.toml`: Mengubah build cmd menjadi `['npx prisma db push --accept-data-loss', 'npm run build']`.
+  2. `package.json`: Menambahkan skrip `"db:push": "prisma db push --accept-data-loss"`.
+- **Petunjuk Coolify UI**:
+  Pada Coolify Dashboard -> Configuration -> Build -> **Build Command**, ubah menjadi:
+  `npx prisma db push --accept-data-loss && npm run build` (atau kosongkan agar membaca `nixpacks.toml`).
+  Serta pada Environment Variables, pastikan `NODE_ENV=production` diset sebagai **Runtime only** (uncheck "Available at Buildtime").
+
